@@ -17,6 +17,7 @@ dag = DAG(
     default_args = {
         "start_date": airflow.utils.dates.days_ago(1)
     },
+    tags = ["java"],
     schedule_interval = None
 )
 

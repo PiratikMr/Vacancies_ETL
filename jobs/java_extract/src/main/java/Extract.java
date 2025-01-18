@@ -47,11 +47,13 @@ public class Extract implements Serializable {
 	void init() {
 		ss = SparkSession.builder().appName("Extract Job").master("local[*]").getOrCreate();
 
-		JavaRDD<Row> roles = ss.read().json(filePath + "roles")
+		/*JavaRDD<Row> roles = ss.read().json(filePath + "roles")
 				.where(col("parent_id").equalTo(PRid))
 				.toJavaRDD();
 
-		ids = roles.map((Function<Row, Long>) row -> row.getLong(row.fieldIndex("id"))).collect();
+		ids = roles.map((Function<Row, Long>) row -> row.getLong(row.fieldIndex("id"))).collect();*/
+
+		ids = new ArrayList<>(1);
 
 		System.out.println("count of id: " + ids.size());
 	}
@@ -197,8 +199,22 @@ public class Extract implements Serializable {
 	HttpURLConnection getCon(String url) throws IOException {
 		URL obj = new URL(url);
 		HttpURLConnection con = (HttpURLConnection) obj.openConnection();
-		con.setRequestMethod("GET");
-		con.setRequestProperty("User-Agent", "");
+		con.setRequestMethod("POST");
+
+		OutputStream os = con.getOutputStream();
+		OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
+		osw.write("body = {\n" +
+				"    'grant_type': 'authorization_code',\n" +
+				"    'client_id': 'ISOS3O0G0QCD9DGMHVP8IONQPSU3CNUO8C160VOBP5AO7FI2UK2STPCFIJK0OEDM',\n" +
+				"    'client_secret': 'MM6J0MBKE8GGV319EPRPNPVLE8UN1M5VMDQRQ5GFA7EGDACG7R0FOLCF6778I8O1',\n" +
+				"    'code': 'Q8AAO9P4FV8QIIL37CDVDHEKPU7IA2BR4LS0HS0KGLGP8DTU9MQL6T7HBG0LF4AQ'\n" +
+				"}");
+		osw.flush();
+		osw.close();
+		os.close();  //don't forget to close the OutputStream
+		con.connect();
+
+		con.setRequestProperty("User-Agent", "fpjas");
 		return con;
 	}
 }

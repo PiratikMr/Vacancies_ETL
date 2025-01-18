@@ -9,7 +9,7 @@ import org.apache.spark.sql.types.DataTypes;
 import scala.Tuple2;
 
 import java.io.*;
-import java.util.HashMap;
+import java.util.Map;
 
 import static org.apache.spark.sql.functions.*;
 
@@ -20,8 +20,8 @@ public class Transform implements Serializable {
 
 	Dataset<Row> items;
 
-	HashMap<String, Double> currency;
-	HashMap<Long, Area> areas;
+	Map<String, Double> currency;
+	Map<Long, Area> areas;
 
 	public Transform() {
 		this.filePath = System.getenv("filePath");
@@ -33,7 +33,19 @@ public class Transform implements Serializable {
 
 		items = ss.read().json(filePath + System.getenv("date") + "vacancies*");
 
-		JavaRDD<Row> curr = ss.read().json(filePath + "dictionaries")
+
+		// currency
+		currency = ss.read().json(filePath + "dictionaries")
+				.withColumn("currency", explode(col("currency")))
+				.select("currency.*")
+				.toJavaRDD()
+				.mapToPair((PairFunction<Row, String, Double>) row -> {
+					String key = row.getString(row.fieldIndex("code"));
+					Double rate = row.getDouble(row.fieldIndex("rate"));
+					return new Tuple2<>(key, rate);
+				}).collectAsMap();
+
+		/*JavaRDD<Row> curr = ss.read().json(filePath + "dictionaries")
 				.withColumn("currency", explode(col("currency")))
 				.select("currency.*")
 				.toJavaRDD();
@@ -42,9 +54,23 @@ public class Transform implements Serializable {
             		Double rate = row.getDouble(row.fieldIndex("rate"));
             		return new Tuple2<>(key, rate);
         });
-		currency = new HashMap<>(curMap.collectAsMap());
+		currency = curMap.collectAsMap();*/
 
-		JavaRDD<Row> ars = ss.read().json(filePath + "areas").toJavaRDD();
+
+		// areas
+		areas = ss.read().json(filePath + "areas").toJavaRDD()
+				.mapToPair((PairFunction<Row, Long, Area>) row -> {
+					Long id = row.getLong(row.fieldIndex("id"));
+					Area area = new Area();
+					area.name = row.getString(row.fieldIndex("name"));
+					if (row.isNullAt(row.fieldIndex("parent_id")))
+						area.parent_id = null;
+					else
+						area.parent_id = row.getLong(row.fieldIndex("parent_id"));
+					return new Tuple2<>(id, area);
+				}).collectAsMap();
+
+		/*JavaRDD<Row> ars = ss.read().json(filePath + "areas").toJavaRDD();
 
 		JavaPairRDD<Long, Area> arsMap = ars.mapToPair((PairFunction<Row, Long, Area>) row -> {
 			Long id = row.getLong(row.fieldIndex("id"));
@@ -54,10 +80,9 @@ public class Transform implements Serializable {
 				area.parent_id = null;
 			else
 				area.parent_id = row.getLong(row.fieldIndex("parent_id"));
-
 			return new Tuple2<>(id, area);
 		});
-		areas = new HashMap<>(arsMap.collectAsMap());
+		areas = arsMap.collectAsMap();*/
 	}
 
 	public void transform() {

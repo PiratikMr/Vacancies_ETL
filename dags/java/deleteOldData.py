@@ -1,6 +1,8 @@
 import airflow
 from airflow import DAG
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
+from airflow.decorators import dag, task
+from airflow.operators.bash import BashOperator
 from datetime import timedelta
 
 
@@ -20,13 +22,20 @@ dag = DAG(
     schedule_interval = None
 )
 
-delete = SparkSubmitOperator(
-    task_id="deleteOldData",
-    conn_id="spark-conn",
-    application="jobs/java_deleteOldData/target/delete-1.0.jar",
-    env_vars= dict,
-    java_class="Main",
-    dag=dag
+lol = BashOperator(
+    task_id="also_run_this",
+    bash_command="hdfs dfs -ls /hhapi/",
+    dag = dag
 )
 
-delete 
+
+# delete = SparkSubmitOperator(
+#     task_id="deleteOldData",
+#     conn_id="spark-conn",
+#     application="jobs/java_deleteOldData/target/delete-1.0.jar",
+#     env_vars= dict,
+#     java_class="Main",
+#     dag=dag
+# )
+
+lol

@@ -13,20 +13,19 @@ vars = {"filePath":filePath
     }
 
 dag = DAG(
-    dag_id = "load",
+    dag_id = "Load_vacancies",
     default_args = {
         "start_date": airflow.utils.dates.days_ago(1)
     },
+    tags = ["scala"],
     schedule_interval = None
 )
 
 load = SparkSubmitOperator(
     task_id="load",
     conn_id="spark-conn",
-    jars = "jobs/postgresql-42.7.4.jar",
-    application="jobs/java_load/target/load-1.0.jar",
-    env_vars = vars,
-    java_class="Main",
+    application="jobs/scala_ETL_project/load_vac/target/scala-2.12/load_vac-assembly-1.jar",
+    # env_vars = vars,
     dag=dag
 )
 

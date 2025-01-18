@@ -12,17 +12,19 @@ dict = {
 
 
 dag = DAG(
-    dag_id = "extract_dictionaries",
+    dag_id = "Extract_dictionaries",
+    default_args = {
+        "start_date": airflow.utils.dates.days_ago(1)
+    },
+    tags = ["scala"],
     schedule_interval = None
 )
 
 extract = SparkSubmitOperator(
-    task_id="extract_dictionaries",
+    task_id="extract",
     conn_id="spark-conn",
-    application="jobs/java_extract_dictionaries/target/extract_dictionaries-1.0.jar",
-    env_vars = dict,
-    java_class="Main",
+    application="jobs/scala_ETL_project/extract_dict/target/scala-2.12/extract_dict-assembly-1.jar",
     dag=dag
 )
 
-extract 
+extract
