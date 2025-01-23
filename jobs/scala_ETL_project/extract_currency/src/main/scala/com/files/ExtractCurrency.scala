@@ -7,12 +7,13 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, explode}
 
 object ExtractCurrency extends App with SparkApp {
-  val df: DataFrame = toDF(takeURL("https://api.hh.ru/dictionaries").get)
-  give(isRoot = true, df
+
+  private val currencyDF: DataFrame = toDF(takeURL("https://api.hh.ru/dictionaries").get)
+  give(isRoot = true, data = currencyDF
     .withColumn("currency", explode(col("currency")))
     .select("currency.*")
     .withColumn("id", col("code"))
-    .select("id", "name", "rate"), "currency")
+    .select("id", "name", "rate"), fileName = "currency")
 
   stopSpark()
 

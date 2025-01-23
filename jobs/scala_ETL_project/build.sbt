@@ -1,5 +1,4 @@
 import sbt.Keys.libraryDependencies
-
 import scala.collection.Seq
 
 lazy val sparkVersion = "3.5.4"
@@ -11,14 +10,11 @@ ThisBuild / libraryDependencies ++= Seq(
     "org.apache.spark" %% "spark-sql" % sparkVersion % "provided"
 )
 
-// ScalaOP(args)
-// typesafeconfig
-// scalaop
-
 
 // modules
 lazy val config = (project in file("config")).settings(
-  libraryDependencies += "com.typesafe" % "config" % "1.4.3"
+  libraryDependencies += "com.typesafe" % "config" % "1.4.3",
+  libraryDependencies += "org.rogach" %% "scallop" % "5.2.0"
 )
 
 lazy val core = (project in file ("core"))
@@ -58,6 +54,7 @@ lazy val extract_currency = (project in file("extract_currency"))
   .dependsOn(extract_url, core)
 addCommandAlias("ex_curr", "project extract_currency; run")
 
+
 // vacancies
 lazy val extract_vac = (project in file("extract_vac"))
   .settings(
@@ -88,4 +85,3 @@ lazy val root = (project in file("."))
 
 
 // bash: export JAVA_OPTS='--add-exports java.base/sun.nio.ch=ALL-UNNAMED'
-// bash: docker exec -it ash-airflow-worker-1 /bin/bash

@@ -6,7 +6,7 @@ import scala.util.Try
 import Spark.SparkApp
 import com.Config.HDFSConfig
 
-object Load extends SparkApp {
+object Load extends Serializable {
   def give(isRoot: Boolean, data: DataFrame, fileName: String, format: String = "parquet"): Try[Unit] = {
     Try(
       data.write

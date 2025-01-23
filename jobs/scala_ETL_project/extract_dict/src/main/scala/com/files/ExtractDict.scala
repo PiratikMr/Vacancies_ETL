@@ -11,11 +11,10 @@ import scala.annotation.tailrec
 
 object ExtractDict extends App with SparkApp {
 
-  // areas //
-  val dfA: DataFrame = toDF(takeURL("https://api.hh.ru/areas").get)
-  val transformedA: DataFrame = {
+  private val areasDF: DataFrame = toDF(takeURL("https://api.hh.ru/areas").get)
+  private val areasTDF: DataFrame = {
     @tailrec
-    def f(acc: DataFrame = dfA.drop("areas"), i: DataFrame = dfA): DataFrame = {
+    def f(acc: DataFrame = areasDF.drop("areas"), i: DataFrame = areasDF): DataFrame = {
       if (i.agg(count(when(functions.size(col("areas")).gt(0), 1))).first().getLong(0) == 0) {
         acc.
           withColumn("id", col("id").cast(LongType)).
@@ -28,11 +27,10 @@ object ExtractDict extends App with SparkApp {
     }
     f()
   }
-  give(isRoot = true, transformedA, "areas")
+  give(isRoot = true, areasTDF, "areas")
 
-  // roles //
-  val dfR: DataFrame = toDF(takeURL("https://api.hh.ru/professional_roles").get)
-  val transformedR: DataFrame = dfR
+  private val rolesDF: DataFrame = toDF(takeURL("https://api.hh.ru/professional_roles").get)
+  private val rolesTDF: DataFrame = rolesDF
       .withColumn("categories", explode(col("categories")))
       .select("categories.*")
       .withColumn("id", col("id").cast(LongType))
@@ -40,26 +38,24 @@ object ExtractDict extends App with SparkApp {
       .select(col("id").as("parent_id"),
         col("roles").getField("id").cast(LongType).as("id"),
         col("roles").getField("name").as("name"))
-  give(isRoot = true, transformedR, "roles")
 
-  // dictionaries //
-  val dfD: DataFrame = toDF(takeURL("https://api.hh.ru/dictionaries").get)
-  give(isRoot = true, expl(dfD,"currency")
+  give(isRoot = true, rolesTDF, "roles")
+
+  private val dictionariesDF: DataFrame = toDF(takeURL("https://api.hh.ru/dictionaries").get)
+  give(isRoot = true, expl(dictionariesDF,"currency")
     .withColumn("id", col("code"))
     .select("id", "name", "rate"), "currency")
 
-  give(isRoot = true, expl(dfD,"schedule")
+  give(isRoot = true, expl(dictionariesDF,"schedule")
     .select("id", "name"), "schedule")
 
-  give(isRoot = true, expl(dfD,"employment")
+  give(isRoot = true, expl(dictionariesDF,"employment")
     .select("id", "name"), "employment")
 
-  give(isRoot = true, expl(dfD,"experience")
+  give(isRoot = true, expl(dictionariesDF,"experience")
     .select("id", "name"), "experience")
 
-
   stopSpark()
-
 
 
   private def expl(df: DataFrame, field: String): DataFrame = df

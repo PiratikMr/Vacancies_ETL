@@ -21,12 +21,15 @@ test
 
 *.env
 *.yaml
-*.conf
 
 #files
 
+## !
+config.conf
+##
+
+.gitignore
 Dockerfile
 Makefile
 requirements.txt
-trigger.sql
-jobs/postgresql-42.7.4.jar
+postgresql-42.7.4.jar
