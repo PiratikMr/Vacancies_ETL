@@ -38,21 +38,24 @@ lazy val extract_dict = (project in file("extract_dict"))
     assembly / mainClass := Some("com.files.ExtractDict"),
   )
   .dependsOn(extract_url, core)
-addCommandAlias("ex_dict", "project extract_dict; run")
 
 lazy val load_dict = (project in file("load_dict"))
   .settings(
     assembly / mainClass := Some("com.files.LoadDict")
   )
   .dependsOn(load_db)
-addCommandAlias("load_dict", "project load_dict; run")
 
 lazy val extract_currency = (project in file("extract_currency"))
   .settings(
     assembly / mainClass := Some("com.files.ExtractCurrency")
   )
   .dependsOn(extract_url, core)
-addCommandAlias("ex_curr", "project extract_currency; run")
+
+lazy val load_currency = (project in file("load_currency"))
+  .settings(
+    assembly / mainClass := Some("com.files.LoadCurr")
+  )
+  .dependsOn(load_db)
 
 
 // vacancies
@@ -61,27 +64,24 @@ lazy val extract_vac = (project in file("extract_vac"))
     assembly / mainClass := Some("com.files.ExtractVac")
   )
   .dependsOn(extract_url, core)
-addCommandAlias("ex_vac", "project extract_vac; run")
 
 lazy val transform_vac = (project in file("transform_vac"))
   .settings(
     assembly / mainClass := Some("com.files.TransformVac")
   )
   .dependsOn(core)
-addCommandAlias("tran_vac", "project transform_vac; run")
 
 lazy val load_vac = (project in file("load_vac"))
   .settings(
     assembly / mainClass := Some("com.files.LoadVac")
   )
   .dependsOn(load_db)
-addCommandAlias("load_vac", "project load_vac; run")
 
 
 
 lazy val root = (project in file("."))
   .aggregate(config, load_db, extract_url, core, extract_dict, load_dict,
-    extract_currency, extract_vac, transform_vac, load_vac)
+    extract_currency, extract_vac, transform_vac, load_vac, load_currency)
 
 
 // bash: export JAVA_OPTS='--add-exports java.base/sun.nio.ch=ALL-UNNAMED'

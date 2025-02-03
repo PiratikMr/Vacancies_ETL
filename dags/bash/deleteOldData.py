@@ -1,18 +1,15 @@
 import airflow
 from airflow import DAG
-from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
-from airflow.decorators import dag, task
+from airflow.decorators import dag
 from airflow.operators.bash import BashOperator
 from datetime import timedelta
 
+days = 30
+dockerCon = "docker exec namenode"
+path = "/hhapi"
 
-curr_date = airflow.utils.timezone.utcnow() + timedelta(hours=7) - timedelta(days=30)
 
-dict = {
-    "filePath":"hdfs://namenode:9000/hhapi/",
-    "date":curr_date.strftime("%Y-%m-%d"),
-    "minusMonths":"20"
-}
+date = (airflow.utils.timezone.utcnow() + timedelta(hours=7) - timedelta(days=days)).strftime("%Y-%m-%d")
 
 dag = DAG(
     dag_id = "delete_data",
@@ -23,23 +20,25 @@ dag = DAG(
     schedule_interval = None
 )
 
-lol = BashOperator(
-    task_id="also_run_this",
-    bash_command='docker exec namenode bash -c "'
-           'hdfs dfs -ls /hhapi/ && '
-           'hdfs dfs -cat /hhapi/employment/part-00000-b9b49960-9285-4247-b33b-d10c9b7ad91d-c000.snappy.parquet '
-           '"',
-    dag = dag
+
+bashCommand = f"""
+{dockerCon} hdfs dfs -ls {path} \
+    | grep '^d' \
+	| awk -F '{path}/' '{{print $NF}}' \
+    | grep -E '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}' \
+    | while read -r dir; do \
+        if [[ "$dir" < "{date}" ]]; then
+            {dockerCon} hdfs dfs -rm -r {path}/$dir
+        fi 
+    done
+"""
+
+run_this = BashOperator(
+    task_id="task",
+    bash_command=bashCommand,
+    dag=dag
 )
 
+run_this
 
-# delete = SparkSubmitOperator(
-#     task_id="deleteOldData",
-#     conn_id="spark-conn",
-#     application="jobs/java_deleteOldData/target/delete-1.0.jar",
-#     env_vars= dict,
-#     java_class="Main",
-#     dag=dag
-# )
 
-lol

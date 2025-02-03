@@ -35,3 +35,29 @@ create trigger update_old_id_trigger
 before insert on vacancies
 for each row
 execute function update_old_id_trigger();
+
+
+
+
+create or replace function update_currency()
+returns trigger as $$
+begin
+
+if exists (select 1 from currency where id = NEW.id)
+    then
+        update currency
+        set 
+            rate = NEW.rate
+        where id = NEW.id;
+        return null;
+    else
+        return NEW;
+    end if;
+
+end;
+$$ language plpgsql;
+
+create trigger update_currency_trigger
+before insert on currency
+for each row
+execute function update_currency();

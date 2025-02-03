@@ -28,6 +28,7 @@ test
 config.conf
 ##
 
+deleteData.py
 .gitignore
 Dockerfile
 Makefile
