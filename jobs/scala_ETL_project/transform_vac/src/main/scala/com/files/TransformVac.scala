@@ -3,27 +3,31 @@ package com.files
 import EL.Extract.take
 import EL.Load.give
 import Spark.SparkApp
-import com.Config.HDFSConfig
+import com.Config.LocalConfig
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{col, explode, first, udf}
+import org.apache.spark.sql.functions.{col, explode, udf}
 import org.apache.spark.sql.types.LongType
-import org.apache.spark.sql.DataFrame
-import org.rogach.scallop.{ScallopConf, ScallopOption}
+import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.rogach.scallop.ScallopOption
 
 import scala.annotation.tailrec
 
 object TransformVac extends App with SparkApp {
 
-  private val conf = new ScallopConf(args) {
-    val vacanciesInFileName: ScallopOption[String] = opt[String](default = Some(HDFSConfig.vacanciesRawFileName))
-    val vacanciesOutFileName: ScallopOption[String] = opt[String](default = Some(HDFSConfig.vacanciesTransformedFileName))
-
+  private val conf = new LocalConfig(args) {
     val partitions: ScallopOption[Int] = opt[Int](default = Some(1), validate = _ > 0)
 
-    verify()
+    define()
   }
 
-  private val areasMap: Map[Long, Option[Long]] = take(isRoot = true, fileName = "areas").get
+  override val ss: SparkSession = defineSession(conf.fileConf.spark)
+
+  private val areasMap: Map[Long, Option[Long]] = take(
+    ss = ss,
+    conf = conf.fileConf.fs,
+    fileName = "areas",
+    isRoot = true
+  ).get
     .rdd
     .map(row => {
       val id: Long = row.getAs[Long]("id")
@@ -46,8 +50,12 @@ object TransformVac extends App with SparkApp {
   private val udfCountry: UserDefinedFunction = udf((id: Long) => getCountry(id))
 
 
-  private val vacanciesDF: DataFrame = take(isRoot = false, fileName = conf.vacanciesInFileName()).get
-
+  private val vacanciesDF: DataFrame = take(
+    ss = ss,
+    conf = conf.fileConf.fs,
+    fileName = conf.fileConf.fs.vacanciesRawFileName,
+    isRoot = false
+  ).get
     .withColumn("id", col("id").cast(LongType))
 
     .withColumn("region_area_id", col("area").getField("id").cast(LongType))
@@ -72,6 +80,12 @@ object TransformVac extends App with SparkApp {
 
     .dropDuplicates("id")
 
-  give(isRoot = false, data = vacanciesDF.repartition(conf.partitions()), fileName = conf.vacanciesOutFileName())
+  give(
+    conf = conf.fileConf.fs,
+    fileName = conf.fileConf.fs.vacanciesTransformedFileName,
+    data = vacanciesDF.repartition(conf.partitions()),
+    isRoot = false
+  )
+
   stopSpark()
 }

@@ -1,18 +1,18 @@
 package EL
 
-import Spark.SparkApp
-import com.Config.HDFSConfig
-import org.apache.spark.sql.DataFrame
+import com.Config.FSConf
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import scala.util.Try
 
-object Extract extends SparkApp {
+object Extract extends Serializable {
 
-  def take(isRoot: Boolean, fileName: String, format: String = "parquet"): Try[DataFrame] = {
+  def take(ss: SparkSession, conf: FSConf, fileName: String,
+           isRoot: Boolean, format: String = "parquet"): Try[DataFrame] = {
     Try(
       ss.read
       .format(format)
-      .load(HDFSConfig.path(isRoot, fileName))
+      .load(conf.getPath(isRoot, fileName))
     )
   }
 }

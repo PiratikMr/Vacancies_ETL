@@ -15,7 +15,7 @@ extract = SparkSubmitOperator(
     task_id = "extract",
     conn_id = "spark-conn",
     application = "jobs/scala_ETL_project/extract_vac/target/scala-2.12/extract_vac-assembly-1.jar",
-    application_args = ["--fid", "11", "--urlsps", "15"],
+    application_args = ["--fileName", "config.conf", "--fid", "11", "--urlsps", "15"],
     dag=dag
 )
 

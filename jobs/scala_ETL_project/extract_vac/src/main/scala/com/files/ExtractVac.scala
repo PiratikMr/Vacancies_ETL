@@ -1,37 +1,42 @@
 package com.files
 
-import EL.Load.give
-import com.extractURL.ExtractURL.takeURL
 import EL.Extract.take
+import EL.Load.give
 import Spark.SparkApp
-import com.Config.HDFSConfig
+import com.Config.LocalConfig
+import com.extractURL.ExtractURL.takeURL
 import org.apache.spark.sql.functions.{col, explode}
-import org.apache.spark.sql.{DataFrame, Dataset}
-import org.rogach.scallop.{ScallopConf, ScallopOption}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.rogach.scallop.ScallopOption
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success}
 
 object ExtractVac extends App with SparkApp {
 
-  private val conf = new ScallopConf(args) {
+  private val conf = new LocalConfig(args) {
     val prId: ScallopOption[Int] = opt[Int](name = "fid", default = Some(11), validate = _ > 0)
 
     val perPage: ScallopOption[Int] = opt[Int](name = "ppage", default = Some(100), validate = _ > 0)
     val pages: ScallopOption[Int] = opt[Int](default = Some(20), validate = _ > 0)
     val urlsPerSecond: ScallopOption[Int] = opt[Int](name = "urlsps", default = Some(20), validate = _ > 0)
 
-    val outFileName: ScallopOption[String] = opt[String](default = Some(HDFSConfig.vacanciesRawFileName))
     val partitions: ScallopOption[Int] = opt[Int](default = Some(6), validate = _ > 0)
 
-
-    verify()
+    define()
   }
+
+  override val ss: SparkSession = defineSession(conf.fileConf.spark)
 
   import ss.implicits._
 
 
-  private val ids: Seq[Long] = take(isRoot = true, fileName = "roles").get
+  private val ids: Seq[Long] = take(
+    ss = ss,
+    conf = conf.fileConf.fs,
+    isRoot = true,
+    fileName = "roles"
+  ).get
     .where(col("parent_id").equalTo(conf.prId()))
     .select("id")
     .collect()
@@ -46,7 +51,7 @@ object ExtractVac extends App with SparkApp {
     }
 
     val df: DataFrame = ss.read
-      .json(Seq(takeURL(url(id)).get).toDS())
+      .json(Seq(takeURL(url(id), conf.fileConf.api).get).toDS())
     val found: Long = df.first().getAs[Long]("found")
 
     f(Math.min(found / conf.perPage(), conf.pages() - 1))
@@ -56,10 +61,10 @@ object ExtractVac extends App with SparkApp {
   println(s"URLs to read: ${urlList.length}")
   private var readURLs: Integer = 1
 
-  private val initData: Dataset[String] = Seq(takeURL(urlList.head).get).toDS()
+  private val initData: Dataset[String] = Seq(takeURL(urlList.head, conf.fileConf.api).get).toDS()
   private val data: Dataset[String] = urlList.tail.foldLeft(initData)((df, url) => {
     Thread.sleep(1000 / conf.urlsPerSecond())
-    val data:String = takeURL(url) match {
+    val data:String = takeURL(url, conf.fileConf.api) match {
       case Success(v) =>
         readURLs = readURLs + 1
         v
@@ -80,7 +85,12 @@ object ExtractVac extends App with SparkApp {
   println(s"Vacancies total count: ${df.count()}")
 
 
-  give(isRoot = false, data = df, fileName = conf.outFileName())
+  give(
+    conf = conf.fileConf.fs,
+    fileName = conf.fileConf.fs.vacanciesRawFileName,
+    isRoot = false,
+    data = df
+  )
 
   stopSpark()
 
@@ -88,4 +98,3 @@ object ExtractVac extends App with SparkApp {
   private def url(id: Long, perPage: Int = 0, page: Long = 0): String =
     s"https://api.hh.ru/vacancies?page=$page&per_page=$perPage&professional_role=$id"
 }
-

@@ -1,21 +1,27 @@
 package com.LoadDB
 
+import com.Config.DBConf
 import org.apache.spark.sql.{DataFrame, SaveMode}
 
+import java.io.Serializable
 import scala.util.Try
 
-object LoadDB {
-  def give(data: DataFrame, tableName: String, saveMode: SaveMode = SaveMode.Overwrite): Try[Unit] = {
-    import com.Config.DBConfig
+object LoadDB extends Serializable {
+  def give(
+            conf: DBConf,
+            data: DataFrame,
+            tableName: String,
+            saveMode: SaveMode = SaveMode.Overwrite
+          ): Try[Unit] = {
     Try(
       data.write
         .format("jdbc")
         .option("truncate", value = true)
         .option("driver", "org.postgresql.Driver")
-        .option("url", DBConfig.DBurl)
+        .option("url", conf.DBurl)
+        .option("user", conf.userName)
+        .option("password", conf.userPassword)
         .option("dbtable", tableName)
-        .option("user", DBConfig.userName)
-        .option("password", DBConfig.userPassword)
         .mode(saveMode)
         .save()
     )

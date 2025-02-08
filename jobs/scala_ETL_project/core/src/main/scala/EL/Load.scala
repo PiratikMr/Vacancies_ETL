@@ -1,18 +1,17 @@
 package EL
 
+import com.Config.FSConf
 import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import scala.util.Try
-import Spark.SparkApp
-import com.Config.HDFSConfig
 
 object Load extends Serializable {
-  def give(isRoot: Boolean, data: DataFrame, fileName: String, format: String = "parquet"): Try[Unit] = {
+  def give(conf: FSConf, fileName: String, isRoot: Boolean, data: DataFrame, format: String = "parquet"): Try[Unit] = {
     Try(
       data.write
       .mode(SaveMode.Overwrite)
       .format(format)
-      .save(HDFSConfig.path(isRoot = isRoot, fileName))
+      .save(conf.getPath(isRoot, fileName))
     )
   }
 }

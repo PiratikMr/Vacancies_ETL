@@ -2,16 +2,23 @@ package com.files
 
 import EL.Load.give
 import Spark.SparkApp
+import com.Config.LocalConfig
 import com.extractURL.ExtractURL.takeURL
 import org.apache.spark.sql.functions.{col, count, explode, when}
 import org.apache.spark.sql.types.LongType
-import org.apache.spark.sql.{DataFrame, functions}
+import org.apache.spark.sql.{DataFrame, SparkSession, functions}
 
 import scala.annotation.tailrec
 
 object ExtractDict extends App with SparkApp {
 
-  private val areasDF: DataFrame = toDF(takeURL("https://api.hh.ru/areas").get)
+  private val conf = new LocalConfig(args) {
+    define()
+  }
+  override val ss: SparkSession = defineSession(conf.fileConf.spark)
+
+  // areas
+  private val areasDF: DataFrame = toDF(takeURL("https://api.hh.ru/areas", conf.fileConf.api).get)
   private val areasTDF: DataFrame = {
     @tailrec
     def f(acc: DataFrame = areasDF.drop("areas"), i: DataFrame = areasDF): DataFrame = {
@@ -27,9 +34,10 @@ object ExtractDict extends App with SparkApp {
     }
     f()
   }
-  give(isRoot = true, areasTDF, "areas")
+  save("areas", areasTDF)
 
-  private val rolesDF: DataFrame = toDF(takeURL("https://api.hh.ru/professional_roles").get)
+  // roles
+  private val rolesDF: DataFrame = toDF(takeURL("https://api.hh.ru/professional_roles", conf.fileConf.api).get)
   private val rolesTDF: DataFrame = rolesDF
       .withColumn("categories", explode(col("categories")))
       .select("categories.*")
@@ -38,26 +46,35 @@ object ExtractDict extends App with SparkApp {
       .select(col("id").as("parent_id"),
         col("roles").getField("id").cast(LongType).as("id"),
         col("roles").getField("name").as("name"))
+  save("roles", rolesTDF)
 
-  give(isRoot = true, rolesTDF, "roles")
+  // dictionaries
+  private val dictionariesDF: DataFrame = toDF(takeURL("https://api.hh.ru/dictionaries", conf.fileConf.api).get)
 
-  private val dictionariesDF: DataFrame = toDF(takeURL("https://api.hh.ru/dictionaries").get)
-  give(isRoot = true, expl(dictionariesDF,"currency")
+  save("currency", expl(dictionariesDF,"currency")
     .withColumn("id", col("code"))
-    .select("id", "name", "rate"), "currency")
+    .select("id", "name", "rate"))
 
-  give(isRoot = true, expl(dictionariesDF,"schedule")
-    .select("id", "name"), "schedule")
+  save("schedule", expl(dictionariesDF,"schedule")
+    .select("id", "name"))
 
-  give(isRoot = true, expl(dictionariesDF,"employment")
-    .select("id", "name"), "employment")
+  save("employment", expl(dictionariesDF,"employment")
+    .select("id", "name"))
 
-  give(isRoot = true, expl(dictionariesDF,"experience")
-    .select("id", "name"), "experience")
+  save("experience", expl(dictionariesDF,"experience")
+    .select("id", "name"))
 
   stopSpark()
 
 
+  private def save(fileName: String, data: DataFrame): Unit = {
+    give(
+      conf = conf.fileConf.fs,
+      fileName = fileName,
+      isRoot = true,
+      data = data
+    )
+  }
   private def expl(df: DataFrame, field: String): DataFrame = df
     .withColumn(s"$field", explode(col(s"$field"))).select(s"$field.*")
   private def toDF(s: String): DataFrame = {

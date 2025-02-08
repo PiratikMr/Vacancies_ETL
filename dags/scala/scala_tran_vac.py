@@ -16,7 +16,7 @@ transform = SparkSubmitOperator(
     task_id="transform",
     conn_id="spark-conn",
     application="jobs/scala_ETL_project/transform_vac/target/scala-2.12/transform_vac-assembly-1.jar",
-    application_args = [],
+    application_args = ["--fileName", "config.conf"],
     dag=dag
 )
 

@@ -67,6 +67,7 @@ lazy val extract_vac = (project in file("extract_vac"))
 
 lazy val transform_vac = (project in file("transform_vac"))
   .settings(
+    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
     assembly / mainClass := Some("com.files.TransformVac")
   )
   .dependsOn(core)

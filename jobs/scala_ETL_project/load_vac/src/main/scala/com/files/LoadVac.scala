@@ -1,23 +1,30 @@
 package com.files
 
 import EL.Extract.take
-import com.LoadDB.LoadDB.give
 import Spark.SparkApp
-import com.Config.HDFSConfig
-import org.apache.spark.sql.SaveMode
-import org.rogach.scallop.{ScallopConf, ScallopOption}
+import com.Config.LocalConfig
+import com.LoadDB.LoadDB.give
+import org.apache.spark.sql.{SaveMode, SparkSession}
 
 object LoadVac extends App with SparkApp {
 
-  private val conf = new ScallopConf(args) {
-    val vacanciesInFileName: ScallopOption[String] = opt[String](default = Some(HDFSConfig.vacanciesTransformedFileName))
-    val vacanciesTableName: ScallopOption[String] = opt[String](default = Some("vacancies"))
-
-    verify()
+  private val conf = new LocalConfig(args) {
+    define()
   }
 
+  override val ss: SparkSession = defineSession(conf.fileConf.spark)
 
-  give(take(isRoot = false, fileName = conf.vacanciesInFileName()).get, tableName = conf.vacanciesTableName(), saveMode = SaveMode.Append)
+  give(
+    conf = conf.fileConf.db,
+    tableName = "vacancies",
+    data = take(
+      ss = ss,
+      conf = conf.fileConf.fs,
+      fileName = conf.fileConf.fs.vacanciesTransformedFileName,
+      isRoot = false
+    ).get,
+    saveMode = SaveMode.Append
+  )
 
   stopSpark()
 }
