@@ -1,0 +1,11 @@
+create or replace view datamart as select 
+	v.name, 
+	a.name as country,
+	(v.salary_from / c.rate) as salary_from,
+	(e.name) as experience
+from vacancies as v
+	join areas as a on a.id = v.country_area_id
+	join currency as c on c.id = v.currency_id
+	join experience as e on e.id = v.experience_id
+where v.salary_from is not null
+limit 20;

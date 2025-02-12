@@ -4,12 +4,6 @@ from airflow.decorators import dag
 from airflow.operators.bash import BashOperator
 from datetime import timedelta
 
-days = 30
-dockerCon = "docker exec namenode"
-path = "/hhapi"
-
-
-date = (airflow.utils.timezone.utcnow() + timedelta(hours=7) - timedelta(days=days)).strftime("%Y-%m-%d")
 
 dag = DAG(
     dag_id = "delete_data",
@@ -21,17 +15,28 @@ dag = DAG(
 )
 
 
+days = 60
+dockerCon = "docker exec namenode"
+path = "/hhapi"
+
+date = (airflow.utils.timezone.utcnow() + timedelta(hours=7) - timedelta(days=days + 1)).strftime("%Y-%m-%d")
+
+
 bashCommand = f"""
+target=$({dockerCon} date -d "{date}" +%s)
+
 {dockerCon} hdfs dfs -ls {path} \
     | grep '^d' \
 	| awk -F '{path}/' '{{print $NF}}' \
     | grep -E '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}' \
     | while read -r dir; do \
-        if [[ "$dir" < "{date}" ]]; then
+        curr=$(date -d "$dir" +%s 2>/dev/null)
+        if [[ -n "$curr" && "$curr" -gt "$target" ]]; then
             {dockerCon} hdfs dfs -rm -r {path}/$dir
         fi 
     done
 """
+
 
 run_this = BashOperator(
     task_id="task",
@@ -40,5 +45,3 @@ run_this = BashOperator(
 )
 
 run_this
-
-

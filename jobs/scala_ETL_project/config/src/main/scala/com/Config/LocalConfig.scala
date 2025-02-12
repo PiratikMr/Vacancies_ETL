@@ -11,10 +11,10 @@ import org.rogach.scallop.{ScallopConf, ScallopOption}
 
 abstract class LocalConfig (args: Seq[String]) extends ScallopConf(args) {
   private val fileName: ScallopOption[String] = opt[String](name = "fileName", default = Some("Configuration.conf"))
-  var fileConf: ProjectConfig = null
+  lazy val fileConf: ProjectConfig = new ProjectConfig(fileName())
 
   def define(): Unit = {
     verify()
-    fileConf = new ProjectConfig(fileName())
+    fileConf
   }
 }

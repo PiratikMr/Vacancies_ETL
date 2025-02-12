@@ -8,7 +8,10 @@ import scala.util.Try
 object ExtractURL {
   private lazy val client = SimpleHttpClient()
 
-  def takeURL(url: String, conf: APIConf): Try[String] = {
+  def takeURL(
+               url: String,
+               conf: APIConf
+             ): Try[String] = {
     basicRequest.headers(conf.headers)
     val response: Response[Either[String, String]] = client.send(basicRequest.get(uri"$url"))
 
