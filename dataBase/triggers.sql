@@ -1,3 +1,4 @@
+--// update existing vacancies
 create or replace function update_old_id_trigger()
 returns trigger as $$
 begin
@@ -35,10 +36,10 @@ create trigger update_old_id_trigger
 before insert on vacancies
 for each row
 execute function update_old_id_trigger();
+--//
 
 
-
-
+--// update existing currency
 create or replace function update_currency()
 returns trigger as $$
 begin
@@ -61,3 +62,4 @@ create trigger update_currency_trigger
 before insert on currency
 for each row
 execute function update_currency();
+--//

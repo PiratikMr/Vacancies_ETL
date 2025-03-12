@@ -5,7 +5,7 @@ import EL.Load.give
 import Spark.SparkApp
 import com.Config.LocalConfig
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{col, explode, udf}
+import org.apache.spark.sql.functions.{col, explode, to_timestamp, udf, unix_timestamp}
 import org.apache.spark.sql.types.LongType
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.rogach.scallop.ScallopOption
@@ -56,26 +56,27 @@ object TransformVac extends App with SparkApp {
     fileName = conf.fileConf.fs.vacanciesRawFileName,
     isRoot = false
   ).get
-    .withColumn("id", col("id").cast(LongType))
+    .withColumn("id", col("id").cast(LongType)) // id
 
     .withColumn("region_area_id", col("area").getField("id").cast(LongType))
     .withColumn("country_area_id", udfCountry(col("region_area_id")))
+    .withColumn("close_to_metro", col("address").getField("metro_stations").isNotNull)
 
     .withColumn("salary_from", col("salary").getField("from"))
     .withColumn("salary_to", col("salary").getField("to"))
-
-    .withColumn("close_to_metro", col("address").getField("metro_stations").isNotNull)
+    .withColumn("currency_id", col("salary").getField("currency"))
 
     .withColumn("schedule_id", col("schedule").getField("id"))
     .withColumn("experience_id", col("experience").getField("id"))
     .withColumn("employment_id", col("employment").getField("id"))
-    .withColumn("currency_id", col("salary").getField("currency"))
+
+    .withColumn("publish_date", to_timestamp(col("published_at"), "yyyy-MM-dd'T'HH:mm:ssZ"))
 
     .withColumn("roles", explode(col("professional_roles")))
     .withColumn("role_id", col("roles.id").cast(LongType))
 
 
-    .select("id", "name", "region_area_id", "country_area_id", "salary_from", "salary_to", "close_to_metro",
+    .select("id", "name", "region_area_id", "country_area_id", "salary_from", "salary_to", "close_to_metro", "publish_date",
     "schedule_id", "experience_id", "employment_id", "currency_id", "role_id")
 
     .dropDuplicates("id")

@@ -15,7 +15,7 @@ dag = DAG(
 )
 
 
-days = 60
+days = 30
 dockerCon = "docker exec namenode"
 path = "/hhapi"
 
@@ -31,7 +31,7 @@ target=$({dockerCon} date -d "{date}" +%s)
     | grep -E '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}' \
     | while read -r dir; do \
         curr=$(date -d "$dir" +%s 2>/dev/null)
-        if [[ -n "$curr" && "$curr" -gt "$target" ]]; then
+        if [[ -n "$curr" && "$target" -gt "$curr" ]]; then
             {dockerCon} hdfs dfs -rm -r {path}/$dir
         fi 
     done
