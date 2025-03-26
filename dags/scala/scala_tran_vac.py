@@ -16,8 +16,11 @@ transform = SparkSubmitOperator(
     task_id="transform",
     conn_id="spark-conn",
     application="jobs/scala_ETL_project/transform_vac/target/scala-2.12/transform_vac-assembly-1.jar",
-    application_args = ["--fileName", "config.conf"],
+    application_args = [
+    #   "--date", "2025-02-09", 
+    #   the way to transform data out of date
+        "--fileName", "config.conf"],
     dag=dag
 )
 
-transform 
+transform

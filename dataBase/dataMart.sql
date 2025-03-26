@@ -93,3 +93,30 @@ create materialized view vac_count_by_country as
 --//
 
 
+/* experience by professionals roles
+
+    role            |   avg_experience      |   percent
+    ----------------+-----------------------+-----------
+    data science    |   moreThan6           |   65
+    data science    |   noExperience        |   35  
+*/ 
+drop materialized view exp_by_roles;
+create materialized view exp_by_roles as
+    with exp_count as (
+        select
+            role_id,
+            count(*) as total
+        from vacancies
+        group by role_id
+    ) select
+            v.role_id,
+            v.experience_id,
+            round((count(*) * 100.0 / ec.total), 2) as percent
+        from vacancies as v
+        join exp_count as ec on ec.role_id = v.role_id
+        group by 
+            v.role_id,
+            v.experience_id,
+            ec.total
+        order by v.role_id;
+--//

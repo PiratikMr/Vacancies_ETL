@@ -2,12 +2,12 @@ package com.Config
 
 import com.typesafe.config.{Config, ConfigFactory}
 
-class ProjectConfig(fileName: String) {
+class ProjectConfig(fileName: String, date: String = null) {
   private val conf: Config = ConfigFactory.load(fileName)
 
   val api: APIConf = new APIConf(conf, "API.")
   val db: DBConf = new DBConf(conf, "DB.")
-  val fs: FSConf = new FSConf(conf, "FS.")
+  val fs: FSConf = new FSConf(conf, "FS.", date)
   val spark: SparkConf = new SparkConf(conf, "Spark.")
 
   /*private trait filePath {
