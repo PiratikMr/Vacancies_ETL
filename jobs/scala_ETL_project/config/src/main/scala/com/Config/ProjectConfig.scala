@@ -2,13 +2,14 @@ package com.Config
 
 import com.typesafe.config.{Config, ConfigFactory}
 
-class ProjectConfig(fileName: String, date: String = null) {
-  private val conf: Config = ConfigFactory.load(fileName)
+class ProjectConfig(genConfFile: String, apiConfFile: String, date: String = null) {
+  private val conf: Config = ConfigFactory.load(genConfFile)
+  private lazy val confAPI: Config = ConfigFactory.load(apiConfFile)
 
-  val api: APIConf = new APIConf(conf, "API.")
-  val db: DBConf = new DBConf(conf, "DB.")
-  val fs: FSConf = new FSConf(conf, "FS.", date)
-  val spark: SparkConf = new SparkConf(conf, "Spark.")
+  lazy val api: APIConf = new APIConf(confAPI)
+  lazy val db: DBConf = new DBConf(conf, "DB.")
+  lazy val fs: FSConf = new FSConf(conf, "FS.", date)
+  lazy val spark: SparkConf = new SparkConf(conf, "Spark.")
 
   /*private trait filePath {
     protected val path: String

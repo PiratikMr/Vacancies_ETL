@@ -14,7 +14,7 @@ import scala.util.{Failure, Success}
 
 object ExtractVac extends App with SparkApp {
 
-  private val conf = new LocalConfig(args) {
+  private val conf = new LocalConfig(args, "HHapi.conf") {
     val prId: ScallopOption[Int] = opt[Int](name = "fid", default = Some(11), validate = _ > 0)
 
     val perPage: ScallopOption[Int] = opt[Int](name = "ppage", default = Some(100), validate = _ > 0)

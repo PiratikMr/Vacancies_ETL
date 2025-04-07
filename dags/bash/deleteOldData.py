@@ -15,7 +15,7 @@ dag = DAG(
 )
 
 
-days = 30
+days = 60
 dockerCon = "docker exec namenode"
 path = "/hhapi"
 

@@ -17,11 +17,13 @@ if exists (select 1 from vacancies where id = NEW.id)
 
             close_to_metro = NEW.close_to_metro,
 
+            publish_date = NEW.publish_date,
+
             schedule_id = NEW.schedule_id,
             experience_id = NEW.experience_id,
             employment_id = NEW.employment_id,
             currency_id = NEW.currency_id,
-
+            
             role_id = NEW.role_id           
         where id = NEW.id;
         return null;

@@ -9,10 +9,10 @@ import org.rogach.scallop.{ScallopConf, ScallopOption}
   protected def getStringField: String => String = config.getString
 }*/
 
-abstract class LocalConfig (args: Seq[String]) extends ScallopConf(args) {
+abstract class LocalConfig (args: Seq[String], apiConfFile: String = "") extends ScallopConf(args) {
   private val fileName: ScallopOption[String] = opt[String](name = "fileName", default = Some("Configuration.conf"))
   private val date: ScallopOption[String] = opt[String](name = "date", default = Some(null))
-  lazy val fileConf: ProjectConfig = new ProjectConfig(fileName(), date())
+  lazy val fileConf: ProjectConfig = new ProjectConfig(fileName(), apiConfFile, date())
 
   def define(): Unit = {
     verify()

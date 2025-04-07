@@ -2,7 +2,7 @@ package com.Config
 
 import com.typesafe.config.Config
 
-class DBConf(conf: Config, path: String) extends filePath(conf, path) {
+class DBConf(conf: Config, path: String) extends ConfFile(conf, path) {
   lazy val userName: String = getString("userName")
   lazy val userPassword: String = getString("userPassword")
   lazy val DBurl: String = {

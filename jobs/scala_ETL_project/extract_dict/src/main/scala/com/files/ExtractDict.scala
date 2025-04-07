@@ -12,7 +12,7 @@ import scala.annotation.tailrec
 
 object ExtractDict extends App with SparkApp {
 
-  private val conf = new LocalConfig(args) {
+  private val conf = new LocalConfig(args, "HHapi.conf") {
     define()
   }
   override val ss: SparkSession = defineSession(conf.fileConf.spark)

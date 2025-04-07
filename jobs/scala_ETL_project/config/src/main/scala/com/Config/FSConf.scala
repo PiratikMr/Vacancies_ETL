@@ -8,7 +8,7 @@ import java.time.{LocalDate, ZoneId}
 class FSConf(conf: Config,
              path: String,
              date: String
-            ) extends filePath(conf, path) {
+            ) extends ConfFile(conf, path) {
 
   private lazy val fs: String = getString("url")
   private lazy val currentDate: String = if (date == null) LocalDate.now(ZoneId.of(getString("zoneId")))
