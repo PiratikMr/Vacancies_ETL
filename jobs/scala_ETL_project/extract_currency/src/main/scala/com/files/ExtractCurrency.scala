@@ -9,7 +9,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object ExtractCurrency extends App with SparkApp {
 
-  private val conf = new LocalConfig(args, "HHapi.conf") {
+  private val conf = new LocalConfig(args, "HHapi") {
     define()
   }
 
