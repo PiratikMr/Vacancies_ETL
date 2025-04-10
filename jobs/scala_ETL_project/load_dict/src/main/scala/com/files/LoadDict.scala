@@ -12,7 +12,7 @@ object LoadDict extends App with SparkApp {
     define()
   }
 
-  override val ss: SparkSession = defineSession(conf.fileConf.spark)
+  override val ss: SparkSession = defineSession(conf.fileConf)
 
   load("areas")
   load("currency")
@@ -22,7 +22,7 @@ object LoadDict extends App with SparkApp {
 
   private val rolesDF: DataFrame = take(
     ss = ss,
-    conf = conf.fileConf.fs,
+    conf = conf.fileConf,
     fileName = "roles",
     isRoot = true,
   ).get
@@ -30,7 +30,7 @@ object LoadDict extends App with SparkApp {
     .dropDuplicates("id")
 
   give(
-    conf = conf.fileConf.db,
+    conf = conf.fileConf,
     data = rolesDF,
     tableName = "roles"
   )
@@ -38,10 +38,10 @@ object LoadDict extends App with SparkApp {
   stopSpark()
 
   private def load(name: String): Unit = give(
-    conf = conf.fileConf.db,
+    conf = conf.fileConf,
     data = take(
       ss = ss,
-      conf = conf.fileConf.fs,
+      conf = conf.fileConf,
       isRoot = true,
       fileName = name
     ).get,

@@ -16,7 +16,7 @@ extract = SparkSubmitOperator(
     task_id="extract",
     conn_id="spark-conn",
     application="jobs/scala_ETL_project/load_currency/target/scala-2.12/load_currency-assembly-1.jar",
-    application_args = [],
+    application_args = ["--fileName", "config.conf"],
     dag=dag
 )
 

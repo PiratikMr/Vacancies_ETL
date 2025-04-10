@@ -11,13 +11,13 @@ object LoadCurr extends App with SparkApp {
   private val conf = new LocalConfig(args) {
     define()
   }
-  override val ss: SparkSession = defineSession(conf.fileConf.spark)
+  override val ss: SparkSession = defineSession(conf.fileConf)
 
   give(
-    conf = conf.fileConf.db,
+    conf = conf.fileConf,
     data = take(
       ss = ss,
-      conf = conf.fileConf.fs,
+      conf = conf.fileConf,
       fileName = "currency",
       isRoot = true,
     ).get,

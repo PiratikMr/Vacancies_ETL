@@ -1,3 +1,5 @@
+--// needs improvement
+
 create or replace function fill_salary()
 returns integer as $$
 declare 
@@ -16,7 +18,7 @@ begin
         from vacancies as v
         join currency as c on c.id = v.currency_id
         where salary_from is not null or salary_to is not null
-        group by role_id
+        group by role_id --// experience_id, country_area_id
     ) median
     where v.role_id = median.role_id 
     and (v.salary_from is null and v.salary_to is null);

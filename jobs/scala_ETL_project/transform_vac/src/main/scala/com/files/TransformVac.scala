@@ -20,11 +20,11 @@ object TransformVac extends App with SparkApp {
     define()
   }
 
-  override val ss: SparkSession = defineSession(conf.fileConf.spark)
+  override val ss: SparkSession = defineSession(conf.fileConf)
 
   private val areasMap: Map[Long, Option[Long]] = take(
     ss = ss,
-    conf = conf.fileConf.fs,
+    conf = conf.fileConf,
     fileName = "areas",
     isRoot = true
   ).get
@@ -52,7 +52,7 @@ object TransformVac extends App with SparkApp {
 
   private val vacanciesDF: DataFrame = take(
     ss = ss,
-    conf = conf.fileConf.fs,
+    conf = conf.fileConf,
     fileName = conf.fileConf.fs.vacanciesRawFileName,
     isRoot = false
   ).get
@@ -82,7 +82,7 @@ object TransformVac extends App with SparkApp {
     .dropDuplicates("id")
 
   give(
-    conf = conf.fileConf.fs,
+    conf = conf.fileConf,
     fileName = conf.fileConf.fs.vacanciesTransformedFileName,
     data = vacanciesDF.repartition(conf.partitions()),
     isRoot = false

@@ -26,14 +26,14 @@ object ExtractVac extends App with SparkApp {
     define()
   }
 
-  override val ss: SparkSession = defineSession(conf.fileConf.spark)
+  override val ss: SparkSession = defineSession(conf.fileConf)
 
   import ss.implicits._
 
 
   private val ids: Seq[Long] = take(
     ss = ss,
-    conf = conf.fileConf.fs,
+    conf = conf.fileConf,
     isRoot = true,
     fileName = "roles"
   ).get
@@ -51,7 +51,7 @@ object ExtractVac extends App with SparkApp {
     }
 
     val df: DataFrame = ss.read
-      .json(Seq(takeURL(url(id), conf.fileConf.api).get).toDS())
+      .json(Seq(takeURL(url(id), conf.fileConf).get).toDS())
     val found: Long = df.first().getAs[Long]("found")
 
     f(Math.min(found / conf.perPage(), conf.pages() - 1))
@@ -61,10 +61,10 @@ object ExtractVac extends App with SparkApp {
   println(s"URLs to read: ${urlList.length}")
   private var readURLs: Integer = 1
 
-  private val initData: Dataset[String] = Seq(takeURL(urlList.head, conf.fileConf.api).get).toDS()
+  private val initData: Dataset[String] = Seq(takeURL(urlList.head, conf.fileConf).get).toDS()
   private val data: Dataset[String] = urlList.tail.foldLeft(initData)((df, url) => {
     Thread.sleep(1000 / conf.urlsPerSecond())
-    val data:String = takeURL(url, conf.fileConf.api) match {
+    val data:String = takeURL(url, conf.fileConf) match {
       case Success(v) =>
         readURLs = readURLs + 1
         v
@@ -86,7 +86,7 @@ object ExtractVac extends App with SparkApp {
 
 
   give(
-    conf = conf.fileConf.fs,
+    conf = conf.fileConf,
     fileName = conf.fileConf.fs.vacanciesRawFileName,
     isRoot = false,
     data = df

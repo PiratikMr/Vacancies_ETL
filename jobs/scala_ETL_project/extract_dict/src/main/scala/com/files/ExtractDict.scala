@@ -15,10 +15,10 @@ object ExtractDict extends App with SparkApp {
   private val conf = new LocalConfig(args, "HHapi") {
     define()
   }
-  override val ss: SparkSession = defineSession(conf.fileConf.spark)
+  override val ss: SparkSession = defineSession(conf.fileConf)
 
   // areas
-  private val areasDF: DataFrame = toDF(takeURL("https://api.hh.ru/areas", conf.fileConf.api).get)
+  private val areasDF: DataFrame = toDF(takeURL("https://api.hh.ru/areas", conf.fileConf).get)
   private val areasTDF: DataFrame = {
     @tailrec
     def f(acc: DataFrame = areasDF.drop("areas"), i: DataFrame = areasDF): DataFrame = {
@@ -37,7 +37,7 @@ object ExtractDict extends App with SparkApp {
   save("areas", areasTDF)
 
   // roles
-  private val rolesDF: DataFrame = toDF(takeURL("https://api.hh.ru/professional_roles", conf.fileConf.api).get)
+  private val rolesDF: DataFrame = toDF(takeURL("https://api.hh.ru/professional_roles", conf.fileConf).get)
   private val rolesTDF: DataFrame = rolesDF
       .withColumn("categories", explode(col("categories")))
       .select("categories.*")
@@ -49,7 +49,7 @@ object ExtractDict extends App with SparkApp {
   save("roles", rolesTDF)
 
   // dictionaries
-  private val dictionariesDF: DataFrame = toDF(takeURL("https://api.hh.ru/dictionaries", conf.fileConf.api).get)
+  private val dictionariesDF: DataFrame = toDF(takeURL("https://api.hh.ru/dictionaries", conf.fileConf).get)
 
   save("currency", expl(dictionariesDF,"currency")
     .withColumn("id", col("code"))
@@ -69,7 +69,7 @@ object ExtractDict extends App with SparkApp {
 
   private def save(fileName: String, data: DataFrame): Unit = {
     give(
-      conf = conf.fileConf.fs,
+      conf = conf.fileConf,
       fileName = fileName,
       isRoot = true,
       data = data

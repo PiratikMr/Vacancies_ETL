@@ -1,16 +1,16 @@
 package Spark
 
-import com.Config.SparkConf
+import com.Config.ProjectConfig
 import org.apache.spark.sql.SparkSession
 
 trait SparkApp extends Serializable {
 
   val ss: SparkSession
 
-  def defineSession(conf: SparkConf): SparkSession = {
+  def defineSession(conf: ProjectConfig): SparkSession = {
     SparkSession.builder()
-      .appName(conf.name)
-      .master(conf.master)
+      .appName(conf.spark.name)
+      .master(conf.spark.master)
       .getOrCreate()
   }
 

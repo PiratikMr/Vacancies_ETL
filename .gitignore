@@ -11,6 +11,8 @@ plugins/
 resourcemanager/
 submit/
 
+jobs/java_*
+
 __pycache__/
 
 *.idea

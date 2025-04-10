@@ -12,14 +12,14 @@ object LoadVac extends App with SparkApp {
     define()
   }
 
-  override val ss: SparkSession = defineSession(conf.fileConf.spark)
+  override val ss: SparkSession = defineSession(conf.fileConf)
 
   give(
-    conf = conf.fileConf.db,
+    conf = conf.fileConf,
     tableName = "vacancies",
     data = take(
       ss = ss,
-      conf = conf.fileConf.fs,
+      conf = conf.fileConf,
       fileName = conf.fileConf.fs.vacanciesTransformedFileName,
       isRoot = false
     ).get,

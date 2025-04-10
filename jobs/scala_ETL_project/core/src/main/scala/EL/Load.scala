@@ -1,13 +1,13 @@
 package EL
 
-import com.Config.FSConf
+import com.Config.ProjectConfig
 import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import scala.util.Try
 
 object Load extends Serializable {
   def give(
-            conf: FSConf,
+            conf: ProjectConfig,
             fileName: String,
             isRoot: Boolean,
             data: DataFrame,
@@ -17,7 +17,7 @@ object Load extends Serializable {
       data.write
       .mode(SaveMode.Overwrite)
       .format(format)
-      .save(conf.getPath(isRoot, fileName))
+      .save(conf.fs.getPath(isRoot, fileName))
     )
   }
 }
