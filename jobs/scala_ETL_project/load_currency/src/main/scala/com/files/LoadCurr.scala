@@ -2,7 +2,7 @@ package com.files
 
 import EL.Extract.take
 import Spark.SparkApp
-import com.Config.LocalConfig
+import com.Config.{FolderName, LocalConfig}
 import com.LoadDB.LoadDB.give
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
@@ -19,7 +19,7 @@ object LoadCurr extends App with SparkApp {
       ss = ss,
       conf = conf.fileConf,
       fileName = "currency",
-      isRoot = true,
+      FolderName.Dict
     ).get,
     tableName = "currency",
     saveMode = SaveMode.Append

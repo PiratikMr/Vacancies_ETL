@@ -1,9 +1,8 @@
 package com.Config
 
+import com.Config.FolderName.FolderName
 import com.typesafe.config.{Config, ConfigFactory}
 
-import java.time.format.DateTimeFormatter
-import java.time.{LocalDate, ZoneId}
 import scala.jdk.CollectionConverters.asScalaSetConverter
 
 class ProjectConfig(genConfFile: String, apiHeader: String, date: String) {
@@ -30,13 +29,16 @@ class ProjectConfig(genConfFile: String, apiHeader: String, date: String) {
 
   lazy val fs = new ConfPart(conf.getConfig("FS")) {
     private lazy val url: String = config.getString("url")
-    private lazy val currentDate: String = if (date == null) LocalDate.now(ZoneId.of(config.getString("zoneId")))
-      .format(DateTimeFormatter.ISO_LOCAL_DATE) else date
+/*    private lazy val currentDate: String = if (date == null) LocalDate.now(ZoneId.of(config.getString("zoneId")))
+      .format(DateTimeFormatter.ISO_LOCAL_DATE) else date*/
 
-    lazy val vacanciesRawFileName: String = config.getString("fileName.vacanciesRaw")
-    lazy val vacanciesTransformedFileName: String = config.getString("fileName.vacanciesTransformed")
-
-    def getPath(isRoot: Boolean, fileName: String = ""): String = url + (if (!isRoot) s"$currentDate/" else "") + fileName
+    def getPath(file: FolderName, fileName: String): String = {
+      if (file == FolderName.Dict) {
+        f"$url$file/$fileName"
+      } else {
+        f"$url$file/$date"
+      }
+    }
   }
 
   lazy val spark = new ConfPart(conf.getConfig("Spark")) {

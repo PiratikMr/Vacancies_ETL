@@ -2,7 +2,7 @@ package com.files
 
 import EL.Extract.take
 import Spark.SparkApp
-import com.Config.LocalConfig
+import com.Config.{FolderName, LocalConfig}
 import com.LoadDB.LoadDB.give
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -24,7 +24,7 @@ object LoadDict extends App with SparkApp {
     ss = ss,
     conf = conf.fileConf,
     fileName = "roles",
-    isRoot = true,
+    folderName = FolderName.Dict
   ).get
     .select("id", "name")
     .dropDuplicates("id")
@@ -42,7 +42,7 @@ object LoadDict extends App with SparkApp {
     data = take(
       ss = ss,
       conf = conf.fileConf,
-      isRoot = true,
+      folderName = FolderName.Dict,
       fileName = name
     ).get,
     tableName = name

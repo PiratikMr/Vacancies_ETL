@@ -3,7 +3,7 @@ package com.files
 import EL.Extract.take
 import EL.Load.give
 import Spark.SparkApp
-import com.Config.LocalConfig
+import com.Config.{FolderName, LocalConfig}
 import com.extractURL.ExtractURL.takeURL
 import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
@@ -34,7 +34,7 @@ object ExtractVac extends App with SparkApp {
   private val ids: Seq[Long] = take(
     ss = ss,
     conf = conf.fileConf,
-    isRoot = true,
+    folderName = FolderName.Dict,
     fileName = "roles"
   ).get
     .where(col("parent_id").equalTo(conf.prId()))
@@ -87,8 +87,7 @@ object ExtractVac extends App with SparkApp {
 
   give(
     conf = conf.fileConf,
-    fileName = conf.fileConf.fs.vacanciesRawFileName,
-    isRoot = false,
+    folderName = FolderName.Raw,
     data = df
   )
 

@@ -84,5 +84,18 @@ lazy val root = (project in file("."))
   .aggregate(config, load_db, extract_url, core, extract_dict, load_dict,
     extract_currency, extract_vac, transform_vac, load_vac, load_currency)
 
+addCommandAlias("compileWholeProj",
+    "clean; compile;" +
+    "project extract_dict; compile; assembly;" +
+    "project load_dict; compile; assembly;" +
+    "project extract_currency; compile; assembly;" +
+    "project extract_currency; compile; assembly;" +
+    "project load_currency; compile; assembly;" +
+    "project extract_vac; compile; assembly;" +
+    "project transform_vac; compile; assembly;" +
+    "project load_vac; compile; assembly;" +
+    "project root;"
+)
+
 
 // bash: export JAVA_OPTS='--add-exports java.base/sun.nio.ch=ALL-UNNAMED'

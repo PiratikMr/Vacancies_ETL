@@ -2,7 +2,7 @@ package com.files
 
 import EL.Load.give
 import Spark.SparkApp
-import com.Config.LocalConfig
+import com.Config.{FolderName, LocalConfig}
 import com.extractURL.ExtractURL.takeURL
 import org.apache.spark.sql.functions.{col, count, explode, when}
 import org.apache.spark.sql.types.LongType
@@ -71,7 +71,7 @@ object ExtractDict extends App with SparkApp {
     give(
       conf = conf.fileConf,
       fileName = fileName,
-      isRoot = true,
+      folderName = FolderName.Dict,
       data = data
     )
   }

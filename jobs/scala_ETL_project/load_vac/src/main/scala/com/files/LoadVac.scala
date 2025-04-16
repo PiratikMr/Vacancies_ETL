@@ -2,7 +2,7 @@ package com.files
 
 import EL.Extract.take
 import Spark.SparkApp
-import com.Config.LocalConfig
+import com.Config.{FolderName, LocalConfig}
 import com.LoadDB.LoadDB.give
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
@@ -16,12 +16,33 @@ object LoadVac extends App with SparkApp {
 
   give(
     conf = conf.fileConf,
+    tableName = "employers",
+    data = take(
+      ss = ss,
+      conf = conf.fileConf,
+      folderName = FolderName.Employer
+    ).get,
+    saveMode = SaveMode.Append
+  )
+
+  give(
+    conf = conf.fileConf,
+    tableName = "skills",
+    data = take(
+      ss = ss,
+      conf = conf.fileConf,
+      folderName = FolderName.Skills
+    ).get,
+    saveMode = SaveMode.Append
+  )
+
+  give(
+    conf = conf.fileConf,
     tableName = "vacancies",
     data = take(
       ss = ss,
       conf = conf.fileConf,
-      fileName = conf.fileConf.fs.vacanciesTransformedFileName,
-      isRoot = false
+      folderName = FolderName.Trans
     ).get,
     saveMode = SaveMode.Append
   )

@@ -3,9 +3,9 @@ package com.files
 import EL.Extract.take
 import EL.Load.give
 import Spark.SparkApp
-import com.Config.LocalConfig
+import com.Config.{FolderName, LocalConfig}
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{col, explode, to_timestamp, udf, unix_timestamp}
+import org.apache.spark.sql.functions.{col, explode, lit, to_timestamp, udf, unix_timestamp, when}
 import org.apache.spark.sql.types.LongType
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.rogach.scallop.ScallopOption
@@ -26,7 +26,7 @@ object TransformVac extends App with SparkApp {
     ss = ss,
     conf = conf.fileConf,
     fileName = "areas",
-    isRoot = true
+    folderName = FolderName.Dict
   ).get
     .rdd
     .map(row => {
@@ -50,13 +50,14 @@ object TransformVac extends App with SparkApp {
   private val udfCountry: UserDefinedFunction = udf((id: Long) => getCountry(id))
 
 
-  private val vacanciesDF: DataFrame = take(
+  private val rawVac: DataFrame = take(
     ss = ss,
     conf = conf.fileConf,
-    fileName = conf.fileConf.fs.vacanciesRawFileName,
-    isRoot = false
+    folderName = FolderName.Raw
   ).get
-    .withColumn("id", col("id").cast(LongType)) // id
+
+  private val genVac: DataFrame = rawVac
+    .withColumn("id", col("id").cast(LongType))
 
     .withColumn("region_area_id", col("area").getField("id").cast(LongType))
     .withColumn("country_area_id", udfCountry(col("region_area_id")))
@@ -65,6 +66,14 @@ object TransformVac extends App with SparkApp {
     .withColumn("salary_from", col("salary").getField("from"))
     .withColumn("salary_to", col("salary").getField("to"))
     .withColumn("currency_id", col("salary").getField("currency"))
+
+    .withColumn("employer_id", col("employer").getField("id").cast(LongType))
+    .withColumn("employer_name", col("employer").getField("name"))
+
+    .withColumn("skills",
+      if (rawVac.columns.contains("key_skills")) { col("key_skills") }
+      else { lit(Array.empty[String]) }
+    )
 
     .withColumn("schedule_id", col("schedule").getField("id"))
     .withColumn("experience_id", col("experience").getField("id"))
@@ -75,17 +84,43 @@ object TransformVac extends App with SparkApp {
     .withColumn("roles", explode(col("professional_roles")))
     .withColumn("role_id", col("roles.id").cast(LongType))
 
-
-    .select("id", "name", "region_area_id", "country_area_id", "salary_from", "salary_to", "close_to_metro", "publish_date",
-    "schedule_id", "experience_id", "employment_id", "currency_id", "role_id")
+    /*.select("id", "name", "region_area_id", "country_area_id", "salary_from", "salary_to", "close_to_metro", "publish_date",
+    "schedule_id", "experience_id", "employment_id", "currency_id", "role_id")*/
 
     .dropDuplicates("id")
 
+  private val transformedVac: DataFrame = genVac
+    .select("id", "name", "region_area_id", "country_area_id", "salary_from", "salary_to", "close_to_metro", "publish_date",
+      "schedule_id", "experience_id", "employment_id", "employer_id", "currency_id", "skills", "role_id")
+
+  private val employers: DataFrame = genVac
+    .select(col("employer_id").as("id"), col("employer_name").as("name"))
+    .filter(col("id").isNotNull)
+    .dropDuplicates("id")
+
+  private val skills: DataFrame = genVac
+    .select(explode(col("skills")).as("name"))
+    .dropDuplicates("name")
+
+  // skills
   give(
     conf = conf.fileConf,
-    fileName = conf.fileConf.fs.vacanciesTransformedFileName,
-    data = vacanciesDF.repartition(conf.partitions()),
-    isRoot = false
+    data = skills.repartition(1),
+    folderName = FolderName.Skills
+  )
+
+  // vacancies
+  give(
+    conf = conf.fileConf,
+    data = transformedVac.repartition(conf.partitions()),
+    folderName = FolderName.Trans
+  )
+
+  // employers
+  give(
+    conf = conf.fileConf,
+    data = employers.repartition(1),
+    folderName = FolderName.Employer
   )
 
   stopSpark()

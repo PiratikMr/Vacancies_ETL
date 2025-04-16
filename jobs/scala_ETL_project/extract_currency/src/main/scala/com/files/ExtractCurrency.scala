@@ -2,7 +2,7 @@ package com.files
 
 import EL.Load.give
 import Spark.SparkApp
-import com.Config.LocalConfig
+import com.Config.{FolderName, LocalConfig}
 import com.extractURL.ExtractURL.takeURL
 import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -19,7 +19,7 @@ object ExtractCurrency extends App with SparkApp {
   give(
     conf = conf.fileConf,
     fileName = "currency",
-    isRoot = true,
+    folderName = FolderName.Dict,
     data = currencyDF.withColumn("currency", explode(col("currency")))
       .select("currency.*")
       .withColumn("id", col("code"))
