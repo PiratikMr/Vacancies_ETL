@@ -1,6 +1,6 @@
 #directories
 
-base/
+/base/
 datanode/
 historyserver/
 logs/

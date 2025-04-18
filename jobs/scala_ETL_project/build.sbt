@@ -1,4 +1,6 @@
 import sbt.Keys.libraryDependencies
+import sbtassembly.AssemblyPlugin.autoImport.assembly
+
 import scala.collection.Seq
 
 lazy val sparkVersion = "3.5.4"
@@ -10,92 +12,177 @@ ThisBuild / libraryDependencies ++= Seq(
     "org.apache.spark" %% "spark-sql" % sparkVersion % "provided"
 )
 
+// Base/
+lazy val baseDir = "Base/"
 
-// modules
-lazy val config = (project in file("config")).settings(
-  libraryDependencies += "com.typesafe" % "config" % "1.4.3",
-  libraryDependencies += "org.rogach" %% "scallop" % "5.2.0"
-)
+  lazy val config = (project in file(baseDir + "config")).settings(
+    libraryDependencies += "com.typesafe" % "config" % "1.4.3",
+    libraryDependencies += "org.rogach" %% "scallop" % "5.2.0"
+  )
 
-lazy val core = (project in file ("core"))
-  .dependsOn(config)
+  lazy val core = (project in file (baseDir + "core"))
+    .dependsOn(config)
+//
 
-lazy val extract_url = (project in file("core_ExtractURL"))
-  .settings(
+// InfraStructure/
+lazy val inStrDir = "InfraStructure/"
+
+  lazy val urlExtract = (project in file(inStrDir + "URLExtract"))
+    .settings(
       libraryDependencies += "com.softwaremill.sttp.client3" %% "core" % "3.10.1"
-  ).dependsOn(config)
+    ).dependsOn(config)
 
-lazy val load_db = (project in file("core_LoadDB"))
-  .settings(
+  lazy val DBLoad = (project in file(inStrDir + "DBLoad"))
+    .settings(
       libraryDependencies += "org.postgresql" % "postgresql" % "42.7.4"
-  ).dependsOn(core)
+    ).dependsOn(core)
+//
 
+// HeadHunter/
+lazy val hhDir = "HeadHunter/"
+  // Currency/
+  lazy val currDir = hhDir + "Currency/"
 
+    lazy val currExtract = (project in file(currDir + "extract"))
+      .settings(
+        assembly / mainClass := Some("com.files.ExtractCurrency"),
+        assembly / assemblyJarName := "extract.jar"
+      )
+      .dependsOn(urlExtract, core)
 
-// dictionaries
-lazy val extract_dict = (project in file("extract_dict"))
-  .settings(
-    assembly / mainClass := Some("com.files.ExtractDict"),
-  )
-  .dependsOn(extract_url, core)
+    lazy val currLoad = (project in file(currDir + "load"))
+      .settings(
+        assembly / mainClass := Some("com.files.LoadCurrency"),
+        assembly / assemblyJarName := "load.jar"
+      )
+      .dependsOn(DBLoad)
+  //
 
-lazy val load_dict = (project in file("load_dict"))
-  .settings(
-    assembly / mainClass := Some("com.files.LoadDict")
-  )
-  .dependsOn(load_db)
+  // Dictionaries/
+  lazy val dictDir = hhDir + "Dictionaries/"
 
-lazy val extract_currency = (project in file("extract_currency"))
-  .settings(
-    assembly / mainClass := Some("com.files.ExtractCurrency")
-  )
-  .dependsOn(extract_url, core)
+    lazy val dictExtract = (project in file(dictDir + "extract"))
+      .settings(
+        assembly / mainClass := Some("com.files.ExtractDictionaries"),
+        assembly / assemblyJarName := "extract.jar"
+      )
+      .dependsOn(urlExtract, core)
 
-lazy val load_currency = (project in file("load_currency"))
-  .settings(
-    assembly / mainClass := Some("com.files.LoadCurr")
-  )
-  .dependsOn(load_db)
+    lazy val dictLoad = (project in file(dictDir + "load"))
+      .settings(
+        assembly / mainClass := Some("com.files.LoadDictionaries"),
+        assembly / assemblyJarName := "load.jar"
+      )
+      .dependsOn(DBLoad)
+  //
 
+  // Vacancies/
+  lazy val vacDir = hhDir + "Vacancies/"
 
-// vacancies
-lazy val extract_vac = (project in file("extract_vac"))
-  .settings(
-    assembly / mainClass := Some("com.files.ExtractVac")
-  )
-  .dependsOn(extract_url, core)
+    lazy val vacExtract = (project in file(vacDir + "extract"))
+        .settings(
+          assembly / mainClass := Some("com.files.ExtractVacancies"),
+          assembly / assemblyJarName := "extract.jar"
+        )
+        .dependsOn(urlExtract, core)
 
-lazy val transform_vac = (project in file("transform_vac"))
-  .settings(
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % Test,
-    assembly / mainClass := Some("com.files.TransformVac")
-  )
-  .dependsOn(core)
+    lazy val vacTransform = (project in file(vacDir + "transform"))
+      .settings(
+        assembly / mainClass := Some("com.files.TransformVacancies"),
+        assembly / assemblyJarName := "transform.jar"
+      )
+      .dependsOn(core)
 
-lazy val load_vac = (project in file("load_vac"))
-  .settings(
-    assembly / mainClass := Some("com.files.LoadVac")
-  )
-  .dependsOn(load_db)
+    lazy val vacLoad = (project in file(vacDir + "load"))
+      .settings(
+        assembly / mainClass := Some("com.files.LoadVacancies"),
+        assembly / assemblyJarName := "load.jar"
+      )
+      .dependsOn(DBLoad)
+  //
+//
 
+// GetMatch/
+lazy val gmDir = "GetMatch/"
+  // Vacancies/
+  lazy val gvacDir = gmDir + "Vacancies/"
+
+  lazy val gvacExtract = (project in file(gvacDir + "extract"))
+    .settings(
+      assembly / mainClass := Some("com.files.ExtractVacancies"),
+      assembly / assemblyJarName := "extract.jar"
+    )
+    .dependsOn(urlExtract, core)
+
+  lazy val gvacTransform = (project in file(gvacDir + "transform"))
+    .settings(
+      assembly / mainClass := Some("com.files.TransformVacancies"),
+      assembly / assemblyJarName := "transform.jar"
+    )
+    .dependsOn(core)
+
+  lazy val gvacLoad = (project in file(gvacDir + "load"))
+    .settings(
+      assembly / mainClass := Some("com.files.LoadVacancies"),
+      assembly / assemblyJarName := "load.jar"
+    )
+    .dependsOn(DBLoad)
+  //
+//
 
 
 lazy val root = (project in file("."))
-  .aggregate(config, load_db, extract_url, core, extract_dict, load_dict,
-    extract_currency, extract_vac, transform_vac, load_vac, load_currency)
+  .aggregate(config, core, urlExtract, DBLoad,
+    currExtract, currLoad,
+    dictExtract, dictLoad,
+    vacExtract, vacTransform, vacLoad,
+    gvacExtract, gvacTransform, gvacLoad
+  )
+
+addCommandAlias("gmHelperCompile",
+  """
+    |project gvacExtract; compile; assembly;
+    |project gvacTransform; compile; assembly;
+    |project gvacLoad; compile; assembly;
+    |project root;
+    |""".stripMargin
+)
+
+addCommandAlias("hhHelperCompile",
+  """
+    |project currExtract; compile; assembly;
+    |project currLoad; compile; assembly;
+    |project dictExtract; compile; assembly;
+    |project dictLoad; compile; assembly;
+    |project vacExtract; compile; assembly;
+    |project vacTransform; compile; assembly;
+    |project vacLoad; compile; assembly;
+    |project root;
+    |""".stripMargin
+)
+
+addCommandAlias("compileHH",
+  """
+    |project root; clean; compile;
+    |hhHelperCompile;
+    |""".stripMargin
+)
+
+addCommandAlias("compileGM",
+  """
+    |project root; clean; compile;
+    |gmHelperCompile;
+    |""".stripMargin
+)
 
 addCommandAlias("compileWholeProj",
-    "clean; compile;" +
-    "project extract_dict; compile; assembly;" +
-    "project load_dict; compile; assembly;" +
-    "project extract_currency; compile; assembly;" +
-    "project extract_currency; compile; assembly;" +
-    "project load_currency; compile; assembly;" +
-    "project extract_vac; compile; assembly;" +
-    "project transform_vac; compile; assembly;" +
-    "project load_vac; compile; assembly;" +
-    "project root;"
+    """
+    |project root; clean; compile;
+    |gmHelperCompile;
+    |hhHelperCompile;
+    |""".stripMargin
 )
 
 
-// bash: export JAVA_OPTS='--add-exports java.base/sun.nio.ch=ALL-UNNAMED'
+
+// $ export JAVA_OPTS='--add-exports java.base/sun.nio.ch=ALL-UNNAMED'
