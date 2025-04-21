@@ -12,155 +12,194 @@ ThisBuild / libraryDependencies ++= Seq(
     "org.apache.spark" %% "spark-sql" % sparkVersion % "provided"
 )
 
-// Base/
-lazy val baseDir = "Base/"
+val extract: String = "extract"
+val transform: String = "transform"
+val load: String = "load"
 
-  lazy val config = (project in file(baseDir + "config")).settings(
+// Base/
+lazy val base_dir = "Base/"
+
+  lazy val config = (project in file(base_dir + "config")).settings(
     libraryDependencies += "com.typesafe" % "config" % "1.4.3",
     libraryDependencies += "org.rogach" %% "scallop" % "5.2.0"
   )
 
-  lazy val core = (project in file (baseDir + "core"))
+  lazy val core = (project in file (base_dir + "core"))
     .dependsOn(config)
 //
 
 // InfraStructure/
-lazy val inStrDir = "InfraStructure/"
+lazy val inf_struct = "InfraStructure/"
 
-  lazy val urlExtract = (project in file(inStrDir + "URLExtract"))
+  lazy val urlExtract = (project in file(inf_struct + "URLExtract"))
     .settings(
       libraryDependencies += "com.softwaremill.sttp.client3" %% "core" % "3.10.1"
     ).dependsOn(config)
 
-  lazy val DBLoad = (project in file(inStrDir + "DBLoad"))
+  lazy val DBLoad = (project in file(inf_struct + "DBLoad"))
     .settings(
       libraryDependencies += "org.postgresql" % "postgresql" % "42.7.4"
     ).dependsOn(core)
 //
 
 // HeadHunter/
-lazy val hhDir = "HeadHunter/"
+lazy val hh_dir = "HeadHunter/"
   // Currency/
-  lazy val currDir = hhDir + "Currency/"
+  lazy val hh_curr = hh_dir + "Currency/"
 
-    lazy val currExtract = (project in file(currDir + "extract"))
+    lazy val hh_curr_extract = (project in file(hh_curr + extract))
       .settings(
         assembly / mainClass := Some("com.files.ExtractCurrency"),
-        assembly / assemblyJarName := "extract.jar"
+        assembly / assemblyJarName := s"$extract.jar"
       )
       .dependsOn(urlExtract, core)
 
-    lazy val currLoad = (project in file(currDir + "load"))
+    lazy val hh_curr_load = (project in file(hh_curr + load))
       .settings(
         assembly / mainClass := Some("com.files.LoadCurrency"),
-        assembly / assemblyJarName := "load.jar"
+        assembly / assemblyJarName := s"$load.jar"
       )
       .dependsOn(DBLoad)
   //
 
   // Dictionaries/
-  lazy val dictDir = hhDir + "Dictionaries/"
+  lazy val hh_dict = hh_dir + "Dictionaries/"
 
-    lazy val dictExtract = (project in file(dictDir + "extract"))
+    lazy val hh_dict_extract = (project in file(hh_dict + extract))
       .settings(
         assembly / mainClass := Some("com.files.ExtractDictionaries"),
-        assembly / assemblyJarName := "extract.jar"
+        assembly / assemblyJarName := s"$extract.jar"
       )
       .dependsOn(urlExtract, core)
 
-    lazy val dictLoad = (project in file(dictDir + "load"))
+    lazy val hh_dict_load = (project in file(hh_dict + load))
       .settings(
         assembly / mainClass := Some("com.files.LoadDictionaries"),
-        assembly / assemblyJarName := "load.jar"
+        assembly / assemblyJarName := s"$load.jar"
       )
       .dependsOn(DBLoad)
   //
 
   // Vacancies/
-  lazy val vacDir = hhDir + "Vacancies/"
+  lazy val hh_vacs = hh_dir + "Vacancies/"
 
-    lazy val vacExtract = (project in file(vacDir + "extract"))
+    lazy val hh_vacs_extract = (project in file(hh_vacs + extract))
         .settings(
           assembly / mainClass := Some("com.files.ExtractVacancies"),
-          assembly / assemblyJarName := "extract.jar"
+          assembly / assemblyJarName := s"$extract.jar"
         )
         .dependsOn(urlExtract, core)
 
-    lazy val vacTransform = (project in file(vacDir + "transform"))
+    lazy val hh_vacs_transform = (project in file(hh_vacs + transform))
       .settings(
         assembly / mainClass := Some("com.files.TransformVacancies"),
-        assembly / assemblyJarName := "transform.jar"
+        assembly / assemblyJarName := s"$transform.jar"
       )
       .dependsOn(core)
 
-    lazy val vacLoad = (project in file(vacDir + "load"))
+    lazy val hh_vacs_load = (project in file(hh_vacs + load))
       .settings(
         assembly / mainClass := Some("com.files.LoadVacancies"),
-        assembly / assemblyJarName := "load.jar"
+        assembly / assemblyJarName := s"$load.jar"
       )
       .dependsOn(DBLoad)
   //
 //
 
 // GetMatch/
-lazy val gmDir = "GetMatch/"
+lazy val gm_dir = "GetMatch/"
   // Vacancies/
-  lazy val gvacDir = gmDir + "Vacancies/"
+  lazy val gm_vacs = gm_dir + "Vacancies/"
 
-  lazy val gvacExtract = (project in file(gvacDir + "extract"))
+  lazy val gm_vacs_extract = (project in file(gm_vacs + extract))
     .settings(
       assembly / mainClass := Some("com.files.ExtractVacancies"),
-      assembly / assemblyJarName := "extract.jar"
+      assembly / assemblyJarName := s"$extract.jar"
     )
     .dependsOn(urlExtract, core)
 
-  lazy val gvacTransform = (project in file(gvacDir + "transform"))
+  lazy val gm_vacs_transform = (project in file(gm_vacs + transform))
     .settings(
       assembly / mainClass := Some("com.files.TransformVacancies"),
-      assembly / assemblyJarName := "transform.jar"
+      assembly / assemblyJarName := s"$transform.jar"
     )
-    .dependsOn(core)
+    .dependsOn(core, DBLoad)
 
-  lazy val gvacLoad = (project in file(gvacDir + "load"))
+  lazy val gm_vacs_load = (project in file(gm_vacs + load))
     .settings(
       assembly / mainClass := Some("com.files.LoadVacancies"),
-      assembly / assemblyJarName := "load.jar"
+      assembly / assemblyJarName := s"$load.jar"
     )
     .dependsOn(DBLoad)
+  //
+//
+
+// GeekJOB/
+lazy val gj_dir = "GeekJOB/"
+  // Vacancies
+  lazy val gj_vacs = gj_dir + "Vacancies/"
+
+  lazy val gj_vacs_extract = (project in file(gj_vacs + extract))
+    .settings(
+      assembly / mainClass := Some("com.files.ExtractVacancies"),
+      assembly / assemblyJarName := s"$extract.jar"
+    )
+    .dependsOn(urlExtract, core)
+
+  lazy val gj_vacs_transform = (project in file(gj_vacs + transform))
+    .settings(
+      assembly / mainClass := Some("com.files.TransformVacancies"),
+      assembly / assemblyJarName := s"$transform.jar"
+    )
+    .dependsOn(core)
   //
 //
 
 
 lazy val root = (project in file("."))
   .aggregate(config, core, urlExtract, DBLoad,
-    currExtract, currLoad,
-    dictExtract, dictLoad,
-    vacExtract, vacTransform, vacLoad,
-    gvacExtract, gvacTransform, gvacLoad
+    hh_curr_extract, hh_curr_load,
+    hh_dict_extract, hh_dict_load,
+    hh_vacs_extract, hh_vacs_transform, hh_vacs_load,
+    gm_vacs_extract, gm_vacs_transform, gm_vacs_load,
+    gj_vacs_extract, gj_vacs_transform
   )
 
+// gm_helper
 addCommandAlias("gmHelperCompile",
   """
-    |project gvacExtract; compile; assembly;
-    |project gvacTransform; compile; assembly;
-    |project gvacLoad; compile; assembly;
+    |project gm_vacs_extract; compile; assembly;
+    |project gm_vacs_transform; compile; assembly;
+    |project gm_vacs_load; compile; assembly;
     |project root;
     |""".stripMargin
 )
 
+// gj_helper
+addCommandAlias("gjHelperCompile",
+  """
+    |project gj_vacs_extract; compile; assembly;
+    |project gj_vacs_transform; compile; assembly;
+    |project root;
+    |""".stripMargin
+)
+
+// hh_Helper
 addCommandAlias("hhHelperCompile",
   """
-    |project currExtract; compile; assembly;
-    |project currLoad; compile; assembly;
-    |project dictExtract; compile; assembly;
-    |project dictLoad; compile; assembly;
-    |project vacExtract; compile; assembly;
-    |project vacTransform; compile; assembly;
-    |project vacLoad; compile; assembly;
+    |project hh_curr_extract; compile; assembly;
+    |project hh_curr_load; compile; assembly;
+    |project hh_dict_extract; compile; assembly;
+    |project hh_dict_load; compile; assembly;
+    |project hh_vacs_extract; compile; assembly;
+    |project hh_vacs_transform; compile; assembly;
+    |project hh_vacs_load; compile; assembly;
     |project root;
     |""".stripMargin
 )
 
+
+// HeadHunter
 addCommandAlias("compileHH",
   """
     |project root; clean; compile;
@@ -168,6 +207,7 @@ addCommandAlias("compileHH",
     |""".stripMargin
 )
 
+// GetMatch
 addCommandAlias("compileGM",
   """
     |project root; clean; compile;
@@ -175,11 +215,22 @@ addCommandAlias("compileGM",
     |""".stripMargin
 )
 
+// GeekJob
+addCommandAlias("compileGJ",
+  """
+    |project root; clean; compile;
+    |gjHelperCompile;
+    |""".stripMargin
+)
+
+
+// Whole Project
 addCommandAlias("compileWholeProj",
     """
     |project root; clean; compile;
     |gmHelperCompile;
     |hhHelperCompile;
+    |gjHelperCompile;
     |""".stripMargin
 )
 

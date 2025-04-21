@@ -6,7 +6,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import java.io.File
 import scala.jdk.CollectionConverters.asScalaSetConverter
 
-class ProjectConfig(genConfFile: String, site: String, date: String) {
+class ProjectConfig(genConfFile: String, site: String, date: String) extends Serializable {
 
   private val configFile: File = new File(genConfFile)
   if (!configFile.exists()) {
@@ -35,10 +35,11 @@ class ProjectConfig(genConfFile: String, site: String, date: String) {
   }
 
   lazy val fs = new ConfPart(conf.getConfig("FS")) {
-    private lazy val url: String = config.getString("url")
+    lazy val url: String = config.getString("url")
+    private lazy val mainPath: String = config.getString("path")
 
     def getPath(folderName: FolderName): String = {
-      s"$url$site/$folderName${
+      s"$url/$mainPath$site/$folderName${
         if (!FolderName.isDict(folderName)) { s"/$date" } else ""
       }"
     }

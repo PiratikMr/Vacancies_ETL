@@ -16,7 +16,7 @@ import scala.annotation.tailrec
 
 object TransformVacancies extends App with SparkApp {
 
-  private val conf = new LocalConfig(args) {
+  private val conf = new LocalConfig(args, "hh") {
     val partitions: ScallopOption[Int] = opt[Int](default = Some(1), validate = _ > 0)
 
     define()

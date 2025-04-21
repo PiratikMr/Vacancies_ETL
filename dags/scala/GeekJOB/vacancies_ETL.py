@@ -9,11 +9,11 @@ args = [
 ]
 
 dag = DAG(
-    dag_id = "GetMatch_ETL",
+    dag_id = "GeekJOB_EL",
     default_args = {
         "start_date": airflow.utils.dates.days_ago(1)
     },
-    tags = ["scala", "getMatch"],
+    tags = ["scala", "geekJob"],
     schedule_interval = None
 )
 
@@ -28,29 +28,12 @@ save_date = PythonOperator(
     dag=dag,
 )
 
-
 extract = SparkSubmitOperator(
     task_id = "extract",
     conn_id = "spark-conn",
-    application = "jobs/scala_ETL_project/GetMatch/Vacancies/extract/target/scala-2.12/extract.jar",
+    application = "jobs/scala_ETL_project/GeekJOB/Vacancies/extract/target/scala-2.12/extract.jar",
     application_args = args,
     dag=dag
 )
 
-transform = SparkSubmitOperator(
-    task_id = "transform",
-    conn_id = "spark-conn",
-    application = "jobs/scala_ETL_project/GetMatch/Vacancies/transform/target/scala-2.12/transform.jar",
-    application_args = args,
-    dag=dag
-)
-
-load = SparkSubmitOperator(
-    task_id = "load",
-    conn_id = "spark-conn",
-    application = "jobs/scala_ETL_project/GetMatch/Vacancies/load/target/scala-2.12/load.jar",
-    application_args = args,
-    dag=dag
-)
-
-save_date >> extract >> transform >> load
+save_date >> extract

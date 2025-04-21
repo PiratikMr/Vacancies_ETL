@@ -14,7 +14,7 @@ import scala.util.{Failure, Success}
 
 object ExtractVacancies extends App with SparkApp {
 
-  private val conf = new LocalConfig(args) {
+  private val conf = new LocalConfig(args, "hh") {
     val prId: ScallopOption[Int] = opt[Int](name = "fid", default = Some(11), validate = _ > 0)
 
     val perPage: ScallopOption[Int] = opt[Int](name = "ppage", default = Some(100), validate = _ > 0)
@@ -27,6 +27,9 @@ object ExtractVacancies extends App with SparkApp {
   }
 
   override val ss: SparkSession = defineSession(conf.fileConf)
+
+  ss.conf.set("spark.executor.heartbeatInterval", "60s")
+  ss.conf.set("spark.network.timeout", "120s")
 
   import ss.implicits._
 

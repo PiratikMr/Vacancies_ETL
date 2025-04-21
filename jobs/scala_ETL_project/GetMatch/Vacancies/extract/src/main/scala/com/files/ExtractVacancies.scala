@@ -10,7 +10,7 @@ import org.rogach.scallop.ScallopOption
 
 object ExtractVacancies extends App with SparkApp {
 
-  private val conf = new LocalConfig(args) {
+  private val conf = new LocalConfig(args, "gm") {
     val partitions: ScallopOption[Int] = opt[Int](default = Some(6), validate = _ > 0)
 
     define()

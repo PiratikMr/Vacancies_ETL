@@ -3,8 +3,7 @@ from airflow import DAG
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 
 args = [
-   "--fileName", "jobs/scala_ETL_project/Configuration/config.conf",
-    "--site", "hh" 
+   "--fileName", "jobs/scala_ETL_project/Configuration/config.conf"
 ]
 
 dag = DAG(

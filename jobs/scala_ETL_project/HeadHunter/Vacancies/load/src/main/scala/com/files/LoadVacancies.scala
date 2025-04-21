@@ -4,37 +4,41 @@ import EL.Extract.take
 import Spark.SparkApp
 import com.Config.FolderName.FolderName
 import com.Config.{FolderName, LocalConfig}
-import com.LoadDB.LoadDB.give
+import com.LoadDB.LoadDB.{give, save}
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
 object LoadVacancies extends App with SparkApp {
 
-  private val conf = new LocalConfig(args) {
+  private val conf = new LocalConfig(args, "hh") {
     define()
   }
 
   override val ss: SparkSession = defineSession(conf.fileConf)
 
-  loadData(FolderName.Employer)
-  loadData(FolderName.Skills)
-  loadData(FolderName.Vac)
+  loadData(FolderName.Employer, Seq("id"), updates = Seq("name"))
+  loadData(FolderName.Skills, Seq("id"), updates = Seq("name"))
+
+  private val vac: DataFrame = take(
+    ss = ss,
+    conf = conf.fileConf,
+    folderName = FolderName.Vac
+  ).get
+  private val notUpd: Set[String] = Set("id", "publish_date")
+  loadData(FolderName.Vac, Seq("id"), vac.columns.toSeq.filter(col => !notUpd.contains(col)), data = vac)
 
   stopSpark()
 
-  private def loadData(folderName: FolderName): Unit = {
-    give(
+  private def loadData(folderName: FolderName, conflicts: Seq[String], updates: Seq[String] = null, data: DataFrame = null): Unit = {
+    save(
       conf = conf.fileConf,
+      data = if (data == null) take(
+        ss = ss,
+        conf = conf.fileConf,
+        folderName = folderName
+      ).get else data,
       tableName = conf.tableName(folderName),
-      data = getData(folderName),
-      saveMode = SaveMode.Append
+      conflicts = conflicts,
+      updates = updates
     )
-  }
-
-  private def getData(folderName: FolderName): DataFrame = {
-    take(
-      ss = ss,
-      conf = conf.fileConf,
-      folderName = folderName
-    ).get
   }
 }

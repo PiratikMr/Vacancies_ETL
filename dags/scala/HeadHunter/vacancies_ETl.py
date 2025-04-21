@@ -5,8 +5,7 @@ from airflow.operators.python_operator import PythonOperator
 
 args = [
     "--date", "{{ ti.xcom_pull(task_ids='save_date', key='date') }}",
-   "--fileName", "jobs/scala_ETL_project/Configuration/config.conf",
-    "--site", "hh" 
+   "--fileName", "jobs/scala_ETL_project/Configuration/config.conf"
 ]
 
 

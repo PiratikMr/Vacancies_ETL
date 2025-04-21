@@ -4,22 +4,22 @@ import EL.Extract.take
 import Spark.SparkApp
 import com.Config.FolderName.FolderName
 import com.Config.{FolderName, LocalConfig}
-import com.LoadDB.LoadDB.give
+import com.LoadDB.LoadDB.{give, save}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object LoadDictionaries extends App with SparkApp {
 
-  private val conf = new LocalConfig(args) {
+  private val conf = new LocalConfig(args, "hh") {
     define()
   }
 
   override val ss: SparkSession = defineSession(conf.fileConf)
 
-  load(FolderName.Areas)
-  load(FolderName.Currency)
-  load(FolderName.Schedule)
-  load(FolderName.Employment)
-  load(FolderName.Experience)
+  loadData(FolderName.Areas, Seq("id"), updates = Seq("name"))
+  loadData(FolderName.Currency, Seq("id"), updates = Seq("rate"), isDict = true)
+  loadData(FolderName.Schedule, Seq("id"), updates = Seq("name"))
+  loadData(FolderName.Employment, Seq("id"), updates = Seq("name"))
+  loadData(FolderName.Experience, Seq("id"), updates = Seq("name"))
 
   private val rolesDF: DataFrame = take(
     ss = ss,
@@ -29,21 +29,21 @@ object LoadDictionaries extends App with SparkApp {
     .select("id", "name")
     .dropDuplicates("id")
 
-  give(
-    conf = conf.fileConf,
-    data = rolesDF,
-    tableName = conf.tableName(FolderName.Roles)
-  )
+  loadData(FolderName.Roles, Seq("id"), updates = Seq("name"), data = rolesDF)
 
   stopSpark()
 
-  private def load(folderName: FolderName): Unit = give(
-    conf = conf.fileConf,
-    data = take(
-      ss = ss,
+  private def loadData(folderName: FolderName, conflicts: Seq[String], updates: Seq[String] = null, isDict: Boolean = false, data: DataFrame = null): Unit = {
+    save(
       conf = conf.fileConf,
-      folderName = FolderName.Dict(folderName)
-    ).get,
-    tableName = conf.tableName(folderName)
-  )
+      data = if (data == null) take(
+        ss = ss,
+        conf = conf.fileConf,
+        folderName = folderName
+      ).get else data,
+      tableName = if (isDict) folderName else conf.tableName(folderName),
+      conflicts = conflicts,
+      updates = updates
+    )
+  }
 }
