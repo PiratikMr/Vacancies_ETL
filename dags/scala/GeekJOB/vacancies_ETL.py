@@ -36,4 +36,12 @@ extract = SparkSubmitOperator(
     dag=dag
 )
 
-save_date >> extract
+transform = SparkSubmitOperator(
+    task_id = "transform",
+    conn_id = "spark-conn",
+    application = "jobs/scala_ETL_project/GeekJOB/Vacancies/transform/target/scala-2.12/transform.jar",
+    application_args = args,
+    dag=dag
+)
+
+save_date >> extract >> transform

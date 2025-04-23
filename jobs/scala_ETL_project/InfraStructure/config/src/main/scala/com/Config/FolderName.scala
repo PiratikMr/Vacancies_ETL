@@ -4,6 +4,12 @@ object FolderName {
   type FolderName = String
   def isDict(folderName: FolderName): Boolean = folderName == Dict
 
+  private var Dict = ""
+  def Dict(folderName: FolderName): FolderName = {
+    Dict = s"Dictionaries/$folderName"
+    Dict
+  }
+
   // General
 
   val Raw = "RawVacancies"
@@ -13,12 +19,6 @@ object FolderName {
   // HeadHunter
 
   val Employer = "Employers"
-
-  private var Dict = ""
-  def Dict(folderName: FolderName): FolderName = {
-    Dict = s"Dictionaries/$folderName"
-    Dict
-  }
   val Areas = "Areas"
   val Roles = "Roles"
   val Currency = "Currency"
@@ -27,7 +27,14 @@ object FolderName {
   val Experience = "Experience"
 
 
-  // GetMatch
+  // GetMatch -- GeekJOB
 
   val Locations = "Locations"
+
+  // GeekJOB
+
+  val JobFormats = "JobFormat"
+  val Fields = "Fields"
+  val Levels = "Level"
+
 }

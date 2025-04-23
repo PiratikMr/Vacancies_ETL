@@ -16,20 +16,17 @@ val extract: String = "extract"
 val transform: String = "transform"
 val load: String = "load"
 
-// Base/
-lazy val base_dir = "Base/"
 
-  lazy val config = (project in file(base_dir + "config")).settings(
+// InfraStructure/
+lazy val inf_struct = "InfraStructure/"
+
+  lazy val config = (project in file(inf_struct + "config")).settings(
     libraryDependencies += "com.typesafe" % "config" % "1.4.3",
     libraryDependencies += "org.rogach" %% "scallop" % "5.2.0"
   )
 
-  lazy val core = (project in file (base_dir + "core"))
+  lazy val core = (project in file (inf_struct + "core"))
     .dependsOn(config)
-//
-
-// InfraStructure/
-lazy val inf_struct = "InfraStructure/"
 
   lazy val urlExtract = (project in file(inf_struct + "URLExtract"))
     .settings(
@@ -148,10 +145,11 @@ lazy val gj_dir = "GeekJOB/"
 
   lazy val gj_vacs_transform = (project in file(gj_vacs + transform))
     .settings(
+      libraryDependencies += "net.ruippeixotog" %% "scala-scraper" % "2.2.1",
       assembly / mainClass := Some("com.files.TransformVacancies"),
       assembly / assemblyJarName := s"$transform.jar"
     )
-    .dependsOn(core)
+    .dependsOn(DBLoad, core)
   //
 //
 
@@ -165,12 +163,38 @@ lazy val root = (project in file("."))
     gj_vacs_extract, gj_vacs_transform
   )
 
+
+lazy val infra_structure = (project in file("InfraStructure"))
+  .aggregate(config, core, urlExtract, DBLoad)
+
+
+lazy val head_hunter = (project in file("HeadHunter"))
+  .aggregate(
+    hh_curr_extract, hh_curr_load,
+    hh_dict_extract, hh_dict_load,
+    hh_vacs_extract, hh_vacs_transform, hh_vacs_load
+  )
+
+lazy val get_match = (project in file("GetMatch"))
+  .aggregate(
+    gm_vacs_extract, gm_vacs_transform, gm_vacs_load
+  )
+
+lazy val geek_job = (project in file("GeekJOB"))
+  .aggregate(
+    gj_vacs_extract, gj_vacs_transform
+  )
+
+
+
+
 // gm_helper
 addCommandAlias("gmHelperCompile",
   """
-    |project gm_vacs_extract; compile; assembly;
-    |project gm_vacs_transform; compile; assembly;
-    |project gm_vacs_load; compile; assembly;
+    |project get_match; clean; compile;
+    |project gm_vacs_extract; assembly;
+    |project gm_vacs_transform; assembly;
+    |project gm_vacs_load; assembly;
     |project root;
     |""".stripMargin
 )
@@ -178,8 +202,9 @@ addCommandAlias("gmHelperCompile",
 // gj_helper
 addCommandAlias("gjHelperCompile",
   """
-    |project gj_vacs_extract; compile; assembly;
-    |project gj_vacs_transform; compile; assembly;
+    |project geek_job; clean; compile;
+    |project gj_vacs_extract; assembly;
+    |project gj_vacs_transform; assembly;
     |project root;
     |""".stripMargin
 )
@@ -187,13 +212,14 @@ addCommandAlias("gjHelperCompile",
 // hh_Helper
 addCommandAlias("hhHelperCompile",
   """
-    |project hh_curr_extract; compile; assembly;
-    |project hh_curr_load; compile; assembly;
-    |project hh_dict_extract; compile; assembly;
-    |project hh_dict_load; compile; assembly;
-    |project hh_vacs_extract; compile; assembly;
-    |project hh_vacs_transform; compile; assembly;
-    |project hh_vacs_load; compile; assembly;
+    |project head_hunter; clean; compile;
+    |project hh_curr_extract; assembly;
+    |project hh_curr_load; assembly;
+    |project hh_dict_extract; assembly;
+    |project hh_dict_load; assembly;
+    |project hh_vacs_extract; assembly;
+    |project hh_vacs_transform; assembly;
+    |project hh_vacs_load; assembly;
     |project root;
     |""".stripMargin
 )
@@ -202,7 +228,7 @@ addCommandAlias("hhHelperCompile",
 // HeadHunter
 addCommandAlias("compileHH",
   """
-    |project root; clean; compile;
+    |project infra_structure; clean; compile;
     |hhHelperCompile;
     |""".stripMargin
 )
@@ -210,7 +236,7 @@ addCommandAlias("compileHH",
 // GetMatch
 addCommandAlias("compileGM",
   """
-    |project root; clean; compile;
+    |project infra_structure; clean; compile;
     |gmHelperCompile;
     |""".stripMargin
 )
@@ -218,7 +244,7 @@ addCommandAlias("compileGM",
 // GeekJob
 addCommandAlias("compileGJ",
   """
-    |project root; clean; compile;
+    |project infra_structure; clean; compile;
     |gjHelperCompile;
     |""".stripMargin
 )
@@ -227,7 +253,7 @@ addCommandAlias("compileGJ",
 // Whole Project
 addCommandAlias("compileWholeProj",
     """
-    |project root; clean; compile;
+    |project infra_structure; clean; compile;
     |gmHelperCompile;
     |hhHelperCompile;
     |gjHelperCompile;

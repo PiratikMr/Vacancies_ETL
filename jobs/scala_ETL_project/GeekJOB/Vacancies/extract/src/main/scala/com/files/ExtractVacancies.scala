@@ -52,17 +52,20 @@ object ExtractVacancies extends App with SparkApp {
     codesRDD.flatMap { code =>
       takeURL(vacancyUrl(code), conf.fileConf) match {
         case Success(content) =>
+          val endText: String = "</article>"
+
           val fullText: String = content
           val startIdx: Integer = fullText.indexOf("""<article class="row vacancy">""")
-          val endIdx: Integer = fullText.indexOf("</article>", startIdx)
+          val endIdx: Integer = fullText.indexOf(endText, startIdx) + endText.length
 
-          Some(fullText.substring(startIdx, endIdx))
+          Some(code + fullText.substring(startIdx, endIdx).replace("\n", ""))
         case Failure(_) => None
       }
     }
   }
 
   println(s"Total vacancies loaded: ${vacanciesRDD.count()}")
+  println(vacanciesRDD.take(3).mkString("Array(", ", ", ")"))
 
   private val outputPath = conf.fileConf.fs.getPath(FolderName.Raw)
   ss.sparkContext.hadoopConfiguration.set("fs.defaultFS", conf.fileConf.fs.url)
