@@ -150,6 +150,13 @@ lazy val gj_dir = "GeekJOB/"
       assembly / assemblyJarName := s"$transform.jar"
     )
     .dependsOn(DBLoad, core)
+
+  lazy val gj_vacs_load = (project in file(gj_vacs + load))
+    .settings(
+      assembly / mainClass := Some("com.files.LoadVacancies"),
+      assembly / assemblyJarName := s"$load.jar"
+    )
+    .dependsOn(DBLoad)
   //
 //
 
@@ -182,7 +189,7 @@ lazy val get_match = (project in file("GetMatch"))
 
 lazy val geek_job = (project in file("GeekJOB"))
   .aggregate(
-    gj_vacs_extract, gj_vacs_transform
+    gj_vacs_extract, gj_vacs_transform, gj_vacs_load
   )
 
 
@@ -205,6 +212,7 @@ addCommandAlias("gjHelperCompile",
     |project geek_job; clean; compile;
     |project gj_vacs_extract; assembly;
     |project gj_vacs_transform; assembly;
+    |project gj_vacs_load; assembly;
     |project root;
     |""".stripMargin
 )

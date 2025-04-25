@@ -15,6 +15,9 @@ import org.jsoup.nodes.Document
 import org.jsoup.select.Elements
 import org.rogach.scallop.ScallopOption
 
+import java.time.format.DateTimeFormatter
+import java.time.LocalDateTime
+import java.sql.Timestamp
 import scala.jdk.CollectionConverters.asScalaBufferConverter
 import scala.util.matching.Regex
 
@@ -77,15 +80,7 @@ object TransformVacancies extends App with SparkApp {
     val locations = headers.select("div.location").text()
       .split(", ").map(_.trim)
 
-    val date = try {
-      new java.sql.Timestamp(
-        java.text.DateFormat.getDateTimeInstance()
-          .parse(dateTransform(headers.select("div.time").text()))
-          .getTime
-      )
-    } catch {
-      case _: Exception => null
-    }
+    val date: Timestamp = dateTransform(headers.select("div.time").text())
 
 
     val jobInfo: Elements = headers.select("div.jobinfo")
@@ -135,21 +130,27 @@ object TransformVacancies extends App with SparkApp {
 
   private val locations: DataFrame = genVac
     .select(col("id"), explode(col("locations")).as("name"))
+    .dropDuplicates(Seq("id", "name"))
 
   private val jobFormat: DataFrame = genVac
     .select(col("id"), explode(col("job_format")).as("name"))
+    .dropDuplicates(Seq("id", "name"))
 
   private val specs: DataFrame = genVac
     .select(col("id"), explode(col("specs")).as("name"))
+    .dropDuplicates(Seq("id", "name"))
 
   private val fields: DataFrame = genVac
     .select(col("id"), explode(col("fields")).as("name"))
+    .dropDuplicates(Seq("id", "name"))
 
   private val levels: DataFrame = genVac
     .select(col("id"), explode(col("level")).as("name"))
+    .dropDuplicates(Seq("id", "name"))
 
 
   save(FolderName.Vac, transformVac, conf.partitions())
+  save(FolderName.Locations, locations)
   save(FolderName.JobFormats, jobFormat)
   save(FolderName.Skills, specs)
   save(FolderName.Fields, fields)
@@ -158,35 +159,46 @@ object TransformVacancies extends App with SparkApp {
   stopSpark()
 
 
-  private def dateTransform(raw: String): String = {
-    if (raw.isEmpty) {
-      null
-    } else {
-      def monthsMap: Map[String, String] = Map(
-        "января" -> "01",
-        "февраля" -> "02",
-        "марта" -> "03",
-        "апреля" -> "04",
-        "мая" -> "05",
-        "июня" -> "06",
-        "июля" -> "07",
-        "августа" -> "08",
-        "сентября" -> "09",
-        "октября" -> "10",
-        "ноября" -> "11",
-        "декабря" -> "12"
-      )
+  private def dateTransform(raw: String): Timestamp = {
+    val monthsMap: Map[String, String] = Map(
+      "января" -> "01",
+      "февраля" -> "02",
+      "марта" -> "03",
+      "апреля" -> "04",
+      "мая" -> "05",
+      "июня" -> "06",
+      "июля" -> "07",
+      "августа" -> "08",
+      "сентября" -> "09",
+      "октября" -> "10",
+      "ноября" -> "11",
+      "декабря" -> "12"
+    )
 
-      val times: Array[String] = raw.split(" ")
-      val day = times(0).toInt
-      val month = monthsMap(times(1).toLowerCase)
-      val year = if (times.length > 2) {
-        times(2)
+    val times: Array[String] = raw.split(" ")
+    val day: String = {
+      if (times(0).length < 2) {
+        s"0${times(0)}"
       } else {
-        conf.date().substring(0, 4)
+        times(0)
       }
 
-      s"$year.$month.$day"
+    }
+    val month: String = monthsMap(times(1).toLowerCase)
+    val year: String = if (times.length > 2) {
+      times(2)
+    } else {
+      conf.date().substring(0, 4)
+    }
+
+    val dateStr: String = s"$year.$month.$day"
+
+    try {
+      val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd")
+      val localDate = java.time.LocalDate.parse(dateStr, formatter)
+      Timestamp.valueOf(localDate.atStartOfDay())
+    } catch {
+      case _: Exception => null
     }
   }
 
