@@ -4,7 +4,7 @@ from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOpe
 from airflow.operators.python_operator import PythonOperator
 
 args = [
-    "--date", "{{ ti.xcom_pull(task_ids='save_date', key='date') }}",
+    "--date", "{{ execution_date.strftime('%Y-%m-%d') }}",
     "--fileName", "jobs/scala_ETL_project/Configuration/config.conf"
 ]
 
@@ -16,18 +16,6 @@ dag = DAG(
     tags = ["scala", "getMatch"],
     schedule_interval = None
 )
-
-def save_date_f(**context):
-    date = context['execution_date'].strftime('%Y-%m-%d')
-    context['ti'].xcom_push(key='date', value=date)
-    
-save_date = PythonOperator(
-    task_id='save_date',
-    python_callable=save_date_f,
-    provide_context=True,
-    dag=dag,
-)
-
 
 extract = SparkSubmitOperator(
     task_id = "extract",
@@ -53,4 +41,4 @@ load = SparkSubmitOperator(
     dag=dag
 )
 
-save_date >> extract >> transform >> load
+extract >> transform >> load
