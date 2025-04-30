@@ -40,7 +40,7 @@ object ExtractVacancies extends App with SparkApp {
   give(
     conf = conf.fileConf,
     folderName = FolderName.Raw,
-    data = df
+    data = df.repartition(conf.partitions())
   )
 
   stopSpark()

@@ -10,8 +10,6 @@ default_args = {
     "start_date": airflow.utils.dates.days_ago(1),
 }
 
-
-
 class SiteConfig:
     def __init__(self, tag:str, transDataDays:int, rawDataDays:int, transDirs=None, rawDirs=None):
         self.tag = tag

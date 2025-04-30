@@ -41,8 +41,9 @@ object TransformVacancies extends App with SparkApp {
     StructField("id", StringType, nullable = false),
     StructField("name", StringType, nullable = true),
     StructField("employer", StringType, nullable = true),
+    StructField("experience", StringType, nullable = true),
     StructField("locations", ArrayType(StringType), nullable = true),
-    StructField("publish_at", TimestampType, nullable = true),
+    StructField("publish_date", TimestampType, nullable = true),
     StructField("job_format", ArrayType(StringType), nullable = true),
     StructField("salary_from", LongType, nullable = true),
     StructField("salary_to", LongType, nullable = true),
@@ -85,9 +86,9 @@ object TransformVacancies extends App with SparkApp {
 
     val jobInfo: Elements = headers.select("div.jobinfo")
 
-    val jobFormat = jobInfo
-      .select("span.jobformat").html()
-      .split("<br>").map(_.trim)
+    val (exp, jobFormat) = transformJobFormat(jobInfo
+      .select("span.jobformat").html())
+
 
     val (sals, currency) = salaryTransform(jobInfo.select("span.salary").text())
     val salary_from = if (sals.nonEmpty) { sals.head } else { null }
@@ -102,6 +103,7 @@ object TransformVacancies extends App with SparkApp {
       id,
       name,
       company,
+      exp,
       locations,
       date,
       jobFormat,
@@ -125,7 +127,7 @@ object TransformVacancies extends App with SparkApp {
 
 
   private val transformVac: DataFrame = genVac.select(
-    "id", "name", "employer", "publish_at", "salary_from", "salary_to", "currency_id"
+    "id", "name", "employer", "experience", "publish_date", "salary_from", "salary_to", "currency_id"
   )
 
   private val locations: DataFrame = genVac
@@ -202,6 +204,32 @@ object TransformVacancies extends App with SparkApp {
     }
   }
 
+  private def transformJobFormat(raw: String): (String, Array[String]) = {
+    val temp = raw.split("<br>").map(_.trim)
+
+    val expOption: Option[String] = temp.find(_.toLowerCase.contains("опыт"))
+
+    val exp = expOption match {
+      case Some(t) => {
+        val numbers = """\d+""".r.findAllIn(t).map(_.toInt).toList
+        if (numbers.size == 2) {
+          val f = if (numbers.head == 1) "года " else ""
+          val s = if (numbers(1) > 1) "лет" else "года"
+          s"От ${numbers.head} ${f}до ${numbers(1)} $s"
+        } else if (numbers.size == 1) {
+          val f = if (numbers.head == 1) "года" else "лет"
+          val op = if (t.contains("менее")) "Менее" else "Более"
+          s"$op ${numbers.head} $f"
+        } else {
+          "Любой"
+        }
+      }
+      case None => null
+    }
+
+    (exp, temp.filter(o => !o.toLowerCase.contains("опыт")))
+  }
+
   private def salaryTransform(raw: String): (Array[Long], String) = {
     val numberPattern: Regex = """(\d{1,3}(?:\s\d{3})*)""".r
     val currencyPattern: Regex = s"""([${currencyCodes.filter(_.length == 1).mkString("", "", "")}])""".r
@@ -215,11 +243,11 @@ object TransformVacancies extends App with SparkApp {
   }
 
   private def tagsTransform(divTag: Elements): (Array[String], Array[String], Array[String]) = {
-    def f(title: String): Array[String] = {
-      divTag.select(s"b:contains($title) ~ a.chip").eachText().asScala.toArray
-    }
-
-    (f("Специализация"), f("Отрасль и сфера применения"), f("Уровень должности"))
+    (
+      divTag.select("b:contains(Специализация) + br ~ a.chip:not(b:contains(Отрасль) ~ a.chip)").eachText().asScala.toArray,
+      divTag.select("b:contains(Отрасль и сфера применения) + br ~ a.chip:not(b:contains(Уровень) ~ a.chip)").eachText().asScala.toArray,
+      divTag.select("b:contains(Уровень должности) + br ~ a.chip").eachText().asScala.toArray
+    )
   }
 
   private def save(folderName: FolderName, dataFrame: DataFrame, repartition: Integer = 1): Unit = {

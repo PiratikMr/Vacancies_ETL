@@ -28,9 +28,6 @@ object ExtractVacancies extends App with SparkApp {
 
   override val ss: SparkSession = defineSession(conf.fileConf)
 
-  ss.conf.set("spark.executor.heartbeatInterval", "60s")
-  ss.conf.set("spark.network.timeout", "120s")
-
   import ss.implicits._
 
 
