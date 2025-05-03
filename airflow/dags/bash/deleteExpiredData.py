@@ -19,9 +19,9 @@ class SiteConfig:
         self.rawDirs = ["RawVacancies"] + (rawDirs if rawDirs is not None else [])
 
 siteConfs = [
-    SiteConfig("hh", transDataDays = 30, rawDataDays = 60, transDirs=["Employers"]),
-    SiteConfig("gj", 30, 60, transDirs=["Fields", "JobFormat", "Level", "Locations"]),
-    SiteConfig("gm", 30, 60, transDirs=["Locations"])
+    SiteConfig("hh", transDataDays = 120, rawDataDays = 60, transDirs=["Employers"]),
+    SiteConfig("gj", 120, 60, transDirs=["Fields", "JobFormat", "Level", "Locations"]),
+    SiteConfig("gm", 120, 60, transDirs=["Locations"])
 ]
 
 

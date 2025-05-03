@@ -39,7 +39,7 @@ object LoadDictionaries extends App with SparkApp {
       data = if (data == null) take(
         ss = ss,
         conf = conf.fileConf,
-        folderName = folderName
+        folderName = FolderName.Dict(folderName)
       ).get else data,
       tableName = if (isDict) folderName else conf.tableName(folderName),
       conflicts = conflicts,

@@ -1,0 +1,3 @@
+python-decouple
+apache-airflow-providers-apache-spark
+requests

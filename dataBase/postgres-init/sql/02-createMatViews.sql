@@ -1,6 +1,5 @@
 --// BASE
     --0.1 Transformed hh salaries
-        drop materialized view if exists avg_sal_hh;
         create materialized view avg_sal_hh as
             with salary as (
                 select 
@@ -25,7 +24,6 @@
             where s.salary between 10000 and 1000000;
 
     --0.2 Transformed gj salaries
-        drop materialized view if exists avg_sal_gj;
         create materialized view avg_sal_gj as
             with salary as (
                 select 
@@ -50,7 +48,6 @@
             where s.salary between 10000 and 1000000;
 
     --0.3 Transformed gm salaries
-        drop materialized view if exists avg_sal_gm;
         create materialized view avg_sal_gm as
             with salary as (
                 select 
@@ -75,11 +72,10 @@
             where s.salary between 10000 and 1000000;
 --//
 
-
 --// Materialized views
 
+    --! add fields count
     --1. Number of vacancies
-        drop materialized view if exists vacs_count;
         create materialized view vacs_count as
             with counts as (
                 select
@@ -132,13 +128,13 @@
                     ) as res
             ) select 
                 c.total as total, 
-                round(1.0 * c.range_count / c.total, 3) as rng, 
-                round(1.0 * c.ed_count / c.total, 3) as ed, 
-                round(1.0 * c.salary_count / c.total, 3) as salary,
+                case when c.total = 0 then 0 else round(1.0 * c.range_count / c.total, 3) end as rng, 
+                case when c.total = 0 then 0 else round(1.0 * c.ed_count / c.total, 3) end as ed, 
+                case when c.total = 0 then 0 else round(1.0 * c.salary_count / c.total, 3) end as salary,
                 skills.res as skill_count,
                 comp.res as company_count,
-                round(1.0 * c.total / comp.res ,1) as vacs_on_comp,
-                round(1.0 * f.res / c.total, 3) as foreigns
+                case when comp.res = 0 then 0 else round(1.0 * c.total / comp.res ,1) end as vacs_on_comp,
+                case when c.total = 0 then 0 else round(1.0 * f.res / c.total, 3) end as foreigns
 
                 from counts as c
                 cross join skills
@@ -146,7 +142,6 @@
                 cross join foreigns as f;
 
     --2. Average, mediane, min, max salary in rubles
-        drop materialized view if exists avg_med_sal;
         create materialized view avg_med_sal as
             with comm_sal as (
                 select salary
@@ -158,96 +153,90 @@
                     select salary from avg_sal_gm
                 ) as salary
             ) select 
-                round(avg(c.salary)) as average, 
+                round(avg(c.salary)) as average,
                 round(cast(percentile_cont(0.5) within group (order by c.salary) as numeric)) as mediane,
                 round(min(c.salary)) as min,
                 round(max(c.salary)) as max
             from comm_sal as c;
 
     --3. Top companies by salary
-        drop materialized view if exists top_companies_by_salary;
-        create materialized view top_companies_by_salary as
-            with companies_hh as (
+        create materialized view top_companies as
+            with hh as (
                 select 
                     e.name as name,
                     count(*) as count,
                     round(cast(percentile_cont(0.5) within group (order by s.salary) as numeric)) as salary
-                from avg_sal_hh as s
-                join hh_vacancies as h on h.id = s.id
-                join hh_employers as e on e.id = h.employer_id
-                where h.employer_id is not null
+                from hh_vacancies as v
+                join hh_employers as e on e.id = v.employer_id
+                left join avg_sal_hh as s on s.id = v.id
                 group by e.name
-            ), companies_gj as (
+            ), gj as (
                 select 
-                    g.employer as name,
+                    v.employer as name,
                     count(*) count,
                     round(cast(percentile_cont(0.5) within group (order by s.salary) as numeric)) as salary
-                from avg_sal_gj as s
-                join gj_vacancies as g on g.id = s.id
-                where g.employer is not null
-                group by g.employer
-            ), companies_gm as (
+                from gj_vacancies as v
+                left join avg_sal_gj as s on s.id = v.id
+                where v.employer is not null
+                group by v.employer
+            ), gm as (
                 select 
-                    g.employer as name,
+                    v.employer as name,
                     count(*) count,
                     round(cast(percentile_cont(0.5) within group (order by s.salary) as numeric)) as salary
-                from avg_sal_gm as s
-                join gm_vacancies as g on g.id = s.id
-                where g.employer is not null
-                group by g.employer
+                from gm_vacancies as v
+                left join avg_sal_gm as s on s.id = v.id
+                where v.employer is not null
+                group by v.employer
             ) select 
                 c.name,
                 sum(c.count) as count,
                 round(cast(percentile_cont(0.5) within group (order by c.salary) as numeric)) as salary
             from (
-                select * from companies_hh 
+                select * from hh 
                 union all
-                select * from companies_gj
+                select * from gj
                 union all
-                select * from companies_gm 
+                select * from gm 
             ) as c
             where count > 5
             group by c.name
-            order by salary desc
+            order by count desc
             limit 100;
             
     --4. Top skills, mediane salary for each
-        drop materialized view if exists top_skills;
         create materialized view top_skills as
             with hh as (
                 select
                     sk.name,
                     count(*) as count,
-                    round(cast(percentile_cont(0.5) within group (order by sa.salary) as numeric)) as salary
-                from hh_vacancies as v
-                join hh_skills as sk on v.id = sk.id
-                left join avg_sal_hh as sa on sa.id = v.id
+                    round(avg(s.salary)) as salary
+                from hh_skills as sk
+                left join avg_sal_hh as s on s.id = sk.id
                 where sk.name is not null
                 group by sk.name
             ), gj as (
                 select
                     sk.name,
                     count(*) as count,
-                    round(cast(percentile_cont(0.5) within group (order by sa.salary) as numeric)) as salary
-                from gj_vacancies as v
-                join gj_skills as sk on v.id = sk.id
-                left join avg_sal_gj as sa on sa.id = v.id
+                    round(avg(s.salary)) as salary
+                from gj_skills as sk
+                left join avg_sal_gj as s on s.id = sk.id
                 where sk.name is not null
                 group by sk.name
             ), gm as (
                 select
                     sk.name,
                     count(*) as count,
-                    round(cast(percentile_cont(0.5) within group (order by sa.salary) as numeric)) as salary
-                from gm_vacancies as v
-                join gm_skills as sk on v.id = sk.id
-                left join avg_sal_gm as sa on sa.id = v.id
+                    round(avg(s.salary)) as salary
+                from gm_skills as sk
+                left join avg_sal_gm as s on s.id = sk.id
                 where sk.name is not null
                 group by sk.name
             ) select
-                name,
+                case when name is null then 'Без навыка' else name end as name,
                 sum(count) as count,
-                round(cast(percentile_cont(0.5) within group (order by salary) as numeric)) as salary
+                round(avg(salary)) as salary
             from (
                 select * from hh 
                 union all
@@ -260,45 +249,43 @@
             limit 100;
 
     --5. English level by salary
-        drop materialized view if exists english_level;
         create materialized view english_level as
             select
                 case
                     when v.english_lvl is null then
-                        '-'
+                        'Не требуется'
                     else v.english_lvl
                 end as name,
                 count(*) as count,
-                round(cast(percentile_cont(0.5) within group (order by s.salary) as numeric)) as salary
+                round(avg(s.salary)) as salary
             from gm_vacancies as v
             join avg_sal_gm as s on s.id = v.id
             group by v.english_lvl
             order by salary desc;
 
     --6. Top fields/specialisation by salary
-        drop materialized view if exists top_fields;
         create materialized view top_fields as
             with hh as (
                 select
                     r.name as name,
                     count(*) as count,
-                    round(cast(percentile_cont(0.5) within group (order by s.salary) as numeric)) as salary
+                    round(avg(s.salary)) as salary
                 from hh_vacancies as v
-                join avg_sal_hh as s on s.id = v.id
                 join hh_roles as r on r.id = v.role_id
+                left join avg_sal_hh as s on s.id = v.id
                 group by r.name
             ), gj as (
-                select 
+                select
                     f.name as name,
                     count(*) as count,
-                    round(cast(percentile_cont(0.5) within group (order by s.salary) as numeric)) as salary
+                    round(avg(s.salary)) as salary
                 from gj_fields as f
-                join avg_sal_gj as s on s.id = f.id
+                left join avg_sal_gj as s on s.id = f.id
                 group by f.name
             ) select
                 name,
                 sum(count) as count,
-                round(cast(percentile_cont(0.5) within group (order by salary) as numeric)) as salary
+                round(avg(salary)) as salary
             from (
                 select * from hh 
                 union all
@@ -308,29 +295,27 @@
             order by count desc
             limit 100;
 
-    --7. Level by salary
-        drop materialized view if exists levels_salary;
-        create materialized view levels_salary as
+    --7. Top grade by salary
+        create materialized view top_grade as
             select
                 l.name,
                 count(*) as count,
-                round(cast(percentile_cont(0.5) within group (order by s.salary) as numeric)) as salary
+                round(avg(s.salary)) as salary
             from gj_level as l
-            join avg_sal_gj as s on s.id = l.id
+            left join avg_sal_gj as s on s.id = l.id
             group by l.name
             order by count desc;
 
     --8. Top experience by salary
-        drop materialized view if exists top_experience;
         create materialized view top_experience as
             with hh as (
                 select
                     e.name,
                     count(*) as count,
-                    round(cast(percentile_cont(0.5) within group (order by s.salary) as numeric)) as salary
+                    round(avg(s.salary)) as salary
                 from hh_vacancies as v
-                join avg_sal_hh as s on s.id = v.id
                 join hh_experience as e on e.id = v.experience_id
+                left join avg_sal_hh as s on s.id = v.id
                 group by e.name
             ), gj as (
                 select
@@ -340,14 +325,14 @@
                         else v.experience
                     end as experience,
                     count(*) as count,
-                    round(cast(percentile_cont(0.5) within group (order by s.salary) as numeric)) as salary
+                    round(avg(s.salary)) as salary
                 from gj_vacancies as v
-                join avg_sal_gj as s on s.id = v.id
+                left join avg_sal_gj as s on s.id = v.id
                 group by v.experience
             ) select
                 name,
                 sum(count) as count,
-                round(cast(percentile_cont(0.5) within group (order by salary) as numeric)) as salary
+                round(avg(salary)) as salary
             from (
                 select * from hh
                 union all
@@ -355,4 +340,105 @@
             )
             group by name
             order by count desc;
+
+    --9. Top employment
+        create materialized view top_employment as
+            select 
+                e.name,
+                count(*) as count,
+                round(avg(s.salary)) as salary
+            from hh_vacancies as v
+            join hh_employment as e on e.id = v.employment_id
+            left join avg_sal_hh as s on s.id = v.id
+            group by e.name
+            order by count desc;
+
+    --10. Top schedule
+        create materialized view top_schedule as
+            with hh as (
+                select 
+                    sc.name as name,
+                    count(*) as count,
+                    round(avg(s.salary)) as salary
+                from hh_vacancies as v
+                join hh_schedule as sc on sc.id = v.schedule_id
+                left join avg_sal_hh as s on s.id = v.id
+                group by sc.name
+            ), gj as (
+                select
+                    sc.name as name,
+                    count(*) as count,
+                    round(avg(s.salary)) as salary
+                from gj_vacancies as v
+                join gj_jobformat as sc on sc.id = v.id
+                left join avg_sal_gj as s on s.id = v.id
+                group by sc.name
+            ), gm as (
+                with vacs as (
+                    select 
+                        v.id,
+                        name_op as op
+                    from gm_vacancies as v
+                    cross join lateral (
+                        values 
+                            (case when remote_op is not null then 'Удаленная работа' end),
+                            (case when office_op is not null then 'Работа в офисе' end)
+                    ) as t(name_op)
+                    where (remote_op is not null or office_op is not null)
+                    and name_op is not null
+                ) select
+                    v.op as name,
+                    count(*) as count,
+                    round(avg(s.salary)) as salary
+                from vacs as v
+                left join avg_sal_gm as s on s.id = v.id
+                group by v.op
+            ) select 
+                v.name,
+                sum(count) as count,
+                round(avg(v.salary)) as salary
+            from (
+                select * from hh
+                union all
+                select * from gj
+                union all
+                select * from gm
+            ) as v
+            group by v.name
+            order by count desc;
+
+    --11. Vacs count per day
+        create materialized view vacs_pday as
+            with hh as (
+                select 
+                    date(v.publish_date) as date,
+                    count(*)
+                from hh_vacancies as v
+                group by date(v.publish_date)
+            ), gm as (
+               select 
+                    date(v.publish_date) as date,
+                    count(*)
+                from gm_vacancies as v
+                group by date(v.publish_date) 
+            ), gj as (
+               select 
+                    date(v.publish_date) as date,
+                    count(*)
+                from gj_vacancies as v
+                group by date(v.publish_date) 
+            ) select
+                date,
+                sum(count) as count
+            from (
+                select * from hh
+                union all
+                select * from gj
+                union all
+                select * from gm
+            )
+            group by date
+            order by date desc;
+
+    --. Salary by mounths, years
 --//

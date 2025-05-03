@@ -1,15 +1,8 @@
 #directories
 
-/base/
-datanode/
-historyserver/
+grafana/data/plugins/
+
 logs/
-namenode/
-nginx/
-nodemanager/
-plugins/
-resourcemanager/
-submit/
 
 jobs/java_*
 
@@ -19,20 +12,4 @@ __pycache__/
 target
 test
 
-#types
-
-*.env
-*.yaml
-
-#files
-
-## !
 config.conf
-##
-
-deleteData.py
-.gitignore
-Dockerfile
-Makefile
-requirements.txt
-postgresql-42.7.4.jar

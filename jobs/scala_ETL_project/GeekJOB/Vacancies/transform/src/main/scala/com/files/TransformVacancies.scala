@@ -227,7 +227,13 @@ object TransformVacancies extends App with SparkApp {
       case None => null
     }
 
-    (exp, temp.filter(o => !o.toLowerCase.contains("опыт")))
+    val jobFormat = temp
+      .filter(o => !o.toLowerCase.contains("опыт"))
+      .flatMap(_.split("•"))
+      .map(_.trim)
+      .filter(_.nonEmpty)
+
+    (exp, jobFormat)
   }
 
   private def salaryTransform(raw: String): (Array[Long], String) = {
