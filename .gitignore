@@ -1,5 +1,6 @@
 #directories
 
+_stuff/
 grafana/data/plugins/
 
 logs/

@@ -133,7 +133,7 @@ services:
     environment:
       - HADOOP_HOME=/opt/hadoop
     volumes:
-      - hadoop_namenode:/hadoop/dfs/name
+      - hadoop_namenode:/opt/hadoop/data/nameNode
       - ./hadoop/hadoop_config:/opt/hadoop/etc/hadoop
       - ./hadoop/start-hdfs.sh:/start-hdfs.sh
     ports:

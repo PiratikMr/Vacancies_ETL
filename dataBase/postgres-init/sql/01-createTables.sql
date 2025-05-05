@@ -36,6 +36,7 @@
         currency_id text,
         role_id bigint
     );
+    create index idx_hh_vacancies_name_lower on public.hh_vacancies using btree (lower(name));
 
     create table public.hh_areas (
         id bigint primary key,
@@ -87,6 +88,7 @@
         salary_to bigint,
         currency_id text
     );
+    create index idx_gj_vacancies_name_lower on public.gj_vacancies using btree (lower(name));
 
     create table public.gj_fields (
         id text,
@@ -135,6 +137,7 @@
         office_op text,
         employer text
     );
+    create index idx_gm_vacancies_name_lower on public.gm_vacancies using btree (lower(name));
 
     create table public.gm_skills (
         id bigint,

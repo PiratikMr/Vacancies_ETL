@@ -7,25 +7,37 @@ default_args = {
     "start_date": airflow.utils.dates.days_ago(1)
 }
 
-mat_views_pr1 =[
+mat_views = [
+    [
         'avg_sal_hh',
         'avg_sal_gj',
-        'avg_sal_gm'
-]
+        'avg_sal_gm',
+        'grades_hh',
+        'grades_gm'
+    ],
 
-mat_views_pr2 = [
+    [
+        'grades_vacs_pmonths'
+    ],
+
+    [
         'vacs_count',
         'avg_med_sal',
         'top_companies',
         'top_skills',
         'english_level',
         'top_fields',
-        'top_grade',
-        'top_experience',
-        'top_employment',
-        'top_schedule',
-        'vacs_pday'
+        'top_grades',
+        'top_experiences',
+        'top_employments',
+        'top_schedules',
+        'vacs_pday',
+        'sal_pquarters',
+        'vacs_grade_pmonths'
     ]
+]
+
+
 
 def create_refresh_task(view):
     return PostgresOperator(
@@ -41,14 +53,14 @@ with DAG(
     tags = ["python"]
 ) as dag:
     
-    refresh_tasks = []
+    prev_tasks = []
+    curr_tasks = []
 
-    for view in mat_views_pr1:
-        task = create_refresh_task(view)
-        refresh_tasks.append(task)
-
-
-    for view in mat_views_pr2:
-        task = create_refresh_task(view)
-        for rt in refresh_tasks:
-            rt >> task
+    for views in mat_views:
+        for view in views:
+            task = create_refresh_task(view)
+            for pt in prev_tasks:
+                pt >> task
+            curr_tasks.append(task)
+        prev_tasks = curr_tasks
+        curr_tasks = []
