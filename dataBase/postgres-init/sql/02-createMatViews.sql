@@ -1,4 +1,4 @@
---// Agregate data level 1
+--// Aggregate data level 1
     --1 Transformed hh salaries
         create materialized view avg_sal_hh as
             with salary as (
@@ -113,10 +113,10 @@
 --//
 
 
---// Agregate data level 2
+--// Aggregate data level 2
     
-    --1 Grade vacs with salary per month
-        create materialized view grades_vacs_pmonths as 
+    --1 Grade counts with salary per months
+        create materialized view grades_count_sal_pmonths as 
             select
                 grade,
                 date_trunc('month', date) as date,
@@ -152,6 +152,47 @@
                 left join avg_sal_gj as s on s.id = v.id
             )
             group by date_trunc('month', date), grade;
+
+    --2 Skills counts with salary per months
+        create materialized view skills_count_sal as
+            select
+                id,
+                name as skill,
+                salary,
+                date_trunc('month', date) as date
+            from (
+                select 
+                    cast(sk.id as text) as id, 
+                    sk.name,
+                    s.salary,
+                    v.publish_date as date
+                from hh_skills as sk
+                join hh_vacancies as v on v.id = sk.id
+                left join avg_sal_hh as s on sk.id = s.id
+
+                union all
+
+                select
+                    sk.id,
+                    sk.name,
+                    s.salary,
+                    v.publish_date as date
+                from gj_skills as sk
+                join gj_vacancies as v on v.id = sk.id
+                left join avg_sal_gj as s on sk.id = s.id
+
+                union all
+
+                select
+                    cast(sk.id as text) as id, 
+                    sk.name,
+                    s.salary,
+                    v.publish_date as date
+                from gm_skills as sk
+                join gm_vacancies as v on v.id = sk.id
+                left join avg_sal_gm as s on sk.id = s.id
+            );
+
 --//
 
 
@@ -178,9 +219,14 @@
                     )
                 ), skills as (
                     select
-                        (select count(distinct id) from hh_skills) + 
-                        (select count(distinct id) from gj_skills) + 
-                        (select count(distinct id) from gm_skills) as res
+                        count(distinct name) as res
+                    from (
+                        select distinct name from hh_skills
+                        union all
+                        select distinct name from gj_skills
+                        union all
+                        select distinct name from gm_skills
+                    )    
                 ), companies as (
                     select
                         count(distinct employer) as res
@@ -244,15 +290,42 @@
                     union all
                     select salary from avg_sal_gm
                 );
+    
+        --3. Vacs count per day
+            create materialized view vacs_pday as
+                with vacs as (
+                    select 
+                        date(publish_date) as date
+                    from hh_vacancies
+
+                    union all
+
+                    select 
+                        date(publish_date) as date
+                    from gj_vacancies
+
+                    union all
+
+                    select 
+                        date(publish_date) as date
+                    from gm_vacancies
+                ) select
+                    date,
+                    count(*) as count
+                from vacs
+                group by date
+                order by date desc;
+    --//
+
 
     --// Grades
-        --1. Top grade by salary
+        --1. Top grade
             create materialized view top_grades as           
                 select
                     grade,
                     sum(count) as count,
                     round(avg(average)) as salary
-                from grades_vacs_pmonths
+                from grades_count_sal_pmonths
                 group by grade
                 order by count desc;
 
@@ -264,7 +337,7 @@
                     sum(count) filter (where grade = 'Миддл') as middle,
                     sum(count) filter (where grade = 'Сеньор') as senior,
                     sum(count) filter (where grade = 'Стажер') as intern
-                from grades_vacs_pmonths
+                from grades_count_sal_pmonths
                 group by date
                 order by date desc;
 
@@ -276,9 +349,176 @@
                     avg(average) filter (where grade = 'Миддл') as middle,
                     avg(average) filter (where grade = 'Сеньор') as senior,
                     avg(average) filter (where grade = 'Стажер') as intern
-                from grades_vacs_pmonths
+                from grades_count_sal_pmonths
                 group by date
                 order by date desc;
+    --//
+
+
+    --// Skills
+        --1. Top skills
+            create materialized view top_skills as
+                select
+                    skill,
+                    count(*),
+                    round(avg(salary)) as salary
+                from skills_count_sal
+                group by skill
+                order by count desc
+                limit 100;
+    
+        --2. Combined skills by 2
+            create materialized view top_combined_skills_by2 as
+                with pairs as (
+                    select 
+                        f.skill as first,
+                        s.skill as second,
+                        f.salary as salary
+                    from skills_count_sal as f
+                    join skills_count_sal as s on f.id = s.id and f.skill < s.skill
+                ) select
+                    first,
+                    second,
+                    count(*) as count,
+                    round(avg(salary)) as salary
+                from pairs
+                group by first, second
+                order by count desc
+                limit 15;
+
+        --3. Combined skills by 3
+            create materialized view top_combined_skills_by3 as
+                with skills as (
+                    select 
+                        f.id,
+                        f.skill as first,
+                        s.skill as second,
+                        t.skill as third,
+                        f.salary as salary
+                    from skills_count_sal as f
+                    join skills_count_sal as s on f.id = s.id and f.skill < s.skill
+                    join skills_count_sal as t on f.id = t.id and s.skill < t.skill
+                ) select
+                    first,
+                    second,
+                    third,
+                    count(*) as count,
+                    round(avg(salary)) as salary
+                from skills
+                group by first, second, third
+                order by count desc
+                limit 15;
+    
+        --4. Top skills for grades
+            create materialized view top_skills_by_grades as
+                with skill_counts as (
+                    select 
+                        g.grade,
+                        s.skill,
+                        count(*) as skill_count
+                    from (
+                        select
+                            id,
+                            name as grade
+                        from gj_level
+
+                        union all
+
+                        select
+                            cast(id as text) as id,
+                            grade
+                        from grades_hh
+
+                        union all
+                        select
+                            cast(id as text) as id,
+                            grade
+                        from grades_gm
+                    ) as g
+                    join skills_count_sal s on g.id = s.id
+                    where g.grade in ('Джуниор', 'Миддл', 'Сеньор', 'Стажер')
+                    group by g.grade, s.skill
+                ),
+                ranked_skills as (
+                    select 
+                        grade,
+                        skill,
+                        skill_count,
+                        row_number() over (partition by grade order by skill_count desc) as skill_rank
+                    from skill_counts
+                )
+                select 
+                    grade,
+                    max(case when skill_rank = 1 then skill end) as fn,
+                    max(case when skill_rank = 1 then skill_count end) as fc,
+                    max(case when skill_rank = 2 then skill end) as sn,
+                    max(case when skill_rank = 2 then skill_count end) as sc,
+                    max(case when skill_rank = 3 then skill end) as tn,
+                    max(case when skill_rank = 3 then skill_count end) as tc,
+                    max(case when skill_rank = 4 then skill end) as fon,
+                    max(case when skill_rank = 4 then skill_count end) as foc
+                from ranked_skills
+                where skill_rank <= 4
+                group by grade;
+
+        --5. Top skills for fields
+            create materialized view top_skills_by_fields as
+                with fields as (
+                    select
+                        id,
+                        field
+                    from (
+                        select
+                            cast(v.id as text) as id,
+                            r.name as field
+                        from hh_vacancies as v
+                        join hh_roles as r on r.id = v.role_id
+
+                        union all
+
+                        select
+                            id,
+                            name as field
+                        from gj_fields
+                    )
+                ), skills as (
+                    select
+                        f.field,
+                        s.skill,
+                        count(*) as count
+                    from fields as f
+                    join skills_count_sal as s on s.id = f.id
+                    group by f.field, s.skill
+                ), top_fields as (
+                    select
+                        field,
+                        sum(count) as count
+                    from skills
+                    group by field
+                    order by count desc
+                    limit 15
+                ), ranked_skills as (
+                    select 
+                        field,
+                        skill,
+                        count,
+                        row_number() over (partition by field order by count desc) as rank
+                    from skills
+                    where field in (select field from top_fields)
+                ) select 
+                    field,
+                    max(case when rank = 1 then skill end) as fn,
+                    max(case when rank = 1 then count end) as fc,
+                    max(case when rank = 2 then skill end) as sn,
+                    max(case when rank = 2 then count end) as sc,
+                    max(case when rank = 3 then skill end) as tn,
+                    max(case when rank = 3 then count end) as tc,
+                    max(case when rank = 4 then skill end) as fon,
+                    max(case when rank = 4 then count end) as foc
+                from ranked_skills
+                where rank <= 4
+                group by field;
+    --//
 
 
     --3. Top companies by salary
@@ -324,39 +564,7 @@
             order by count desc
             limit 100;
             
-    --4. Top skills, mediane salary for each
-        create materialized view top_skills as
-            with vacs as (
-                select 
-                    sk.name,
-                    s.salary as salary
-                from hh_skills as sk
-                left join avg_sal_hh as s on s.id = sk.id
-
-                union all
-
-                select 
-                    sk.name,
-                    s.salary as salary
-                from gj_skills as sk
-                left join avg_sal_gj as s on s.id = sk.id
-
-                union all
-
-                select 
-                    sk.name,
-                    s.salary as salary
-                from gm_skills as sk
-                left join avg_sal_gm as s on s.id = sk.id
-            ) select
-                case when name is null then 'Без навыка' else name end as name,
-                count(*) as count,
-                round(avg(salary)) as salary
-            from vacs
-            group by name
-            order by count desc
-            limit 100;
-
+   
     --5. English level by salary
         create materialized view english_level as
             select
@@ -502,31 +710,7 @@
             group by name
             order by count desc;           
 
-    --11. Vacs count per day
-        create materialized view vacs_pday as
-            with vacs as (
-                select 
-                    date(publish_date) as date
-                from hh_vacancies
-
-                union all
-
-                select 
-                    date(publish_date) as date
-                from gj_vacancies
-
-                union all
-
-                select 
-                    date(publish_date) as date
-                from gm_vacancies
-            ) select
-                date,
-                count(*) as count
-            from vacs
-            group by date
-            order by date desc;
-
+    
     --12. Average salary per quarter yaer
         create materialized view sal_pquarters as
             with vacs as (

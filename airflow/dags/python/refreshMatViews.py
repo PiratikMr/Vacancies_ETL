@@ -8,6 +8,7 @@ default_args = {
 }
 
 mat_views = [
+    # aggregate data lvl1
     [
         'avg_sal_hh',
         'avg_sal_gj',
@@ -16,24 +17,43 @@ mat_views = [
         'grades_gm'
     ],
 
+    # aggregate data lvl2
     [
-        'grades_vacs_pmonths'
+        'grades_count_sal_pmonths',
+        'skills_count_sal'
     ],
 
+    # number values
     [
         'vacs_count',
         'avg_med_sal',
+        'vacs_pday',
+    ],
+
+    # grades
+    [
+        'top_grades',
+        'vacs_grade_pmonths',
+        'sal_grades_pmonths'
+    ],
+
+    # skills
+    [
+       'top_skills',
+       'top_combined_skills_by2',
+       'top_combined_skills_by3',
+       'top_skills_by_grades',
+       'top_skills_by_fields'
+    ],
+
+    [
         'top_companies',
-        'top_skills',
         'english_level',
         'top_fields',
-        'top_grades',
         'top_experiences',
         'top_employments',
         'top_schedules',
-        'vacs_pday',
         'sal_pquarters',
-        'vacs_grade_pmonths'
     ]
 ]
 

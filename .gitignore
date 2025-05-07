@@ -3,6 +3,8 @@
 _stuff/
 grafana/data/plugins/
 
+jobs/python_TelegramChannels/
+
 logs/
 
 jobs/java_*

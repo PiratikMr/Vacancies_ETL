@@ -249,8 +249,13 @@ object TransformVacancies extends App with SparkApp {
   }
 
   private def tagsTransform(divTag: Elements): (Array[String], Array[String], Array[String]) = {
+
+    val specs_t: Array[String] = divTag.select("b:contains(Специализация) + br ~ a.chip:not(b:contains(Отрасль) ~ a.chip)").eachText().asScala.toArray
+    val russianCharsRegex = "[а-яА-ЯёЁ]".r
+    val specs: Array[String] = specs_t.filter(str => russianCharsRegex.findFirstIn(str).isEmpty)
+
     (
-      divTag.select("b:contains(Специализация) + br ~ a.chip:not(b:contains(Отрасль) ~ a.chip)").eachText().asScala.toArray,
+      specs,
       divTag.select("b:contains(Отрасль и сфера применения) + br ~ a.chip:not(b:contains(Уровень) ~ a.chip)").eachText().asScala.toArray,
       divTag.select("b:contains(Уровень должности) + br ~ a.chip").eachText().asScala.toArray
     )
