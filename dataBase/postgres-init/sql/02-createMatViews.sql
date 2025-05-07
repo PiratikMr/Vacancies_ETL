@@ -612,7 +612,7 @@
             from vacs
             group by name
             order by count desc
-            limit 100;s
+            limit 100;
 
     
 
