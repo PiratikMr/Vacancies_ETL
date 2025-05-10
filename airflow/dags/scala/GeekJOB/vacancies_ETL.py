@@ -20,7 +20,7 @@ extract = SparkSubmitOperator(
     task_id = "extract",
     conn_id = "SPARK_CONN",
     application = "jobs/scala_ETL_project/GeekJOB/Vacancies/extract/target/scala-2.12/extract.jar",
-    application_args = args,
+    application_args = args + ["--pagelimit", "20"],
     dag=dag
 )
 

@@ -11,7 +11,8 @@ import org.rogach.scallop.ScallopOption
 object ExtractVacancies extends App with SparkApp {
 
   private val conf = new LocalConfig(args, "gm") {
-    val partitions: ScallopOption[Int] = opt[Int](default = Some(6), validate = _ > 0)
+    val partitions: ScallopOption[Int] = opt[Int](default = Some(2), validate = _ > 0)
+    val vacslimit: ScallopOption[Int] = opt[Int](default = Some(200), validate = _ > 0)
 
     define()
   }
@@ -26,12 +27,14 @@ object ExtractVacancies extends App with SparkApp {
     .first()
     .getLong(0)
 
-  println(s"Total vacancies: $total")
+  private val vacsToProcess: Long = Math.min(total, conf.vacslimit())
 
-  private val date: String = takeURL(url(0, total + 2), conf.fileConf).get
+  println(s"Vacancies to process: $vacsToProcess")
+
+  private val data: String = takeURL(url(0, vacsToProcess + 2), conf.fileConf).get
 
   private val df: DataFrame = ss.read
-    .json(Seq(date).toDS())
+    .json(Seq(data).toDS())
     .withColumn("offers", explode(col("offers")))
     .select("offers.*")
 

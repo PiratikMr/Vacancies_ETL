@@ -150,7 +150,7 @@
                 from gj_level as g
                 join gj_vacancies as v on v.id = g.id
                 left join avg_sal_gj as s on s.id = v.id
-            )
+            ) as data
             group by date_trunc('month', date), grade;
 
     --2 Skills counts with salary per months
@@ -191,7 +191,7 @@
                 from gm_skills as sk
                 join gm_vacancies as v on v.id = sk.id
                 left join avg_sal_gm as s on sk.id = s.id
-            );
+            ) as data;
 
 --//
 
@@ -216,7 +216,7 @@
                         select 'gm' as site, cast(id as text), salary_from, salary_to, currency_id from gm_vacancies
                         union all
                         select 'gj' as site, id, salary_from, salary_to, currency_id from gj_vacancies
-                    )
+                    ) as data
                 ), skills as (
                     select
                         count(distinct name) as res
@@ -226,7 +226,7 @@
                         select distinct name from gj_skills
                         union all
                         select distinct name from gm_skills
-                    )    
+                    ) as data
                 ), companies as (
                     select
                         count(distinct employer) as res
@@ -236,7 +236,7 @@
                         select distinct employer from gm_vacancies
                         union all
                         select distinct employer from gj_vacancies
-                    )
+                    ) as data
                 ), foreigns as (
                     select
                         (
@@ -289,9 +289,9 @@
                     select salary from avg_sal_gj
                     union all
                     select salary from avg_sal_gm
-                );
+                ) as data;
     
-        --3. Vacs count per day
+        --3. Vacs count per day/
             create materialized view vacs_pday as
                 with vacs as (
                     select 
@@ -480,7 +480,7 @@
                             id,
                             name as field
                         from gj_fields
-                    )
+                    ) as data
                 ), skills as (
                     select
                         f.field,
@@ -559,7 +559,7 @@
                     round(avg(salary)) as salary
                 from vacs
                 group by name
-            )
+            ) as data
             where count > 5
             order by count desc
             limit 100;

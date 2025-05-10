@@ -18,5 +18,5 @@ USER airflow
 RUN curl -s "https://get.sdkman.io" | bash  && \
     bash -c "source /home/airflow/.sdkman/bin/sdkman-init.sh; sdk install sbt"
 
-# COPY ./requirements.txt /
-# RUN pip install -r /requirements.txt
+COPY ./requirements.txt /
+RUN pip install -r /requirements.txt

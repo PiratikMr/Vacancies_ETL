@@ -25,7 +25,8 @@ extract = SparkSubmitOperator(
     application = "jobs/scala_ETL_project/HeadHunter/Vacancies/extract/target/scala-2.12/extract.jar",
     application_args = args + [
         "--fid", "11",
-        "--urlsps", "10"
+        "--urlsps", "10",
+        "--pages", "10"
         ],
     dag=dag
 )

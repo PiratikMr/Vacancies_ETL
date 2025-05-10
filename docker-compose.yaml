@@ -221,7 +221,7 @@ services:
     # yamllint enable rule:line-length
     environment:
       <<: *airflow-common-env
-      _AIRFLOW_DB_MIGRATE: 'false'
+      _AIRFLOW_DB_MIGRATE: 'true'
       _AIRFLOW_WWW_USER_CREATE: 'true'
       _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
@@ -229,11 +229,6 @@ services:
     user: "0:0"
     volumes:
       - ./airflow:/sources
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 1.5G
 
   airflow-cli:
     <<: *airflow-common
