@@ -13,7 +13,7 @@ class ProjectConfig(genConfFile: String, site: String, date: String) extends Ser
     throw new RuntimeException(s"Configuration file not found at: ${configFile.getAbsolutePath}")
   }
 
-  private val conf: Config = ConfigFactory.parseFile(configFile)
+  private val conf: Config = ConfigFactory.parseFile(configFile).resolve()
 
   lazy val api = new ConfPart(conf.getConfig(f"API.$site")) {
     val headers: Map[String, String] = config.entrySet().asScala.map { entry =>

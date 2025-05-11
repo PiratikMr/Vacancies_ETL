@@ -1,43 +1,77 @@
-import airflow
+import os
 from airflow import DAG
+from airflow.utils.dates import days_ago
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
+from pyhocon import ConfigFactory
+from pathlib import Path
+
+
+
+repDir = os.getenv("ITCLUSTER_HOME")
+confPath = Path(repDir) / "conf" / "config.conf"
+
+
+with open(confPath, 'r') as f:
+    config = ConfigFactory.parse_string(f.read())
+
+
+get = lambda fieldName, section="Dags.gj": config.get_string(f"{section}.{fieldName}")
+
+# common
+scalaVersion = get("ScalaVersion", "Dags")
+sparkConnId = get("SparkConnId", "Dags")
+
+# specific
+date = get("date")
+pageLimit = get("pageLimit")
+schedule = get("schedule")
+rawPartitions = get("rawPartitions")
+transformPartitions = get("transformPartitions")
+
+
 
 args = [
-    "--date", "{{ execution_date.strftime('%Y-%m-%d') }}",
-    "--fileName", "conf/config.conf"
+    "--date", date,
+    "--fileName", str(confPath)
 ]
 
-dag = DAG(
-    dag_id = "GeekJOB_ETL",
-    default_args = {
-        "start_date": airflow.utils.dates.days_ago(1)
+
+jarPath = lambda etlPart: str(Path(repDir) / "jobs" / "scala_ETL_project" / "GeekJOB" / "Vacancies" / etlPart / "target" / f"scala-{scalaVersion}" / f"{etlPart}.jar")
+
+
+with DAG(
+    "GeekJOB_ETL",
+    default_args={
+        "start_date": days_ago(1)
     },
-    tags = ["scala", "geekJob"],
-    schedule_interval = None
-)
+    schedule_interval = schedule if schedule else None,
+    tags = ["scala", "geekJob"]
+) as dag:
+    
+    extract = SparkSubmitOperator(
+        task_id = "extract",
+        conn_id = sparkConnId,
+        application = jarPath("extract"),
+        application_args = args + [
+            "--pagelimit", pageLimit,
+            "--partitions", rawPartitions
+        ]
+    )
 
-extract = SparkSubmitOperator(
-    task_id = "extract",
-    conn_id = "SPARK_CONN",
-    application = "jobs/scala_ETL_project/GeekJOB/Vacancies/extract/target/scala-2.12/extract.jar",
-    application_args = args + ["--pagelimit", "20"],
-    dag=dag
-)
+    transform = SparkSubmitOperator(
+        task_id = "transform",
+        conn_id = sparkConnId,
+        application = jarPath("transform"),
+        application_args = args + [
+            "--partitions", transformPartitions
+        ]
+    )   
 
-transform = SparkSubmitOperator(
-    task_id = "transform",
-    conn_id = "SPARK_CONN",
-    application = "jobs/scala_ETL_project/GeekJOB/Vacancies/transform/target/scala-2.12/transform.jar",
-    application_args = args,
-    dag=dag
-)
+    load = SparkSubmitOperator(
+        task_id = "load",
+        conn_id = sparkConnId,
+        application = jarPath("load"),
+        application_args = args
+    )
 
-load = SparkSubmitOperator(
-    task_id = "load",
-    conn_id = "SPARK_CONN",
-    application = "jobs/scala_ETL_project/GeekJOB/Vacancies/load/target/scala-2.12/load.jar",
-    application_args = args,
-    dag=dag
-)
-
-extract >> transform >> load
+    extract >> transform >> load

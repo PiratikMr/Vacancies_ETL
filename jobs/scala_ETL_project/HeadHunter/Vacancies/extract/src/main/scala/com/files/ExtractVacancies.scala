@@ -17,7 +17,7 @@ object ExtractVacancies extends App with SparkApp {
   private val conf = new LocalConfig(args, "hh") {
     val prId: ScallopOption[Int] = opt[Int](name = "fid", default = Some(11), validate = _ > 0)
 
-    val perPage: ScallopOption[Int] = opt[Int](name = "ppage", default = Some(100), validate = _ > 0)
+    val perPage: ScallopOption[Int] = opt[Int](name = "perpage", default = Some(100), validate = _ > 0)
     val pages: ScallopOption[Int] = opt[Int](default = Some(20), validate = _ > 0)
     val urlsPerSecond: ScallopOption[Int] = opt[Int](name = "urlsps", default = Some(20), validate = _ > 0)
 

@@ -16,7 +16,6 @@ import org.jsoup.select.Elements
 import org.rogach.scallop.ScallopOption
 
 import java.time.format.DateTimeFormatter
-import java.time.LocalDateTime
 import java.sql.Timestamp
 import scala.jdk.CollectionConverters.asScalaBufferConverter
 import scala.util.matching.Regex
