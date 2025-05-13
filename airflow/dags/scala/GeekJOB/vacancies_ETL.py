@@ -15,8 +15,6 @@ spark_binary = Variable.get("SPARK_SUBMIT")
 confPath = Path(repDir) / "conf" / "config.conf"
 with open(confPath, 'r') as f:
     config = ConfigFactory.parse_string(f.read())
-
-
 get = lambda fieldName, section="Dags.gj": config.get_string(f"{section}.{fieldName}")
 
 
