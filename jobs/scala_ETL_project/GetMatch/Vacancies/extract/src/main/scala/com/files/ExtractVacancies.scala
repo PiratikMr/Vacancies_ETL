@@ -6,32 +6,31 @@ import com.Config.{FolderName, LocalConfig}
 import com.extractURL.ExtractURL.takeURL
 import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.rogach.scallop.ScallopOption
 
 object ExtractVacancies extends App with SparkApp {
 
   private val conf = new LocalConfig(args, "gm") {
-    val partitions: ScallopOption[Int] = opt[Int](default = Some(2), validate = _ > 0)
-    val vacslimit: ScallopOption[Int] = opt[Int](default = Some(200), validate = _ > 0)
+    lazy val vacsLimit: Int = getFromConfFile[Int]("vacsLimit")
+    lazy val rawPartitions: Int = getFromConfFile[Int]("rawPartitions")
 
     define()
   }
-  override val ss: SparkSession = defineSession(conf.fileConf)
+  override val ss: SparkSession = defineSession(conf.commonConf)
 
   import ss.implicits._
 
   private val firstTake: DataFrame = ss.read
-    .json(Seq(takeURL(url(1, 1), conf.fileConf).get).toDS())
+    .json(Seq(takeURL(url(1, 1), conf.commonConf).get).toDS())
   private val total: Long = firstTake
     .select(col("meta.total"))
     .first()
     .getLong(0)
 
-  private val vacsToProcess: Long = Math.min(total, conf.vacslimit())
+  private val vacsToProcess: Long = Math.min(total, conf.vacsLimit)
 
   println(s"Vacancies to process: $vacsToProcess")
 
-  private val data: String = takeURL(url(0, vacsToProcess + 2), conf.fileConf).get
+  private val data: String = takeURL(url(0, vacsToProcess + 2), conf.commonConf).get
 
   private val df: DataFrame = ss.read
     .json(Seq(data).toDS())
@@ -41,9 +40,9 @@ object ExtractVacancies extends App with SparkApp {
   println(s"Read vacancies: ${df.count()}")
 
   give(
-    conf = conf.fileConf,
+    conf = conf.commonConf,
     folderName = FolderName.Raw,
-    data = df.repartition(conf.partitions())
+    data = df.repartition(conf.rawPartitions)
   )
 
   stopSpark()

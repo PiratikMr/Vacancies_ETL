@@ -1,14 +1,42 @@
-import airflow
+import pendulum
+from airflow.models import Variable
+from airflow.utils.dates import days_ago
 from airflow import DAG
 from airflow.operators.bash import BashOperator
+from pyhocon import ConfigFactory
+from pathlib import Path
 
 
-rootPath = "/VacStorage/"
-DockerCon = "docker exec namenode"
-default_args = {
-    "owner": "airflow",
-    "start_date": airflow.utils.dates.days_ago(1),
-}
+# airflow variables
+repDir = Variable.get("ITCLUSTER_HOME")
+spark_binary = Variable.get("SPARK_SUBMIT")
+
+
+confPath = Path(repDir) / "conf" / "config.conf"
+with open(confPath, 'r') as f:
+    config = ConfigFactory.parse_string(f.read())
+
+def get(fieldName, section="Dags.deleteExpiredData", default=None):
+    return config[f"{section}.{fieldName}"]
+
+
+# general
+timeZone = get("TimeZone", "Dags")
+hdfsPath = f"/{get("path", "FS")}"
+
+# specific
+hdfsPrefix = get("hdfsPrefix")
+schedule = get("schedule")
+
+hhRawData = get("hhRawDataStorageTime")
+hhTransData = get("hhTransDataStorageTime")
+
+gjRawData = get("gjRawDataStorageTime")
+gjTransData = get("gjTransDataStorageTime")
+
+gmRawData = get("gmRawDataStorageTime")
+gmTransData = get("gmTransDataStorageTime")
+
 
 class SiteConfig:
     def __init__(self, tag:str, transDataDays:int, rawDataDays:int, transDirs=None, rawDirs=None):
@@ -19,9 +47,9 @@ class SiteConfig:
         self.rawDirs = ["RawVacancies"] + (rawDirs if rawDirs is not None else [])
 
 siteConfs = [
-    SiteConfig("hh", transDataDays = 120, rawDataDays = 60, transDirs=["Employers"]),
-    SiteConfig("gj", 120, 60, transDirs=["Fields", "JobFormat", "Level", "Locations"]),
-    SiteConfig("gm", 120, 60, transDirs=["Locations"])
+    SiteConfig("hh", hhTransData, hhRawData, transDirs=["Employers"]),
+    SiteConfig("gj", gjTransData, gjRawData, transDirs=["Fields", "JobFormat", "Level", "Locations"]),
+    SiteConfig("gm", gmTransData, gmRawData, transDirs=["Locations"])
 ]
 
 
@@ -31,14 +59,14 @@ prevTasks = []
 def deleteData_command(path, task_id):
     return f"""
         target=$(date -d "{{{{ ti.xcom_pull(task_ids='{task_id}', key='return_value') }}}}" +%s)
-        {DockerCon} hdfs dfs -ls {path} |
+        {hdfsPrefix} hdfs dfs -ls {path} |
             grep '^d' |
             awk -F '{path}/' '{{print $NF}}' |
             grep -E '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}' |
             while read -r dir; do
                 curr=$(date -d "$dir" +%s 2>/dev/null)
                 if [[ -n "$curr" && "$target" -gt "$curr" ]]; then
-                    {DockerCon} hdfs dfs -rm -r {path}/$dir
+                    {hdfsPrefix} hdfs dfs -rm -r {path}/$dir
                 fi 
             done
     """
@@ -81,13 +109,15 @@ def createDeleteData_tasks(siteConf:SiteConfig, dirPath:str, isRaw:bool):
 
 with DAG(
     dag_id="Delete_expiredData",
-    default_args=default_args,
-    schedule_interval=None,
+    default_args= {
+        "start_date": pendulum.instance(days_ago(1)).in_timezone(timeZone)
+    },
+    schedule_interval = schedule if schedule else None,
     tags=["bash"],
 ) as dag:
 
     for siteConf in siteConfs:
-        dirPath = f'{rootPath}{siteConf.tag}/'
+        dirPath = f'{hdfsPath}{siteConf.tag}/'
 
         defineTgTFDate = defineTargetDate_task(siteConf, False)
         defineTgTFDate

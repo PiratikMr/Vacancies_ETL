@@ -1,4 +1,3 @@
-import os
 import pendulum
 from airflow.models import Variable
 from airflow import DAG
@@ -11,10 +10,12 @@ from pathlib import Path
 repDir = Variable.get("ITCLUSTER_HOME")
 spark_binary = Variable.get("SPARK_SUBMIT")
 
+
 confPath = Path(repDir) / "conf" / "config.conf"
 with open(confPath, 'r') as f:
     config = ConfigFactory.parse_string(f.read())
 get = lambda fieldName, section="Dags.hh.dictionaries": config.get_string(f"{section}.{fieldName}")
+
 
 # general
 scalaVersion = get("ScalaVersion", "Dags")
@@ -24,8 +25,9 @@ timeZone = get("TimeZone", "Dags")
 # common
 schedule = get("schedule")
 
+
 args = [
-   "--fileName", str(confPath)
+   "--conffile", str(confPath)
 ]
 
 

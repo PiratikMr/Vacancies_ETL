@@ -13,7 +13,7 @@ object LoadDictionaries extends App with SparkApp {
     define()
   }
 
-  override val ss: SparkSession = defineSession(conf.fileConf)
+  override val ss: SparkSession = defineSession(conf.commonConf)
 
   loadData(FolderName.Areas, Seq("id"), updates = Seq("name"))
   loadData(FolderName.Currency, Seq("id"), updates = Seq("rate"), isDict = true)
@@ -23,7 +23,7 @@ object LoadDictionaries extends App with SparkApp {
 
   private val rolesDF: DataFrame = take(
     ss = ss,
-    conf = conf.fileConf,
+    conf = conf.commonConf,
     folderName = FolderName.Dict(FolderName.Roles)
   ).get
     .select("id", "name")
@@ -35,10 +35,10 @@ object LoadDictionaries extends App with SparkApp {
 
   private def loadData(folderName: FolderName, conflicts: Seq[String], updates: Seq[String] = null, isDict: Boolean = false, data: DataFrame = null): Unit = {
     save(
-      conf = conf.fileConf,
+      conf = conf.commonConf,
       data = if (data == null) take(
         ss = ss,
-        conf = conf.fileConf,
+        conf = conf.commonConf,
         folderName = FolderName.Dict(folderName)
       ).get else data,
       tableName = if (isDict) folderName else conf.tableName(folderName),

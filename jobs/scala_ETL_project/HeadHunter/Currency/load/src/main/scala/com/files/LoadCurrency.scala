@@ -11,13 +11,13 @@ object LoadCurrency extends App with SparkApp {
   private val conf = new LocalConfig(args, "hh") {
     define()
   }
-  override val ss: SparkSession = defineSession(conf.fileConf)
+  override val ss: SparkSession = defineSession(conf.commonConf)
 
   save(
-    conf = conf.fileConf,
+    conf = conf.commonConf,
     data = take(
       ss = ss,
-      conf = conf.fileConf,
+      conf = conf.commonConf,
       folderName = FolderName.Dict(FolderName.Currency)
     ).get,
     tableName = FolderName.Currency,

@@ -14,20 +14,20 @@ import org.rogach.scallop.ScallopOption
 object TransformVacancies extends App with SparkApp {
 
   private val conf = new LocalConfig(args, "gm") {
-    val partitions: ScallopOption[Int] = opt[Int](default = Some(1), validate = _ > 0)
+    lazy val transformPartitions: Int = getFromConfFile[Int]("transformPartitions")
 
     define()
   }
 
-  override val ss: SparkSession = defineSession(conf.fileConf)
+  override val ss: SparkSession = defineSession(conf.commonConf)
 
   private val rawVac: DataFrame = take(
     ss = ss,
-    conf = conf.fileConf,
+    conf = conf.commonConf,
     folderName = FolderName.Raw
   ).get
 
-  private val currency: DataFrame = LoadDB.take(ss, conf.fileConf, FolderName.Currency).select(col("id").as("c_id"), col("code").as("c_code"))
+  private val currency: DataFrame = LoadDB.take(ss, conf.commonConf, FolderName.Currency).select(col("id").as("c_id"), col("code").as("c_code"))
 
   private val genVac: DataFrame = rawVac
     .join(currency, rawVac("salary_currency") === currency("c_code"), "left_outer")
@@ -71,13 +71,13 @@ object TransformVacancies extends App with SparkApp {
   save(FolderName.Locations, locations)
 
   // vacancies
-  save(FolderName.Vac, transformVac, conf.partitions())
+  save(FolderName.Vac, transformVac, conf.transformPartitions)
 
   stopSpark()
 
   private def save(folderName: FolderName, dataFrame: DataFrame, repartition: Integer = 1): Unit = {
     give(
-      conf = conf.fileConf,
+      conf = conf.commonConf,
       data = dataFrame.repartition(repartition),
       folderName = folderName
     )

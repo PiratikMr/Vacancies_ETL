@@ -16,10 +16,10 @@ object ExtractDictionaries extends App with SparkApp {
   private val conf = new LocalConfig(args, "hh") {
     define()
   }
-  override val ss: SparkSession = defineSession(conf.fileConf)
+  override val ss: SparkSession = defineSession(conf.commonConf)
 
   // areas
-  private val areasDF: DataFrame = toDF(takeURL("https://api.hh.ru/areas", conf.fileConf).get)
+  private val areasDF: DataFrame = toDF(takeURL("https://api.hh.ru/areas", conf.commonConf).get)
   private val areasTDF: DataFrame = {
     @tailrec
     def f(acc: DataFrame = areasDF.drop("areas"), i: DataFrame = areasDF): DataFrame = {
@@ -37,7 +37,7 @@ object ExtractDictionaries extends App with SparkApp {
   }
 
   // roles
-  private val rolesDF: DataFrame = toDF(takeURL("https://api.hh.ru/professional_roles", conf.fileConf).get)
+  private val rolesDF: DataFrame = toDF(takeURL("https://api.hh.ru/professional_roles", conf.commonConf).get)
   private val rolesTDF: DataFrame = rolesDF
       .withColumn("categories", explode(col("categories")))
       .select("categories.*")
@@ -48,7 +48,7 @@ object ExtractDictionaries extends App with SparkApp {
         col("roles").getField("name").as("name"))
 
   // dictionaries
-  private val dictionariesDF: DataFrame = toDF(takeURL("https://api.hh.ru/dictionaries", conf.fileConf).get)
+  private val dictionariesDF: DataFrame = toDF(takeURL("https://api.hh.ru/dictionaries", conf.commonConf).get)
 
   save(FolderName.Areas, areasTDF)
 
@@ -72,7 +72,7 @@ object ExtractDictionaries extends App with SparkApp {
 
   private def save(folderName: FolderName, data: DataFrame): Unit = {
     give(
-      conf = conf.fileConf,
+      conf = conf.commonConf,
       folderName = FolderName.Dict(folderName),
       data = data
     )

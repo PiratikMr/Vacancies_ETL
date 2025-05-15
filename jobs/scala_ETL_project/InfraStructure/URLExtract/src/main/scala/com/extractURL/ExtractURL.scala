@@ -1,6 +1,6 @@
 package com.extractURL
 
-import com.Config.ProjectConfig
+import com.Config.CommonConfig
 import sttp.client3.{Response, SimpleHttpClient, UriContext, basicRequest}
 
 import scala.util.Try
@@ -10,9 +10,9 @@ object ExtractURL {
 
   def takeURL(
                url: String,
-               conf: ProjectConfig
+               conf: CommonConfig
              ): Try[String] = {
-    basicRequest.headers(conf.api.headers)
+    basicRequest.headers(conf.headers)
     val response: Response[Either[String, String]] = client.send(basicRequest.get(uri"$url"))
 
     Try(

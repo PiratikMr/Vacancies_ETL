@@ -11,7 +11,6 @@ repDir = Variable.get("ITCLUSTER_HOME")
 spark_binary = Variable.get("SPARK_SUBMIT")
 
 
-
 confPath = Path(repDir) / "conf" / "config.conf"
 with open(confPath, 'r') as f:
     config = ConfigFactory.parse_string(f.read())
@@ -27,9 +26,8 @@ timeZone = get("TimeZone", "Dags")
 schedule = get("schedule")
 
 
-
 args = [
-   "--fileName", str(confPath)
+   "--conffile", str(confPath)
 ]
 
 

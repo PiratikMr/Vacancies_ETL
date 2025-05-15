@@ -12,12 +12,12 @@ object ExtractCurrency extends App with SparkApp {
   private val conf = new LocalConfig(args, "hh") {
     define()
   }
-  override val ss: SparkSession = defineSession(conf.fileConf)
+  override val ss: SparkSession = defineSession(conf.commonConf)
 
 
-  private val currencyDF: DataFrame = toDF(takeURL("https://api.hh.ru/dictionaries", conf.fileConf).get)
+  private val currencyDF: DataFrame = toDF(takeURL("https://api.hh.ru/dictionaries", conf.commonConf).get)
   give(
-    conf = conf.fileConf,
+    conf = conf.commonConf,
     folderName = FolderName.Dict(FolderName.Currency),
     data = currencyDF.withColumn("currency", explode(col("currency")))
       .select("currency.*")

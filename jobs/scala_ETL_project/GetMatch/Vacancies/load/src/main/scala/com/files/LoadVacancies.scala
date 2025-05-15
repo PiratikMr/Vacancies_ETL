@@ -13,14 +13,14 @@ object LoadVacancies extends App with SparkApp {
     define()
   }
 
-  override val ss: SparkSession = defineSession(conf.fileConf)
+  override val ss: SparkSession = defineSession(conf.commonConf)
 
   loadData(FolderName.Skills, Seq("id", "name"))
   loadData(FolderName.Locations, Seq("id", "city", "country"))
 
   private val vac: DataFrame = take(
     ss = ss,
-    conf = conf.fileConf,
+    conf = conf.commonConf,
     folderName = FolderName.Vac
   ).get
   private val notUpd: Set[String] = Set("id", "publish_date")
@@ -32,10 +32,10 @@ object LoadVacancies extends App with SparkApp {
 
   private def loadData(folderName: FolderName, conflicts: Seq[String], updates: Seq[String] = null, data: DataFrame = null): Unit = {
     save(
-      conf = conf.fileConf,
+      conf = conf.commonConf,
       data = if (data == null) take(
         ss = ss,
-        conf = conf.fileConf,
+        conf = conf.commonConf,
         folderName = folderName
       ).get else data,
       tableName = conf.tableName(folderName),

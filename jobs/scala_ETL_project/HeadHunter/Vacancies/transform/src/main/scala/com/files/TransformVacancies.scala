@@ -17,16 +17,16 @@ import scala.annotation.tailrec
 object TransformVacancies extends App with SparkApp {
 
   private val conf = new LocalConfig(args, "hh") {
-    val partitions: ScallopOption[Int] = opt[Int](default = Some(1), validate = _ > 0)
+    lazy val transformPartitions: Int = getFromConfFile[Int]("transformPartitions")
 
     define()
   }
 
-  override val ss: SparkSession = defineSession(conf.fileConf)
+  override val ss: SparkSession = defineSession(conf.commonConf)
 
   private val areasMap: Map[Long, Option[Long]] = take(
     ss = ss,
-    conf = conf.fileConf,
+    conf = conf.commonConf,
     folderName = FolderName.Dict(FolderName.Areas)
   ).get
     .rdd
@@ -53,7 +53,7 @@ object TransformVacancies extends App with SparkApp {
 
   private val rawVac: DataFrame = take(
     ss = ss,
-    conf = conf.fileConf,
+    conf = conf.commonConf,
     folderName = FolderName.Raw
   ).get
 
@@ -107,13 +107,13 @@ object TransformVacancies extends App with SparkApp {
   save(FolderName.Employer, employers)
 
   // vacancies
-  save(FolderName.Vac, transformedVac, conf.partitions())
+  save(FolderName.Vac, transformedVac, conf.transformPartitions)
 
   stopSpark()
 
   private def save(folderName: FolderName, dataFrame: DataFrame, repartition: Integer = 1): Unit = {
     give(
-      conf = conf.fileConf,
+      conf = conf.commonConf,
       data = dataFrame.repartition(repartition),
       folderName = folderName
     )

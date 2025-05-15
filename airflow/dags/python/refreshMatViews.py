@@ -6,22 +6,23 @@ from airflow.providers.postgres.operators.postgres import PostgresOperator
 from pyhocon import ConfigFactory
 from pathlib import Path
 
+
 # airflow variables
 repDir = Variable.get("ITCLUSTER_HOME")
 spark_binary = Variable.get("SPARK_SUBMIT")
 
+
 confPath = Path(repDir) / "conf" / "config.conf"
 with open(confPath, 'r') as f:
     config = ConfigFactory.parse_string(f.read())
-get = lambda fieldName, section="Dags": config.get_string(f"{section}.{fieldName}")
+get = lambda fieldName, section="Dags.refreshMatView": config.get_string(f"{section}.{fieldName}")
 
-postgresConnId = get("PostgresConnId")
-timeZone = get("TimeZone")
 
-default_args = {
-    'owner': 'airflow',
-    "start_date": pendulum.instance(days_ago(1)).in_timezone(timeZone)
-}
+postgresConnId = get("PostgresConnId", "Dags")
+timeZone = get("TimeZone", "Dags")
+
+schedule = get("schedule")
+
 
 mat_views = [
     # aggregate data lvl1
@@ -74,7 +75,6 @@ mat_views = [
 ]
 
 
-
 def create_refresh_task(view):
     return PostgresOperator(
             task_id=f'refresh_{view}',
@@ -84,8 +84,10 @@ def create_refresh_task(view):
 
 with DAG(
     'Refresh_Materialized_Views',
-    default_args=default_args,
-    schedule_interval=None,
+    default_args={
+        "start_date": pendulum.instance(days_ago(1)).in_timezone(timeZone)
+    },
+    schedule_interval = schedule if schedule else None,
     tags = ["python"]
 ) as dag:
     

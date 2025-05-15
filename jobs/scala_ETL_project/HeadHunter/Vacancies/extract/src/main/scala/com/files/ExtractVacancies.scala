@@ -15,28 +15,26 @@ import scala.util.{Failure, Success}
 object ExtractVacancies extends App with SparkApp {
 
   private val conf = new LocalConfig(args, "hh") {
-    val prId: ScallopOption[Int] = opt[Int](name = "fid", default = Some(11), validate = _ > 0)
-
-    val perPage: ScallopOption[Int] = opt[Int](name = "perpage", default = Some(100), validate = _ > 0)
-    val pages: ScallopOption[Int] = opt[Int](default = Some(20), validate = _ > 0)
-    val urlsPerSecond: ScallopOption[Int] = opt[Int](name = "urlsps", default = Some(20), validate = _ > 0)
-
-    val partitions: ScallopOption[Int] = opt[Int](default = Some(6), validate = _ > 0)
+    lazy val fieldId: Int = getFromConfFile[Int]("fieldId")
+    lazy val vacsPerPage: Int = getFromConfFile[Int]("vacsPerPage")
+    lazy val pageLimit: Int = getFromConfFile[Int]("pageLimit")
+    lazy val urlsPerSecond: Int = getFromConfFile[Int]("urlsPerSecond")
+    lazy val rawPartitions: Int = getFromConfFile[Int]("rawPartitions")
 
     define()
   }
 
-  override val ss: SparkSession = defineSession(conf.fileConf)
+  override val ss: SparkSession = defineSession(conf.commonConf)
 
   import ss.implicits._
 
 
   private val ids: Seq[Long] = take(
     ss = ss,
-    conf = conf.fileConf,
+    conf = conf.commonConf,
     folderName = FolderName.Dict(FolderName.Roles)
   ).get
-    .where(col("parent_id").equalTo(conf.prId()))
+    .where(col("parent_id").equalTo(conf.fieldId))
     .select("id")
     .collect()
     .map(r => r.getLong(0))
@@ -46,24 +44,24 @@ object ExtractVacancies extends App with SparkApp {
     @tailrec
     def f(i: Long, acc: List[String] = List[String]()): List[String] = {
       if (i == -1) acc
-      else f(i - 1, acc :+ url(id, conf.perPage(), i))
+      else f(i - 1, acc :+ url(id, conf.vacsPerPage, i))
     }
 
     val df: DataFrame = ss.read
-      .json(Seq(takeURL(url(id), conf.fileConf).get).toDS())
+      .json(Seq(takeURL(url(id), conf.commonConf).get).toDS())
     val found: Long = df.first().getAs[Long]("found")
 
-    f(Math.min(found / conf.perPage(), conf.pages() - 1))
+    f(Math.min(found / conf.vacsPerPage, conf.pageLimit - 1))
   })
 
 
   println(s"URLs to read: ${urlList.length}")
   private var readURLs: Integer = 1
 
-  private val initData: Dataset[String] = Seq(takeURL(urlList.head, conf.fileConf).get).toDS()
+  private val initData: Dataset[String] = Seq(takeURL(urlList.head, conf.commonConf).get).toDS()
   private val data: Dataset[String] = urlList.tail.foldLeft(initData)((df, url) => {
-    Thread.sleep(1000 / conf.urlsPerSecond())
-    val data:String = takeURL(url, conf.fileConf) match {
+    Thread.sleep(1000 / conf.urlsPerSecond)
+    val data:String = takeURL(url, conf.commonConf) match {
       case Success(v) =>
         readURLs = readURLs + 1
         v
@@ -77,7 +75,7 @@ object ExtractVacancies extends App with SparkApp {
   println(s"Read URLs: $readURLs")
 
 
-  private val df: DataFrame = ss.read.json(data.repartition(conf.partitions()))
+  private val df: DataFrame = ss.read.json(data.repartition(conf.rawPartitions))
     .withColumn("items", explode(col("items")))
     .select("items.*")
 
@@ -85,7 +83,7 @@ object ExtractVacancies extends App with SparkApp {
 
 
   give(
-    conf = conf.fileConf,
+    conf = conf.commonConf,
     folderName = FolderName.Raw,
     data = df
   )

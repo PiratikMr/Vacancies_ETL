@@ -13,7 +13,7 @@ object LoadVacancies extends App with SparkApp {
     define()
   }
 
-  override val ss: SparkSession = defineSession(conf.fileConf)
+  override val ss: SparkSession = defineSession(conf.commonConf)
 
   loadData(folderName = FolderName.Vac, conflicts = Seq("id"), notUpdates = Seq("id"))
   loadData(folderName = FolderName.Locations)
@@ -28,7 +28,7 @@ object LoadVacancies extends App with SparkApp {
 
     val d = take(
       ss = ss,
-      conf = conf.fileConf,
+      conf = conf.commonConf,
       folderName = folderName
     ).get
 
@@ -38,7 +38,7 @@ object LoadVacancies extends App with SparkApp {
     }
 
     save(
-      conf = conf.fileConf,
+      conf = conf.commonConf,
       data = d,
       tableName = conf.tableName(folderName),
       conflicts = conflicts,

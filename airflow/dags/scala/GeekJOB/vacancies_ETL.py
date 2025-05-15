@@ -18,26 +18,19 @@ with open(confPath, 'r') as f:
 get = lambda fieldName, section="Dags.gj": config.get_string(f"{section}.{fieldName}")
 
 
-
 # general
 scalaVersion = get("ScalaVersion", "Dags")
 sparkConnId = get("SparkConnId", "Dags")
 timeZone = get("TimeZone", "Dags")
 
 #common
-date = get("date")
+fileName = get("fileName")
 schedule = get("schedule")
-
-# specific
-pageLimit = get("pageLimit")
-rawPartitions = get("rawPartitions")
-transformPartitions = get("transformPartitions")
-
 
 
 args = [
-    "--date", date,
-    "--fileName", str(confPath)
+    "--filename", fileName,
+    "--conffile", str(confPath)
 ]
 
 
@@ -57,10 +50,7 @@ with DAG(
         task_id = "extract",
         conn_id = sparkConnId,
         application = jarPath("extract"),
-        application_args = args + [
-            "--pagelimit", pageLimit,
-            "--partitions", rawPartitions
-        ],
+        application_args = args,
         spark_binary = spark_binary
     )
 
@@ -68,9 +58,7 @@ with DAG(
         task_id = "transform",
         conn_id = sparkConnId,
         application = jarPath("transform"),
-        application_args = args + [
-            "--partitions", transformPartitions
-        ],
+        application_args = args,
         spark_binary = spark_binary
     )   
 

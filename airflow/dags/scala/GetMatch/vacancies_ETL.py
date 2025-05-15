@@ -24,19 +24,13 @@ sparkConnId = get("SparkConnId", "Dags")
 timeZone = get("TimeZone", "Dags")
 
 # common
-date = get("date")
+fileName = get("fileName")
 schedule = get("schedule")
-
-# specific
-vacsLimit = get("vacsLimit")
-rawPartitions = get("rawPartitions")
-transformPartitions = get("transformPartitions")
-
 
 
 args = [
-    "--date", date,
-    "--fileName", str(confPath)
+    "--filename", fileName,
+    "--conffile", str(confPath)
 ]
 
 
@@ -56,10 +50,7 @@ with DAG(
         task_id = "extract",
         conn_id = sparkConnId,
         application = jarPath("extract"),
-        application_args = args + [
-            "--partitions", rawPartitions,
-            "--vacslimit", vacsLimit
-        ],
+        application_args = args,
         spark_binary = spark_binary
     )
 
@@ -67,9 +58,7 @@ with DAG(
         task_id = "transform",
         conn_id = sparkConnId,
         application = jarPath("transform"),
-        application_args = args + [
-            "--partitions", transformPartitions
-        ],
+        application_args = args,
         spark_binary = spark_binary
     )
 

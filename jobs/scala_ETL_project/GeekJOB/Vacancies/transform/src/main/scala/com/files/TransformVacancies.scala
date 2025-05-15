@@ -13,7 +13,6 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.select.Elements
-import org.rogach.scallop.ScallopOption
 
 import java.time.format.DateTimeFormatter
 import java.sql.Timestamp
@@ -23,18 +22,18 @@ import scala.util.matching.Regex
 object TransformVacancies extends App with SparkApp {
 
   private val conf = new LocalConfig(args, "gj") {
-    val partitions: ScallopOption[Int] = opt[Int](default = Some(2), validate = _ > 0)
+    lazy val transformPartitions: Int = getFromConfFile[Int]("transformPartitions")
 
     define()
   }
 
-  override val ss: SparkSession = defineSession(conf.fileConf)
+  override val ss: SparkSession = defineSession(conf.commonConf)
   private val sc: SparkContext = ss.sparkContext
 
-  private val currency: DataFrame = LoadDB.take(ss, conf.fileConf, FolderName.Currency).select(col("id").as("c_id"), col("code").as("c_code"))
+  private val currency: DataFrame = LoadDB.take(ss, conf.commonConf, FolderName.Currency).select(col("id").as("c_id"), col("code").as("c_code"))
   private val currencyCodes: Array[String] = currency.select("c_code").collect().map(_.getString(0))
 
-  private val vacanciesRaw: RDD[String] = sc.textFile(conf.fileConf.fs.getPath(FolderName.Raw), conf.partitions())
+  private val vacanciesRaw: RDD[String] = sc.textFile(conf.commonConf.fs.getPath(FolderName.Raw), conf.transformPartitions)
 
   private val schema = StructType(Seq(
     StructField("id", StringType, nullable = false),
@@ -150,7 +149,7 @@ object TransformVacancies extends App with SparkApp {
     .dropDuplicates(Seq("id", "name"))
 
 
-  save(FolderName.Vac, transformVac, conf.partitions())
+  save(FolderName.Vac, transformVac, conf.transformPartitions)
   save(FolderName.Locations, locations)
   save(FolderName.JobFormats, jobFormat)
   save(FolderName.Skills, specs)
@@ -189,7 +188,7 @@ object TransformVacancies extends App with SparkApp {
     val year: String = if (times.length > 2) {
       times(2)
     } else {
-      conf.date().substring(0, 4)
+      conf.fileName().substring(0, 4)
     }
 
     val dateStr: String = s"$year.$month.$day"
@@ -262,7 +261,7 @@ object TransformVacancies extends App with SparkApp {
 
   private def save(folderName: FolderName, dataFrame: DataFrame, repartition: Integer = 1): Unit = {
     give(
-      conf = conf.fileConf,
+      conf = conf.commonConf,
       data = dataFrame.repartition(repartition),
       folderName = folderName
     )

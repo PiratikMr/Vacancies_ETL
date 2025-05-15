@@ -1,7 +1,7 @@
 package EL
 
+import com.Config.CommonConfig
 import com.Config.FolderName.FolderName
-import com.Config.ProjectConfig
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import scala.util.Try
@@ -10,7 +10,7 @@ object Extract extends Serializable {
 
   def take(
             ss: SparkSession,
-            conf: ProjectConfig,
+            conf: CommonConfig,
             folderName: FolderName,
             format: String = "parquet"
           ): Try[DataFrame] = {

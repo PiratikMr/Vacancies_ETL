@@ -1,6 +1,6 @@
 package com.LoadDB
 
-import com.Config.ProjectConfig
+import com.Config.CommonConfig
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 import java.io.Serializable
@@ -18,11 +18,11 @@ object LoadDB extends Serializable {
 
 
   def save(
-          conf: ProjectConfig,
-          data: DataFrame,
-          tableName: String,
-          conflicts: Seq[String],
-          updates: Seq[String] = null
+            conf: CommonConfig,
+            data: DataFrame,
+            tableName: String,
+            conflicts: Seq[String],
+            updates: Seq[String] = null
           ): Unit = {
     val conn = DriverManager.getConnection(
       conf.db.DBurl,
@@ -50,7 +50,7 @@ object LoadDB extends Serializable {
   }
 
   private def give(
-            conf: ProjectConfig,
+            conf: CommonConfig,
             data: DataFrame,
             tableName: String,
           ): Unit = {
@@ -66,7 +66,7 @@ object LoadDB extends Serializable {
   }
 
   private def load(
-          conf: ProjectConfig,
+          conf: CommonConfig,
           data: DataFrame,
           tableName: String,
           conflicts: Seq[String],
@@ -134,7 +134,7 @@ object LoadDB extends Serializable {
 
   def take(
             ss: SparkSession,
-            conf: ProjectConfig,
+            conf: CommonConfig,
             tableName: String
           ): DataFrame = {
     ss.read
