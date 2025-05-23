@@ -3,6 +3,7 @@ from airflow.models import Variable
 from airflow.utils.dates import days_ago
 from airflow import DAG
 from airflow.providers.postgres.operators.postgres import PostgresOperator
+from airflow.operators.dummy import DummyOperator
 from pyhocon import ConfigFactory
 from pathlib import Path
 
@@ -47,23 +48,15 @@ mat_views = [
         'vacs_pday',
     ],
 
-    # grades
     [
         'top_grades',
         'vacs_grade_pmonths',
-        'sal_grades_pmonths'
-    ],
-
-    # skills
-    [
-       'top_skills',
-       'top_combined_skills_by2',
-       'top_combined_skills_by3',
-       'top_skills_by_grades',
-       'top_skills_by_fields'
-    ],
-
-    [
+        'sal_grades_pmonths',
+        'top_skills',
+        'top_combined_skills_by2',
+        'top_combined_skills_by3',
+        'top_skills_by_grades',
+        'top_skills_by_fields',
         'top_companies',
         'english_level',
         'top_fields',
@@ -88,17 +81,19 @@ with DAG(
         "start_date": pendulum.instance(days_ago(1)).in_timezone(timeZone)
     },
     schedule_interval = schedule if schedule else None,
-    tags = ["python"]
+    tags = ["python"],
+    concurrency=5,
 ) as dag:
     
-    prev_tasks = []
-    curr_tasks = []
+    prevEmptyTask = None
 
-    for views in mat_views:
+    for idx, views in enumerate(mat_views, start=0):
+        emptyTask = DummyOperator(task_id=f"empty{idx}")
+
         for view in views:
-            task = create_refresh_task(view)
-            for pt in prev_tasks:
-                pt >> task
-            curr_tasks.append(task)
-        prev_tasks = curr_tasks
-        curr_tasks = []
+            refrashTask = create_refresh_task(view)
+            if prevEmptyTask is not None:
+                prevEmptyTask >> refrashTask
+            refrashTask >> emptyTask
+        
+        prevEmptyTask = emptyTask

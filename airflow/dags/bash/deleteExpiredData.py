@@ -3,6 +3,8 @@ from airflow.models import Variable
 from airflow.utils.dates import days_ago
 from airflow import DAG
 from airflow.operators.bash import BashOperator
+from airflow.operators.python_operator import PythonOperator
+from datetime import timedelta
 from pyhocon import ConfigFactory
 from pathlib import Path
 
@@ -16,49 +18,43 @@ confPath = Path(repDir) / "conf" / "config.conf"
 with open(confPath, 'r') as f:
     config = ConfigFactory.parse_string(f.read())
 
-def get(fieldName, section="Dags.deleteExpiredData", default=None):
+def get(fieldName, section="Dags.deleteExpiredData"):
     return config[f"{section}.{fieldName}"]
 
 
 # general
 timeZone = get("TimeZone", "Dags")
-hdfsPath = f"/{get("path", "FS")}"
+hdfsPath = f'/{get("path", "FS")}'
 
 # specific
 hdfsPrefix = get("hdfsPrefix")
 schedule = get("schedule")
 
-hhRawData = get("hhRawDataStorageTime")
-hhTransData = get("hhTransDataStorageTime")
-
-gjRawData = get("gjRawDataStorageTime")
-gjTransData = get("gjTransDataStorageTime")
-
-gmRawData = get("gmRawDataStorageTime")
-gmTransData = get("gmTransDataStorageTime")
-
-
 class SiteConfig:
-    def __init__(self, tag:str, transDataDays:int, rawDataDays:int, transDirs=None, rawDirs=None):
+    def __init__(self, tag: str, trans_data_days: int, raw_data_days: int, 
+                 trans_dirs=None, raw_dirs=None):
         self.tag = tag
-        self.transDataDays = transDataDays
-        self.transDirs = ["Vacancies", "Skills"] + (transDirs if transDirs is not None else [])
-        self.rawDataDays = rawDataDays
-        self.rawDirs = ["RawVacancies"] + (rawDirs if rawDirs is not None else [])
+        self.transDataDays = trans_data_days
+        self.transDirs = ["Vacancies", "Skills"] + (trans_dirs or [])
+        self.rawDataDays = raw_data_days
+        self.rawDirs = ["RawVacancies"] + (raw_dirs or [])
 
 siteConfs = [
-    SiteConfig("hh", hhTransData, hhRawData, transDirs=["Employers"]),
-    SiteConfig("gj", gjTransData, gjRawData, transDirs=["Fields", "JobFormat", "Level", "Locations"]),
-    SiteConfig("gm", gmTransData, gmRawData, transDirs=["Locations"])
+    SiteConfig(tag, 
+               get("trans", f"Dags.deleteExpiredData.{tag}"), 
+               get("raw", f"Dags.deleteExpiredData.{tag}"), 
+               trans_dirs=dirs)
+    for tag, dirs in [
+        ("hh", ["Employers"]),
+        ("gj", ["Fields", "JobFormat", "Level", "Locations"]),
+        ("gm", ["Locations"])
+    ]
 ]
 
 
-
-prevTasks = []
-
-def deleteData_command(path, task_id):
+def deleteData_command(task_id, key, path):
     return f"""
-        target=$(date -d "{{{{ ti.xcom_pull(task_ids='{task_id}', key='return_value') }}}}" +%s)
+        target=$(date -d "{{{{ ti.xcom_pull(task_ids='{task_id}', key='{key}') }}}}" +%s)
         {hdfsPrefix} hdfs dfs -ls {path} |
             grep '^d' |
             awk -F '{path}/' '{{print $NF}}' |
@@ -72,59 +68,40 @@ def deleteData_command(path, task_id):
     """
 
 
-def defineTargetDate_task(siteConf: SiteConfig, isRaw: bool):
-    days = (siteConf.rawDataDays if isRaw else siteConf.transDataDays)
-    targetTag = 'Raw' if isRaw else 'Transform'
-    
-    defineTask = BashOperator(
-        task_id = f'DefineTargetDateFor_{targetTag}Date_{siteConf.tag}',
-        bash_command = f"""
-            target=$(date -d "{{{{ execution_date.strftime('%Y-%m-%d') }}}} - {days} days" +%Y-%m-%d)
-            echo $target
-        """
-    )
-    for task in prevTasks:
-        task >> defineTask
-    prevTasks.clear()
-    prevTasks.append(defineTask)
-    return defineTask
-
-
-def createDeleteData_tasks(siteConf:SiteConfig, dirPath:str, isRaw:bool):
-    dirArr = (siteConf.rawDirs if isRaw else siteConf.transDirs)
-    nameId = ('Raw' if isRaw else 'Transform')
-
-    defineTask = prevTasks[0]
-    prevTasks.clear()
-    
-    for dir in dirArr:
-        path = f'{dirPath}{dir}'
-        bash_task = BashOperator(
-            task_id = f'Delete{nameId}Data_{siteConf.tag}_{dir}',
-            bash_command = deleteData_command(path, defineTask.task_id)
-        )
-        prevTasks.append(bash_task)
-        defineTask >> bash_task
+def defineTragetsDates_task(**context):
+    execution_date = context['execution_date']
+    res = {}
+    for sc in siteConfs:
+        res.update({ f"{sc.tag}_raw" : (execution_date - timedelta(days=sc.rawDataDays)).strftime('%Y-%m-%d')})
+        res.update({ f"{sc.tag}_trans" : (execution_date - timedelta(days=sc.transDataDays)).strftime('%Y-%m-%d')})
+    return res
 
 
 with DAG(
-    dag_id="Delete_expiredData",
+    dag_id="Delete_expiredDataTest",
     default_args= {
         "start_date": pendulum.instance(days_ago(1)).in_timezone(timeZone)
     },
     schedule_interval = schedule if schedule else None,
     tags=["bash"],
+    concurrency = 5
 ) as dag:
 
-    for siteConf in siteConfs:
-        dirPath = f'{hdfsPath}{siteConf.tag}/'
+    defineTask = PythonOperator(
+        task_id = "define_target_dates",
+        python_callable=defineTragetsDates_task,
+        provide_context=True,
+        do_xcom_push=True,
+        multiple_outputs=True
+    )
 
-        defineTgTFDate = defineTargetDate_task(siteConf, False)
-        defineTgTFDate
-
-        createDeleteData_tasks(siteConf, dirPath, False)
-
-        defineTgRawDate = defineTargetDate_task(siteConf, True)
-        defineTgRawDate
-
-        createDeleteData_tasks(siteConf, dirPath, True)     
+    
+    for sc in siteConfs:
+        dirPath = f'{hdfsPath}{sc.tag}/'
+        for dir_type, dirs in [('raw', sc.rawDirs), ('trans', sc.transDirs)]:
+            for dir in dirs:
+                bash_task = BashOperator(
+                    task_id=f'delete_{sc.tag}_{dir}',
+                    bash_command=deleteData_command(defineTask.task_id, f"{sc.tag}_{dir_type}", f"{dirPath}{dir}")
+                )
+                defineTask >> bash_task
