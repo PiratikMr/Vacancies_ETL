@@ -5,14 +5,16 @@ import com.typesafe.config.{Config, ConfigFactory}
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 
 import java.io.File
+import java.nio.file.Paths
 
-abstract class LocalConfig (args: Seq[String], site: String) extends ScallopConf(args) {
+abstract class LocalConfig (args: Seq[String]) extends ScallopConf(args) {
   private val confFile: ScallopOption[String] = opt[String](name = "conffile")
   private lazy val conf: Config = ConfigFactory.parseFile(new File(confFile())).resolve()
+  private lazy val site: String =  Paths.get(confFile()).getFileName.toString.stripSuffix(".conf")
   val fileName: ScallopOption[String] = opt[String](name = "filename", default = Some("undefined"))
 
   final def getFromConfFile[T](field: String)(implicit configGetter: ConfigGetter[T]): T = {
-    implicitly[ConfigGetter[T]].get(conf, s"Arguments.$site.$field")
+    implicitly[ConfigGetter[T]].get(conf, s"Arguments.$field")
   }
 
   final def define(): Unit = {

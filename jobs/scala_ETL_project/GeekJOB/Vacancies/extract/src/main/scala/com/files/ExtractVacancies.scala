@@ -12,7 +12,7 @@ import scala.util.{Failure, Success}
 
 object ExtractVacancies extends App with SparkApp {
 
-  private val conf = new LocalConfig(args, "gj") {
+  private val conf = new LocalConfig(args) {
     lazy val pageLimit: Int = getFromConfFile[Int]("pageLimit")
     lazy val rawPartitions: Int = getFromConfFile[Int]("rawPartitions")
 

@@ -9,7 +9,7 @@ import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
 object LoadVacancies extends App with SparkApp {
 
-  private val conf = new LocalConfig(args, "gj") {
+  private val conf = new LocalConfig(args) {
     define()
   }
 

@@ -1,34 +1,34 @@
-import pendulum
-from airflow.models import Variable
-from airflow.utils.dates import days_ago
+import sys
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python_operator import PythonOperator
 from datetime import timedelta
-from pyhocon import ConfigFactory
 from pathlib import Path
 
+common_path = str(Path(__file__).parent.parent)
+sys.path.append(common_path)
 
-# airflow variables
-repDir = Variable.get("ITCLUSTER_HOME")
-spark_binary = Variable.get("SPARK_SUBMIT")
+from config_utils import set_config, get_section_params
 
+args = set_config("common.conf", None, None)
+dag_params = get_section_params("Dags.DeleteData", ["hdfsPrefix", "schedule", "concurrency"])
+hdfsPrefix = dag_params["hdfsPrefix"]
+hdfsPath = get_section_params("FS", ["path"])["path"]
 
-confPath = Path(repDir) / "conf" / "config.conf"
-with open(confPath, 'r') as f:
-    config = ConfigFactory.parse_string(f.read())
+sites = [
+    ("hh", "hh.conf", ["Employers"]),
+    ("gj", "gj.conf", ["Fields", "JobFormat", "Level", "Locations"]),
+    ("gm", "gm.conf", ["Locations"]),
+]
+params = {}
+for site, file, dirs in sites:
+    set_config(file, None, None)
+    tmp_params = get_section_params("Dags.DeleteData", ["raw", "trans"])
+    params.update({ site : {
+        "raw" : tmp_params["raw"],
+        "trans" : tmp_params["trans"]
+    }})
 
-def get(fieldName, section="Dags.deleteExpiredData"):
-    return config[f"{section}.{fieldName}"]
-
-
-# general
-timeZone = get("TimeZone", "Dags")
-hdfsPath = f'/{get("path", "FS")}'
-
-# specific
-hdfsPrefix = get("hdfsPrefix")
-schedule = get("schedule")
 
 class SiteConfig:
     def __init__(self, tag: str, trans_data_days: int, raw_data_days: int, 
@@ -41,14 +41,10 @@ class SiteConfig:
 
 siteConfs = [
     SiteConfig(tag, 
-               get("trans", f"Dags.deleteExpiredData.{tag}"), 
-               get("raw", f"Dags.deleteExpiredData.{tag}"), 
+               params[tag]["raw"], 
+               params[tag]["trans"], 
                trans_dirs=dirs)
-    for tag, dirs in [
-        ("hh", ["Employers"]),
-        ("gj", ["Fields", "JobFormat", "Level", "Locations"]),
-        ("gm", ["Locations"])
-    ]
+    for tag, file, dirs in sites
 ]
 
 
@@ -80,11 +76,11 @@ def defineTragetsDates_task(**context):
 with DAG(
     dag_id="Delete_expiredDataTest",
     default_args= {
-        "start_date": pendulum.instance(days_ago(1)).in_timezone(timeZone)
+        "start_date": args["start_date"]
     },
-    schedule_interval = schedule if schedule else None,
     tags=["bash"],
-    concurrency = 5
+    schedule_interval = dag_params["schedule"] or None,
+    concurrency = dag_params["concurrency"]
 ) as dag:
 
     defineTask = PythonOperator(
@@ -98,7 +94,7 @@ with DAG(
     
     for sc in siteConfs:
         dirPath = f'{hdfsPath}{sc.tag}/'
-        for dir_type, dirs in [('raw', sc.rawDirs), ('trans', sc.transDirs)]:
+        for dir_type, dirs in [("raw", sc.rawDirs), ("trans", sc.transDirs)]:
             for dir in dirs:
                 bash_task = BashOperator(
                     task_id=f'delete_{sc.tag}_{dir}',

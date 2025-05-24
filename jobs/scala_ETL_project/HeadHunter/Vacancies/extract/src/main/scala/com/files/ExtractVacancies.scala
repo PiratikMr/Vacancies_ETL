@@ -14,7 +14,7 @@ import scala.util.{Failure, Success}
 
 object ExtractVacancies extends App with SparkApp {
 
-  private val conf = new LocalConfig(args, "hh") {
+  private val conf = new LocalConfig(args) {
     lazy val fieldId: Int = getFromConfFile[Int]("fieldId")
     lazy val vacsPerPage: Int = getFromConfFile[Int]("vacsPerPage")
     lazy val pageLimit: Int = getFromConfFile[Int]("pageLimit")

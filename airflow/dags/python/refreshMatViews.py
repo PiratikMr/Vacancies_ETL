@@ -1,28 +1,16 @@
-import pendulum
-from airflow.models import Variable
-from airflow.utils.dates import days_ago
-from airflow import DAG
+import sys
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 from airflow.operators.dummy import DummyOperator
-from pyhocon import ConfigFactory
+from airflow import DAG
 from pathlib import Path
 
+common_path = str(Path(__file__).parent.parent.parent)
+sys.path.append(common_path)
 
-# airflow variables
-repDir = Variable.get("ITCLUSTER_HOME")
-spark_binary = Variable.get("SPARK_SUBMIT")
+from config_utils import set_config, get_section_params
 
-
-confPath = Path(repDir) / "conf" / "config.conf"
-with open(confPath, 'r') as f:
-    config = ConfigFactory.parse_string(f.read())
-get = lambda fieldName, section="Dags.refreshMatView": config.get_string(f"{section}.{fieldName}")
-
-
-postgresConnId = get("PostgresConnId", "Dags")
-timeZone = get("TimeZone", "Dags")
-
-schedule = get("schedule")
+args = set_config("common.conf", None, None)
+dag_params = get_section_params("Dags.RefreshMatViews", ["schedule", "concurrency"])
 
 
 mat_views = [
@@ -72,17 +60,17 @@ def create_refresh_task(view):
     return PostgresOperator(
             task_id=f'refresh_{view}',
             sql=f"refresh materialized view {view};",
-            postgres_conn_id=postgresConnId
+            postgres_conn_id=args["postgresConnId"]
         )
 
 with DAG(
     'Refresh_Materialized_Views',
     default_args={
-        "start_date": pendulum.instance(days_ago(1)).in_timezone(timeZone)
+        "start_date": args["start_date"]
     },
-    schedule_interval = schedule if schedule else None,
+    schedule_interval = dag_params["schedule"] or None,
     tags = ["python"],
-    concurrency=5,
+    concurrency=dag_params["concurrency"],
 ) as dag:
     
     prevEmptyTask = None

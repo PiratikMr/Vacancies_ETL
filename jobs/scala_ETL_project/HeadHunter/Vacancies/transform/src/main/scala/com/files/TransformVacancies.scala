@@ -16,7 +16,7 @@ import scala.annotation.tailrec
 
 object TransformVacancies extends App with SparkApp {
 
-  private val conf = new LocalConfig(args, "hh") {
+  private val conf = new LocalConfig(args) {
     lazy val transformPartitions: Int = getFromConfFile[Int]("transformPartitions")
 
     define()

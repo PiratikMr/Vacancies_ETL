@@ -21,7 +21,7 @@ import scala.util.matching.Regex
 
 object TransformVacancies extends App with SparkApp {
 
-  private val conf = new LocalConfig(args, "gj") {
+  private val conf = new LocalConfig(args) {
     lazy val transformPartitions: Int = getFromConfFile[Int]("transformPartitions")
 
     define()

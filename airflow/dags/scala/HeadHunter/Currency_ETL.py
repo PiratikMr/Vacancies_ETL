@@ -1,62 +1,30 @@
-import pendulum
+import sys
 from airflow import DAG
-from airflow.models import Variable
-from airflow.utils.dates import days_ago
-from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
-from pyhocon import ConfigFactory
 from pathlib import Path
 
-# airflow variables
-repDir = Variable.get("ITCLUSTER_HOME")
-spark_binary = Variable.get("SPARK_SUBMIT")
+common_path = str(Path(__file__).parent.parent.parent)
+sys.path.append(common_path)
+
+from config_utils import set_config, get_section_params, spark_task_build
+
+args = set_config("hh.conf", "HeadHunter", "Currency")
+dag_params = get_section_params("Dags.Currency", ["schedule"])
 
 
-confPath = Path(repDir) / "conf" / "config.conf"
-with open(confPath, 'r') as f:
-    config = ConfigFactory.parse_string(f.read())
-get = lambda fieldName, section="Dags.hh.currency": config.get_string(f"{section}.{fieldName}")
-
-
-# general
-scalaVersion = get("ScalaVersion", "Dags")
-sparkConnId = get("SparkConnId", "Dags")
-timeZone = get("TimeZone", "Dags")
-
-# common
-schedule = get("schedule")
-
-
-args = [
-   "--conffile", str(confPath)
+app_args = [
+   "--conffile", str(args["confPath"])
 ]
-
-
-jarPath = lambda etlPart: str(Path(repDir) / "jobs" / "scala_ETL_project" / "HeadHunter" / "Currency" / etlPart / "target" / f"scala-{scalaVersion}" / f"{etlPart}.jar")
-
 
 with DAG(
     "Currency_EL",
     default_args = {
-        "start_date": pendulum.instance(days_ago(1)).in_timezone(timeZone)
+        "start_date": args["start_date"]
     },
-    tags = ["scala", "hh"],
-    schedule_interval = schedule if schedule else None
+    schedule_interval = dag_params["schedule"] or None,
+    tags = ["scala", "hh"]
 ) as dag:
     
-    extract = SparkSubmitOperator(
-        task_id = "extract",
-        conn_id = sparkConnId,
-        application = jarPath("extract"),
-        application_args = args,
-        spark_binary = spark_binary
-    )
-    
-    load = SparkSubmitOperator(
-        task_id = "load",
-        conn_id = sparkConnId,
-        application = jarPath("load"),
-        application_args = args,
-        spark_binary = spark_binary
-    )
+    extract = spark_task_build("extract", app_args)
+    load = spark_task_build("load", app_args)
     
     extract >> load

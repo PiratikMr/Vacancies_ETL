@@ -6,7 +6,7 @@ import com.typesafe.config.Config
 import scala.jdk.CollectionConverters.asScalaSetConverter
 
 class CommonConfig(config: Config, site: String, fileName: String) extends Serializable {
-  private lazy val headersConf: Config = config.getConfig(s"Arguments.$site.headers")
+  private lazy val headersConf: Config = config.getConfig(s"Arguments.headers")
   lazy val headers: Map[String, String] = headersConf.entrySet().asScala.map { entry =>
     val key = entry.getKey
     val value = headersConf.getString(key)

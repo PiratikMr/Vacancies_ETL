@@ -9,7 +9,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object ExtractVacancies extends App with SparkApp {
 
-  private val conf = new LocalConfig(args, "gm") {
+  private val conf = new LocalConfig(args) {
     lazy val vacsLimit: Int = getFromConfFile[Int]("vacsLimit")
     lazy val rawPartitions: Int = getFromConfFile[Int]("rawPartitions")
 

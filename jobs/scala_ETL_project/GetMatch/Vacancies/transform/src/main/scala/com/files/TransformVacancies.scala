@@ -13,7 +13,7 @@ import org.rogach.scallop.ScallopOption
 
 object TransformVacancies extends App with SparkApp {
 
-  private val conf = new LocalConfig(args, "gm") {
+  private val conf = new LocalConfig(args) {
     lazy val transformPartitions: Int = getFromConfFile[Int]("transformPartitions")
 
     define()
