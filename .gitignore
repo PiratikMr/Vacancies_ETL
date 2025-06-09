@@ -16,3 +16,5 @@ target
 test
 
 config.conf
+*.docx
+*.drawio
