@@ -3,7 +3,7 @@ package com.files
 import EL.Load.give
 import Spark.SparkApp
 import com.Config.{FolderName, LocalConfig}
-import com.extractURL.ExtractURL.takeURL
+import com.extractURL.ExtractURL.{requestError, takeURL}
 import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -20,7 +20,15 @@ object ExtractVacancies extends App with SparkApp {
   import ss.implicits._
 
   private val firstTake: DataFrame = ss.read
-    .json(Seq(takeURL(url(1, 1), conf.commonConf).get).toDS())
+    .json(Seq(
+
+      takeURL(url(1, 1), conf.commonConf) match {
+        case Some(body) => body
+        case _ => requestError(url(1, 1))
+      }
+
+    ).toDS())
+
   private val total: Long = firstTake
     .select(col("meta.total"))
     .first()
@@ -30,7 +38,10 @@ object ExtractVacancies extends App with SparkApp {
 
   println(s"Vacancies to process: $vacsToProcess")
 
-  private val data: String = takeURL(url(0, vacsToProcess + 2), conf.commonConf).get
+  private val data: String = takeURL(url(0, vacsToProcess + 2), conf.commonConf) match {
+    case Some(body) => body
+    case _ => requestError(url(0, vacsToProcess + 2))
+  }
 
   private val df: DataFrame = ss.read
     .json(Seq(data).toDS())

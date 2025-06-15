@@ -1,25 +1,44 @@
 package com.extractURL
 
 import com.Config.CommonConfig
-import sttp.client3.{Response, SimpleHttpClient, UriContext, basicRequest}
+import sttp.client3.SttpClientException.TimeoutException
+import sttp.client3.{SimpleHttpClient, UriContext, basicRequest}
 
-import scala.util.Try
+import scala.concurrent.duration._
 
 object ExtractURL {
   private lazy val client = SimpleHttpClient()
 
   def takeURL(
                url: String,
-               conf: CommonConfig
-             ): Try[String] = {
-    basicRequest.headers(conf.headers)
-    val response: Response[Either[String, String]] = client.send(basicRequest.get(uri"$url"))
+               conf: CommonConfig,
+               timeout: Duration = 30.seconds
+             ): Option[String] = {
+    try {
+      val response = client.send(
+        basicRequest
+          .headers(conf.headers)
+          .get(uri"$url")
+          .readTimeout(timeout)
+      )
 
-    Try(
       response.body match {
-        case Left(body) => throw new Exception(s"response to GET with code ${response.code}:\n$body")
-        case Right(body) => body
+        case Right(body) => Some(body)
+        case Left(error) =>
+          println(s"Request failed with code ${response.code}: $error for [$url]")
+          None
       }
-    )
+    } catch {
+      case _: TimeoutException =>
+        println(s"Request timed out (after $timeout) for [$url]")
+        None
+      case e: Exception =>
+        println(s"Request failed with exception: ${e.getMessage} for [$url]")
+        None
+    }
+  }
+
+  def requestError(url: String): Nothing = {
+    throw new Exception(s"Request failed for $url")
   }
 }

@@ -47,9 +47,10 @@ object ExtractVacancies extends App with SparkApp {
       else f(i - 1, acc :+ url(id, conf.vacsPerPage, i))
     }
 
-    val df: DataFrame = ss.read
-      .json(Seq(takeURL(url(id), conf.commonConf).get).toDS())
-    val found: Long = df.first().getAs[Long]("found")
+    val found: Long = takeURL(url(id), conf.commonConf) match {
+      case Some(body) => ss.read.json(Seq(body).toDS()).first().getAs[Long]("found")
+      case _ => 0L
+    }
 
     f(Math.min(found / conf.vacsPerPage, conf.pageLimit - 1))
   })
@@ -62,12 +63,10 @@ object ExtractVacancies extends App with SparkApp {
   private val data: Dataset[String] = urlList.tail.foldLeft(initData)((df, url) => {
     Thread.sleep(1000 / conf.urlsPerSecond)
     val data:String = takeURL(url, conf.commonConf) match {
-      case Success(v) =>
+      case Some(body) =>
         readURLs = readURLs + 1
-        v
-      case Failure(e) =>
-        println(e)
-        ""
+        body
+      case _ => ""
     }
     df.union(Seq(data).toDS())
   })

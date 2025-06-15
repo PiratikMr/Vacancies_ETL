@@ -19,26 +19,56 @@ object ExtractDictionaries extends App with SparkApp {
   override val ss: SparkSession = defineSession(conf.commonConf)
 
   // areas
-  private val areasDF: DataFrame = toDF(takeURL("https://api.hh.ru/areas", conf.commonConf).get)
-  private val areasTDF: DataFrame = {
-    @tailrec
-    def f(acc: DataFrame = areasDF.drop("areas"), i: DataFrame = areasDF): DataFrame = {
-      if (i.agg(count(when(functions.size(col("areas")).gt(0), 1))).first().getLong(0) == 0) {
-        acc.
-          withColumn("id", col("id").cast(LongType)).
-          withColumn("parent_id", col("parent_id").cast(LongType))
-      }
-      else {
-        val next: DataFrame = i.withColumn("areas", explode(col("areas"))).select("areas.*")
-        f(acc.union(next.drop("areas")),next)
-      }
-    }
-    f()
-  }
+  private val areasDFOpt: Option[DataFrame] = for {
+    body <- takeURL("https://api.hh.ru/areas", conf.commonConf)
+  } yield processAreas(body)
+  areasDFOpt.foreach(save(FolderName.Areas, _))
 
   // roles
-  private val rolesDF: DataFrame = toDF(takeURL("https://api.hh.ru/professional_roles", conf.commonConf).get)
-  private val rolesTDF: DataFrame = rolesDF
+  private val rolesDFOpt: Option[DataFrame] = for {
+    body <- takeURL("https://api.hh.ru/professional_roles", conf.commonConf)
+  } yield processRoles(body)
+  rolesDFOpt.foreach(save(FolderName.Roles, _))
+
+  // dictionaries
+  private val dictionariesDFOpt: Option[DataFrame] = takeURL("https://api.hh.ru/professional_roles", conf.commonConf).map(toDF)
+
+  dictionariesDFOpt.foreach { df =>
+    save(FolderName.Currency, expl(df,"currency")
+      .withColumn("id", col("code"))
+      .select("id", "name", "rate"))
+    save(FolderName.Schedule, expl(df,"schedule")
+      .select("id", "name"))
+    save(FolderName.Employment, expl(df,"employment")
+      .select("id", "name"))
+    save(FolderName.Experience, expl(df,"experience")
+      .select("id", "name"))
+  }
+
+  stopSpark()
+
+
+
+  private def processAreas(body: String): DataFrame = {
+    val initialDF = toDF(body).drop("areas")
+
+    @tailrec
+    def flattenAreas(acc: DataFrame = initialDF, current: DataFrame = toDF(body)): DataFrame = {
+      if (current.agg(count(when(functions.size(col("areas")).gt(0), 1))).first().getLong(0) == 0) {
+        acc
+          .withColumn("id", col("id").cast(LongType))
+          .withColumn("parent_id", col("parent_id").cast(LongType))
+      } else {
+        val next = current.withColumn("areas", explode(col("areas"))).select("areas.*")
+        flattenAreas(acc.union(next.drop("areas")), next)
+      }
+    }
+
+    flattenAreas()
+  }
+
+  private def processRoles(body: String): DataFrame = {
+    toDF(body)
       .withColumn("categories", explode(col("categories")))
       .select("categories.*")
       .withColumn("id", col("id").cast(LongType))
@@ -46,28 +76,7 @@ object ExtractDictionaries extends App with SparkApp {
       .select(col("id").as("parent_id"),
         col("roles").getField("id").cast(LongType).as("id"),
         col("roles").getField("name").as("name"))
-
-  // dictionaries
-  private val dictionariesDF: DataFrame = toDF(takeURL("https://api.hh.ru/dictionaries", conf.commonConf).get)
-
-  save(FolderName.Areas, areasTDF)
-
-  save(FolderName.Roles, rolesTDF)
-
-  save(FolderName.Currency, expl(dictionariesDF,"currency")
-    .withColumn("id", col("code"))
-    .select("id", "name", "rate"))
-
-  save(FolderName.Schedule, expl(dictionariesDF,"schedule")
-    .select("id", "name"))
-
-  save(FolderName.Employment, expl(dictionariesDF,"employment")
-    .select("id", "name"))
-
-  save(FolderName.Experience, expl(dictionariesDF,"experience")
-    .select("id", "name"))
-
-  stopSpark()
+  }
 
 
   private def save(folderName: FolderName, data: DataFrame): Unit = {
