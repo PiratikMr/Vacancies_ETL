@@ -64,6 +64,18 @@ services:
         retries: 5
         start_period: 5s
 
+  superset:
+    image: apache/superset
+    container_name: superset
+    ports:
+      - "8088:8088"
+    environment:
+      SUPERSET_SECRET_KEY: "nhgH0yelqENg+jgNw9I16VLdFF3P206ciSsOyyM3ng4sPG1m2UUxqrNi"
+    volumes:
+      - superset_volume:/app/superset_data
+      - ./superset/conf/start-superset.sh:/start-superset.sh
+    command: [ "/bin/bash", "/start-superset.sh" ]
+
   grafana:
     image: grafana/grafana-enterprise:11.6.1
     container_name: grafana
@@ -269,3 +281,4 @@ volumes:
   hadoop_datanode1:
   hadoop_namenode:
   app-postgres-db-volume:
+  superset_volume:

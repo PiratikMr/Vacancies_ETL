@@ -7,12 +7,13 @@ sys.path.append(common_path)
 
 from config_utils import set_config, get_section_params, spark_task_build
 
-args = set_config("hh.conf", "HeadHunter", "Currency")
+args = set_config("hh.conf", "HeadHunter", "Dictionaries")
 dag_params = get_section_params("Dags.Currency", ["schedule"])
 
 
 app_args = [
-   "--conffile", str(args["confPath"])
+   "--conffile", str(args["confPath"]),
+   "--dictionaries", "dict:curr"
 ]
 
 with DAG(

@@ -1,49 +1,72 @@
 package com.files
 
-import EL.Extract.take
-import Spark.SparkApp
-import com.Config.FolderName.FolderName
-import com.Config.{FolderName, LocalConfig}
-import com.LoadDB.LoadDB.{give, save}
+import com.files.FolderName.FolderName
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.rogach.scallop.ScallopOption
 
-object LoadDictionaries extends App with SparkApp {
+object LoadDictionaries extends SparkApp {
 
-  private val conf = new LocalConfig(args) {
+  private class Conf(args: Array[String]) extends LocalConfig(args) {
+
+    private val allDictionaries: String = "areas roles dict:curr dict:schd dict:empl dict:expr"
+    val dictionaries: ScallopOption[String] = opt[String](name = "dictionaries", default = Some(allDictionaries))
+
     define()
   }
 
-  override val ss: SparkSession = defineSession(conf.commonConf)
 
-  loadData(FolderName.Areas, Seq("id"), updates = Seq("name"))
-  loadData(FolderName.Currency, Seq("id"), updates = Seq("rate"), isDict = true)
-  loadData(FolderName.Schedule, Seq("id"), updates = Seq("name"))
-  loadData(FolderName.Employment, Seq("id"), updates = Seq("name"))
-  loadData(FolderName.Experience, Seq("id"), updates = Seq("name"))
+  def main(args: Array[String]): Unit = {
 
-  private val rolesDF: DataFrame = take(
-    ss = ss,
-    conf = conf.commonConf,
-    folderName = FolderName.Dict(FolderName.Roles)
-  ).get
-    .select("id", "name")
-    .dropDuplicates("id")
+    val conf: Conf = new Conf(args)
+    val spark: SparkSession = defineSession(conf.commonConf)
 
-  loadData(FolderName.Roles, Seq("id"), updates = Seq("name"), data = rolesDF)
+    val dictSet: Set[String] = conf.dictionaries().split(" ").map(_.trim.toLowerCase).toSet
 
-  stopSpark()
+    val loadWithConf = loadHelper(spark, conf)_
+    val loadDef = loadWithConf(Seq("name"), None)
 
-  private def loadData(folderName: FolderName, conflicts: Seq[String], updates: Seq[String] = null, isDict: Boolean = false, data: DataFrame = null): Unit = {
-    save(
+    dictSet.foreach(arg => {
+      arg.trim.toLowerCase match {
+        case "areas" => loadDef(FolderName.Areas)
+        case "roles" => processRoles(spark, conf)
+        case s if s.startsWith("dict:") =>
+          s.stripPrefix("dict:") match {
+            case "curr" => loadWithConf(Seq("rate"), None)(FolderName.Currency)
+            case "schd" => loadDef(FolderName.Schedule)
+            case "empl" => loadDef(FolderName.Employment)
+            case "expr" => loadDef(FolderName.Experience)
+          }
+      }
+    })
+
+    spark.stop()
+
+  }
+
+  private def processRoles(spark: SparkSession, conf: LocalConfig): Unit = {
+    val rolesDF: DataFrame = HDFSHandler.load(spark = spark, conf = conf.commonConf)(FolderName.Roles)
+      .select("id", "name")
+      .dropDuplicates("id")
+
+    loadHelper(spark, conf)(Seq("name"), Some(rolesDF))(FolderName.Roles)
+  }
+
+
+  private def loadHelper(spark: SparkSession, conf: LocalConfig)
+                        (updates: Seq[String], data: Option[DataFrame])
+                        (folderName: FolderName): Unit = {
+    val toSave: DataFrame = data match {
+      case Some(df) => df
+      case None => HDFSHandler.load(spark = spark, conf = conf.commonConf)(folderName = folderName)
+    }
+
+    DBHandler.save(
       conf = conf.commonConf,
-      data = if (data == null) take(
-        ss = ss,
-        conf = conf.commonConf,
-        folderName = FolderName.Dict(folderName)
-      ).get else data,
-      tableName = if (isDict) folderName else conf.tableName(folderName),
-      conflicts = conflicts,
+      data = toSave,
+      tableName = conf.tableName(folderName),
+      conflicts = Seq("id"),
       updates = updates
     )
   }
+
 }

@@ -1,62 +1,63 @@
 package com.files
 
-import EL.Load.give
-import Spark.SparkApp
-import com.Config.{FolderName, LocalConfig}
-import com.extractURL.ExtractURL.{requestError, takeURL}
+import com.files.URLHandler.{readURL, requestError}
 import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-object ExtractVacancies extends App with SparkApp {
+object ExtractVacancies extends SparkApp {
 
-  private val conf = new LocalConfig(args) {
+  private class Conf(args: Array[String]) extends LocalConfig(args) {
     lazy val vacsLimit: Int = getFromConfFile[Int]("vacsLimit")
     lazy val rawPartitions: Int = getFromConfFile[Int]("rawPartitions")
 
     define()
   }
-  override val ss: SparkSession = defineSession(conf.commonConf)
 
-  import ss.implicits._
+  def main(args: Array[String]): Unit = {
 
-  private val firstTake: DataFrame = ss.read
-    .json(Seq(
+    val conf: Conf = new Conf(args)
+    val spark: SparkSession = defineSession(conf.commonConf)
 
-      takeURL(url(1, 1), conf.commonConf) match {
+    val dataDF: DataFrame = getData(spark, conf)
+
+    println(s"Total vacancies: ${dataDF.count}")
+
+    HDFSHandler.save(conf.commonConf)(FolderName.Raw, dataDF.repartition(conf.rawPartitions))
+
+    spark.stop()
+
+  }
+
+
+  private def getData(spark: SparkSession, conf: Conf): DataFrame = {
+
+    import spark.implicits._
+
+    val firstTake: DataFrame = spark.read.json(Seq(
+      readURL(url(1, 1), conf.commonConf) match {
         case Some(body) => body
         case _ => requestError(url(1, 1))
       }
+    ).toDS)
+    val total: Long = math.min(
+      conf.vacsLimit,
+      firstTake.select(col("meta.total")).first.getLong(0)
+    ) + 2
 
-    ).toDS())
+    println(s"Vacancies to read: $total")
 
-  private val total: Long = firstTake
-    .select(col("meta.total"))
-    .first()
-    .getLong(0)
+    val bodyData: String = readURL(url(0, total), conf.commonConf) match {
+      case Some(body) => body
+      case _ => requestError(url(0, total))
+    }
 
-  private val vacsToProcess: Long = Math.min(total, conf.vacsLimit)
+    spark.read
+      .json(Seq(bodyData).toDS())
+      .withColumn("offers", explode(col("offers")))
+      .select("offers.*")
 
-  println(s"Vacancies to process: $vacsToProcess")
-
-  private val data: String = takeURL(url(0, vacsToProcess + 2), conf.commonConf) match {
-    case Some(body) => body
-    case _ => requestError(url(0, vacsToProcess + 2))
   }
 
-  private val df: DataFrame = ss.read
-    .json(Seq(data).toDS())
-    .withColumn("offers", explode(col("offers")))
-    .select("offers.*")
-
-  println(s"Read vacancies: ${df.count()}")
-
-  give(
-    conf = conf.commonConf,
-    folderName = FolderName.Raw,
-    data = df.repartition(conf.rawPartitions)
-  )
-
-  stopSpark()
 
   private def url(offset: Long, limit: Long): String = {
     s"https://getmatch.ru/api/offers?offset=$offset&limit=$limit"

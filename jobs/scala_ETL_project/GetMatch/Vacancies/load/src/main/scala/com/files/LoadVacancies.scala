@@ -1,46 +1,46 @@
 package com.files
 
-import EL.Extract.take
-import Spark.SparkApp
-import com.Config.FolderName.{FolderName, isDict}
-import com.Config.{FolderName, LocalConfig}
-import com.LoadDB.LoadDB.{give, load, save}
-import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import com.files.FolderName.FolderName
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
-object LoadVacancies extends App with SparkApp {
-
-  private val conf = new LocalConfig(args) {
-    define()
-  }
-
-  override val ss: SparkSession = defineSession(conf.commonConf)
-
-  loadData(FolderName.Skills, Seq("id", "name"))
-  loadData(FolderName.Locations, Seq("id", "city", "country"))
-
-  private val vac: DataFrame = take(
-    ss = ss,
-    conf = conf.commonConf,
-    folderName = FolderName.Vac
-  ).get
-  private val notUpd: Set[String] = Set("id", "publish_date")
-  loadData(FolderName.Vac, Seq("id"), data = vac, updates = vac.columns.toSeq.filter(col => !notUpd.contains(col)))
+object LoadVacancies extends SparkApp {
 
 
+  def main(args: Array[String]): Unit = {
 
-  stopSpark()
+    val conf: LocalConfig = new LocalConfig(args) { define() }
+    val spark: SparkSession = defineSession(conf.commonConf)
 
-  private def loadData(folderName: FolderName, conflicts: Seq[String], updates: Seq[String] = null, data: DataFrame = null): Unit = {
-    save(
-      conf = conf.commonConf,
-      data = if (data == null) take(
-        ss = ss,
-        conf = conf.commonConf,
-        folderName = folderName
-      ).get else data,
-      tableName = conf.tableName(folderName),
-      conflicts = conflicts,
-      updates = updates
+
+    val loadWithConf = loadHelper(spark, conf)_
+
+    loadWithConf(Seq("id", "name"), null, None, FolderName.Skills)
+    loadWithConf(Seq("id", "city", "country"), null, None, FolderName.Locations)
+
+    val vacs: DataFrame = HDFSHandler.load(spark, conf.commonConf)(FolderName.Vac)
+
+    loadWithConf(
+      Seq("id"),
+      vacs.columns.toSeq.filterNot (col => Set("id", "publish_date").contains(col)),
+      Some(vacs),
+      FolderName.Vac
     )
+
+    spark.stop()
+
   }
+
+
+  private def loadHelper(spark: SparkSession, conf: LocalConfig)
+                        (conflicts: Seq[String], updates: Seq[String], data: Option[DataFrame], folderName: FolderName): Unit = {
+
+    val toSave: DataFrame = data match {
+      case Some(df) => df
+      case None => HDFSHandler.load(spark, conf.commonConf)(folderName)
+    }
+
+    DBHandler.save(conf.commonConf, toSave, conf.tableName(folderName), conflicts, updates)
+
+  }
+
 }

@@ -1,48 +1,56 @@
 package com.files
 
-import EL.Extract.take
-import Spark.SparkApp
-import com.Config.FolderName.{FolderName, isDict}
-import com.Config.{FolderName, LocalConfig}
-import com.LoadDB.LoadDB.{give, load, save}
-import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import com.files.FolderName.FolderName
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
-object LoadVacancies extends App with SparkApp {
+object LoadVacancies extends SparkApp {
 
-  private val conf = new LocalConfig(args) {
-    define()
+  def main(args: Array[String]): Unit = {
+
+    val conf: LocalConfig = new LocalConfig(args) { define() }
+    val spark: SparkSession = defineSession(conf.commonConf)
+
+    saveData(spark, conf)
+
+    spark.stop()
+
   }
 
-  override val ss: SparkSession = defineSession(conf.commonConf)
 
-  loadData(folderName = FolderName.Vac, conflicts = Seq("id"), notUpdates = Seq("id"))
-  loadData(folderName = FolderName.Locations)
-  loadData(folderName = FolderName.JobFormats)
-  loadData(folderName = FolderName.Skills)
-  loadData(folderName = FolderName.Fields)
-  loadData(folderName = FolderName.Levels)
+  private def saveData(spark: SparkSession, conf: LocalConfig): Unit = {
 
-  stopSpark()
+    val saveWithConf = saveHelper(spark, conf)_
 
-  private def loadData(folderName: FolderName, conflicts: Seq[String] = Seq("id", "name"), notUpdates: Seq[String] = null): Unit = {
+    val saveDef = saveWithConf(Seq("id", "name"), None)
 
-    val d = take(
-      ss = ss,
-      conf = conf.commonConf,
-      folderName = folderName
-    ).get
+    saveDef(FolderName.Locations)
+    saveDef(FolderName.JobFormats)
+    saveDef(FolderName.Skills)
+    saveDef(FolderName.Fields)
+    saveDef(FolderName.Levels)
 
-    val updates: Seq[String] = if (notUpdates == null) null
-    else {
-      d.columns.toSeq.filter(col => !notUpdates.contains(col))
+    saveWithConf(Seq("id"), Some(Seq("id")))(FolderName.Vac)
+  }
+
+
+  private def saveHelper(spark: SparkSession, conf: LocalConfig)
+                        (conflicts: Seq[String], notUpdates: Option[Seq[String]])
+                        (folderName: FolderName): Unit = {
+
+    val toSave: DataFrame = HDFSHandler.load(spark, conf.commonConf)(folderName)
+
+    val updates: Seq[String] = notUpdates match {
+      case Some(seq) => toSave.columns.toSeq.filterNot(col => seq.contains(col))
+      case None => null
     }
 
-    save(
+    DBHandler.save(
       conf = conf.commonConf,
-      data = d,
+      data = toSave,
       tableName = conf.tableName(folderName),
       conflicts = conflicts,
       updates = updates
     )
   }
+
 }

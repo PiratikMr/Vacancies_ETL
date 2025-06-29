@@ -20,44 +20,44 @@ val load: String = "load"
 // InfraStructure/
 lazy val inf_struct = "InfraStructure/"
 
-  lazy val config = (project in file(inf_struct + "config")).settings(
+  lazy val Config = (project in file(inf_struct + "Config")).settings(
     libraryDependencies += "com.typesafe" % "config" % "1.4.3",
     libraryDependencies += "org.rogach" %% "scallop" % "5.2.0"
   )
 
-  lazy val core = (project in file (inf_struct + "core"))
-    .dependsOn(config)
+  lazy val Core = (project in file (inf_struct + "Core"))
+    .dependsOn(Config)
 
-  lazy val urlExtract = (project in file(inf_struct + "URLExtract"))
+  lazy val URLInteraction = (project in file(inf_struct + "URLInteraction"))
     .settings(
       libraryDependencies += "com.softwaremill.sttp.client3" %% "core" % "3.10.1"
-    ).dependsOn(config)
+    ).dependsOn(Config)
 
-  lazy val DBLoad = (project in file(inf_struct + "DBLoad"))
+  lazy val DBInteraction = (project in file(inf_struct + "DBInteraction"))
     .settings(
       libraryDependencies += "org.postgresql" % "postgresql" % "42.7.4"
-    ).dependsOn(core)
+    ).dependsOn(Core)
 //
 
 // HeadHunter/
 lazy val hh_dir = "HeadHunter/"
-  // Currency/
-  lazy val hh_curr = hh_dir + "Currency/"
-
-    lazy val hh_curr_extract = (project in file(hh_curr + extract))
-      .settings(
-        assembly / mainClass := Some("com.files.ExtractCurrency"),
-        assembly / assemblyJarName := s"$extract.jar"
-      )
-      .dependsOn(urlExtract, core)
-
-    lazy val hh_curr_load = (project in file(hh_curr + load))
-      .settings(
-        assembly / mainClass := Some("com.files.LoadCurrency"),
-        assembly / assemblyJarName := s"$load.jar"
-      )
-      .dependsOn(DBLoad)
-  //
+//  // Currency/
+//  lazy val hh_curr = hh_dir + "Currency/"
+//
+//    lazy val hh_curr_extract = (project in file(hh_curr + extract))
+//      .settings(
+//        assembly / mainClass := Some("com.files.ExtractCurrency"),
+//        assembly / assemblyJarName := s"$extract.jar"
+//      )
+//      .dependsOn(URLInteraction, Core)
+//
+//    lazy val hh_curr_load = (project in file(hh_curr + load))
+//      .settings(
+//        assembly / mainClass := Some("com.files.LoadCurrency"),
+//        assembly / assemblyJarName := s"$load.jar"
+//      )
+//      .dependsOn(DBInteraction)
+//  //
 
   // Dictionaries/
   lazy val hh_dict = hh_dir + "Dictionaries/"
@@ -67,14 +67,14 @@ lazy val hh_dir = "HeadHunter/"
         assembly / mainClass := Some("com.files.ExtractDictionaries"),
         assembly / assemblyJarName := s"$extract.jar"
       )
-      .dependsOn(urlExtract, core)
+      .dependsOn(URLInteraction, Core)
 
     lazy val hh_dict_load = (project in file(hh_dict + load))
       .settings(
         assembly / mainClass := Some("com.files.LoadDictionaries"),
         assembly / assemblyJarName := s"$load.jar"
       )
-      .dependsOn(DBLoad)
+      .dependsOn(DBInteraction)
   //
 
   // Vacancies/
@@ -85,21 +85,21 @@ lazy val hh_dir = "HeadHunter/"
           assembly / mainClass := Some("com.files.ExtractVacancies"),
           assembly / assemblyJarName := s"$extract.jar"
         )
-        .dependsOn(urlExtract, core)
+        .dependsOn(URLInteraction, Core)
 
     lazy val hh_vacs_transform = (project in file(hh_vacs + transform))
       .settings(
         assembly / mainClass := Some("com.files.TransformVacancies"),
         assembly / assemblyJarName := s"$transform.jar"
       )
-      .dependsOn(core)
+      .dependsOn(Core)
 
     lazy val hh_vacs_load = (project in file(hh_vacs + load))
       .settings(
         assembly / mainClass := Some("com.files.LoadVacancies"),
         assembly / assemblyJarName := s"$load.jar"
       )
-      .dependsOn(DBLoad)
+      .dependsOn(DBInteraction)
   //
 //
 
@@ -113,21 +113,21 @@ lazy val gm_dir = "GetMatch/"
       assembly / mainClass := Some("com.files.ExtractVacancies"),
       assembly / assemblyJarName := s"$extract.jar"
     )
-    .dependsOn(urlExtract, core)
+    .dependsOn(URLInteraction, Core)
 
   lazy val gm_vacs_transform = (project in file(gm_vacs + transform))
     .settings(
       assembly / mainClass := Some("com.files.TransformVacancies"),
       assembly / assemblyJarName := s"$transform.jar"
     )
-    .dependsOn(core, DBLoad)
+    .dependsOn(Core, DBInteraction)
 
   lazy val gm_vacs_load = (project in file(gm_vacs + load))
     .settings(
       assembly / mainClass := Some("com.files.LoadVacancies"),
       assembly / assemblyJarName := s"$load.jar"
     )
-    .dependsOn(DBLoad)
+    .dependsOn(DBInteraction)
   //
 //
 
@@ -141,7 +141,7 @@ lazy val gj_dir = "GeekJOB/"
       assembly / mainClass := Some("com.files.ExtractVacancies"),
       assembly / assemblyJarName := s"$extract.jar"
     )
-    .dependsOn(urlExtract, core)
+    .dependsOn(URLInteraction, Core)
 
   lazy val gj_vacs_transform = (project in file(gj_vacs + transform))
     .settings(
@@ -149,21 +149,20 @@ lazy val gj_dir = "GeekJOB/"
       assembly / mainClass := Some("com.files.TransformVacancies"),
       assembly / assemblyJarName := s"$transform.jar"
     )
-    .dependsOn(DBLoad, core)
+    .dependsOn(DBInteraction, Core)
 
   lazy val gj_vacs_load = (project in file(gj_vacs + load))
     .settings(
       assembly / mainClass := Some("com.files.LoadVacancies"),
       assembly / assemblyJarName := s"$load.jar"
     )
-    .dependsOn(DBLoad)
+    .dependsOn(DBInteraction)
   //
 //
 
 
 lazy val root = (project in file("."))
-  .aggregate(config, core, urlExtract, DBLoad,
-    hh_curr_extract, hh_curr_load,
+  .aggregate(Config, Core, URLInteraction, DBInteraction,
     hh_dict_extract, hh_dict_load,
     hh_vacs_extract, hh_vacs_transform, hh_vacs_load,
     gm_vacs_extract, gm_vacs_transform, gm_vacs_load,
@@ -172,12 +171,11 @@ lazy val root = (project in file("."))
 
 
 lazy val infra_structure = (project in file("InfraStructure"))
-  .aggregate(config, core, urlExtract, DBLoad)
+  .aggregate(Config, Core, URLInteraction, DBInteraction)
 
 
 lazy val head_hunter = (project in file("HeadHunter"))
   .aggregate(
-    hh_curr_extract, hh_curr_load,
     hh_dict_extract, hh_dict_load,
     hh_vacs_extract, hh_vacs_transform, hh_vacs_load
   )
@@ -221,8 +219,6 @@ addCommandAlias("gjHelperCompile",
 addCommandAlias("hhHelperCompile",
   """
     |project head_hunter; clean; compile;
-    |project hh_curr_extract; assembly;
-    |project hh_curr_load; assembly;
     |project hh_dict_extract; assembly;
     |project hh_dict_load; assembly;
     |project hh_vacs_extract; assembly;

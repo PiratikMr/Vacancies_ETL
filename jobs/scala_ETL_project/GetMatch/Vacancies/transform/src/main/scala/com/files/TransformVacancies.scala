@@ -1,36 +1,41 @@
 package com.files
 
-import EL.Extract.take
-import EL.Load.give
-import Spark.SparkApp
-import com.Config.FolderName.FolderName
-import com.Config.{FolderName, LocalConfig}
-import com.LoadDB.LoadDB
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.LongType
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.rogach.scallop.ScallopOption
 
-object TransformVacancies extends App with SparkApp {
+object TransformVacancies extends SparkApp {
 
-  private val conf = new LocalConfig(args) {
+  private class Conf(args: Array[String]) extends LocalConfig(args) {
     lazy val transformPartitions: Int = getFromConfFile[Int]("transformPartitions")
 
     define()
   }
 
-  override val ss: SparkSession = defineSession(conf.commonConf)
+  def main(args: Array[String]): Unit = {
 
-  private val rawVac: DataFrame = take(
-    ss = ss,
-    conf = conf.commonConf,
-    folderName = FolderName.Raw
-  ).get
+    val conf: Conf = new Conf(args)
+    val spark: SparkSession = defineSession(conf.commonConf)
 
-  private val currency: DataFrame = LoadDB.take(ss, conf.commonConf, FolderName.Currency).select(col("id").as("c_id"), col("code").as("c_code"))
 
-  private val genVac: DataFrame = rawVac
-    .join(currency, rawVac("salary_currency") === currency("c_code"), "left_outer")
+    val currency: DataFrame = DBHandler.load(spark, conf.commonConf, conf.tableName(FolderName.Currency))
+      .select(col("id").as("c_id"), col("code").as("c_code"))
+
+    val rawData: DataFrame = HDFSHandler.load(spark, conf.commonConf)(FolderName.Raw)
+
+
+    val transformedData: DataFrame = transformData(rawData, currency)
+
+    saveData(conf, transformedData)
+
+    spark.stop
+
+  }
+
+
+  private def transformData(data: DataFrame, currency: DataFrame): DataFrame =
+    data
+    .join(currency, data("salary_currency") === currency("c_code"), "left_outer")
 
     .withColumn("id", col("id").cast(LongType))
     .withColumn("name", col("position"))
@@ -53,33 +58,27 @@ object TransformVacancies extends App with SparkApp {
 
     .dropDuplicates("id")
 
-  private val transformVac: DataFrame = genVac
-    .select("id", "name", "publish_date", "salary_from", "salary_to", "salary_hidden", "currency_id",
-    "english_lvl", "remote_op", "office_op", "employer")
 
-  private val locations: DataFrame = genVac
-    .select(col("id"), explode(col("locations")).as("location"))
-    .select(col("id"), col("location.city").as("city"), col("location.country").as("country"))
+  private def saveData(conf: Conf, data: DataFrame): Unit = {
 
-  private val skills: DataFrame = genVac
-    .select(col("id"), explode(col("skills")).as("name"))
+    val vacancies: DataFrame = data
+      .select("id", "name", "publish_date", "salary_from", "salary_to", "salary_hidden", "currency_id",
+        "english_lvl", "remote_op", "office_op", "employer")
 
-  // skills
-  save(FolderName.Skills, skills)
+    val locations: DataFrame = data
+      .select(col("id"), explode(col("locations")).as("location"))
+      .select(col("id"), col("location.city").as("city"), col("location.country").as("country"))
 
-  // locations
-  save(FolderName.Locations, locations)
+    val skills: DataFrame = data.
+      select(col("id"), explode(col("skills")).as("name"))
 
-  // vacancies
-  save(FolderName.Vac, transformVac, conf.transformPartitions)
 
-  stopSpark()
+    val saveWithConf = HDFSHandler.save(conf.commonConf)_
 
-  private def save(folderName: FolderName, dataFrame: DataFrame, repartition: Integer = 1): Unit = {
-    give(
-      conf = conf.commonConf,
-      data = dataFrame.repartition(repartition),
-      folderName = folderName
-    )
+    saveWithConf(FolderName.Vac, vacancies.repartition(conf.transformPartitions))
+    saveWithConf(FolderName.Locations, locations.repartition(1))
+    saveWithConf(FolderName.Skills, skills.repartition(1))
+
   }
+
 }

@@ -1,121 +1,97 @@
 package com.files
 
-import EL.Extract.take
-import EL.Load.give
-import Spark.SparkApp
-import com.Config.FolderName.FolderName
-import com.Config.{FolderName, LocalConfig}
-import org.apache.spark.sql.catalyst.plans.logical.Repartition
-import org.apache.spark.sql.expressions.UserDefinedFunction
+import com.files.FolderName.FolderName
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.LongType
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.rogach.scallop.ScallopOption
 
-import scala.annotation.tailrec
+object TransformVacancies extends SparkApp {
 
-object TransformVacancies extends App with SparkApp {
-
-  private val conf = new LocalConfig(args) {
+  private class Conf(args: Array[String]) extends LocalConfig(args) {
     lazy val transformPartitions: Int = getFromConfFile[Int]("transformPartitions")
 
     define()
   }
 
-  override val ss: SparkSession = defineSession(conf.commonConf)
+  def main(args: Array[String]): Unit = {
 
-  private val areasMap: Map[Long, Option[Long]] = take(
-    ss = ss,
-    conf = conf.commonConf,
-    folderName = FolderName.Dict(FolderName.Areas)
-  ).get
-    .rdd
-    .map(row => {
-      val id: Long = row.getAs[Long]("id")
-      val parent_id: Option[Long] = Option(row.getAs[Long]("parent_id"))
-      (id, parent_id)
-  })
-    .collectAsMap()
-    .toMap
+    val conf: Conf = new Conf(args)
+    val spark: SparkSession = defineSession(conf.commonConf)
 
-  private def getCountry(id: Long): Long = {
-    @tailrec
-    def f(i: Long = id): Long = {
-      areasMap.get(i).flatten match {
-        case Some(v) => f(v)
-        case None => i
-      }
-    }
-    f()
+    val rawData: DataFrame = HDFSHandler.load(spark, conf.commonConf)(FolderName.Raw)
+    val areas: DataFrame = getAreasDF(spark, conf)
+
+    val transformedData: DataFrame = transformData(rawData, areas)
+
+    saveData(conf, transformedData)
+
+    spark.stop()
+
   }
-  private val udfCountry: UserDefinedFunction = udf((id: Long) => getCountry(id))
 
 
-  private val rawVac: DataFrame = take(
-    ss = ss,
-    conf = conf.commonConf,
-    folderName = FolderName.Raw
-  ).get
-
-  private val genVac: DataFrame = rawVac
-    .withColumn("id", col("id").cast(LongType))
-
-    .withColumn("region_area_id", col("area").getField("id").cast(LongType))
-    .withColumn("country_area_id", udfCountry(col("region_area_id")))
-    .withColumn("close_to_metro", col("address").getField("metro_stations").isNotNull)
-
-    .withColumn("salary_from", col("salary").getField("from"))
-    .withColumn("salary_to", col("salary").getField("to"))
-    .withColumn("currency_id", col("salary").getField("currency"))
-
-    .withColumn("employer_id", col("employer").getField("id").cast(LongType))
-    .withColumn("employer_name", col("employer").getField("name"))
-
-    .withColumn("skills",
-      if (rawVac.columns.contains("key_skills")) { col("key_skills") }
-      else { lit(Array.empty[String]) }
-    )
-
-    .withColumn("schedule_id", col("schedule").getField("id"))
-    .withColumn("experience_id", col("experience").getField("id"))
-    .withColumn("employment_id", col("employment").getField("id"))
-
-    .withColumn("publish_date", to_timestamp(col("published_at"), "yyyy-MM-dd'T'HH:mm:ssZ"))
-
-    .withColumn("roles", explode(col("professional_roles")))
-    .withColumn("role_id", col("roles.id").cast(LongType))
-
-    .dropDuplicates("id")
-
-  private val transformedVac: DataFrame = genVac
-    .select("id", "name", "region_area_id", "country_area_id", "salary_from", "salary_to", "close_to_metro", "publish_date",
-      "schedule_id", "experience_id", "employment_id", "employer_id", "currency_id", "role_id")
-
-  private val employers: DataFrame = genVac
-    .select(col("employer_id").as("id"), col("employer_name").as("name"))
-    .filter(col("id").isNotNull)
-    .dropDuplicates("id")
-
-  private val skills: DataFrame = genVac
-    .select(col("id"), explode(col("skills")).as("name"))
+  private def getAreasDF(spark: SparkSession, conf: Conf): DataFrame = {
+    HDFSHandler.load(spark, conf.commonConf)(FolderName.Areas)
+      .select(col("id").as("area_id"), col("parent_id").as("country_area_id"))
+  }
 
 
-  // skills
-  save(FolderName.Skills, skills)
+  private def transformData(rawData: DataFrame, areas: DataFrame): DataFrame = rawData
+      .withColumn("id", col("id").cast(LongType))
 
-  // employers
-  save(FolderName.Employer, employers)
+      .withColumn("region_area_id", col("area").getField("id").cast(LongType))
+      .join(areas, col("region_area_id") === col("area_id"), "left")
+      .withColumn("close_to_metro", col("address").getField("metro_stations").isNotNull)
 
-  // vacancies
-  save(FolderName.Vac, transformedVac, conf.transformPartitions)
+      .withColumn("salary_from", col("salary").getField("from"))
+      .withColumn("salary_to", col("salary").getField("to"))
+      .withColumn("currency_id", col("salary").getField("currency"))
 
-  stopSpark()
+      .withColumn("employer_id", col("employer").getField("id").cast(LongType))
+      .withColumn("employer_name", col("employer").getField("name"))
 
-  private def save(folderName: FolderName, dataFrame: DataFrame, repartition: Integer = 1): Unit = {
-    give(
-      conf = conf.commonConf,
-      data = dataFrame.repartition(repartition),
-      folderName = folderName
-    )
+      .withColumn("skills",
+        if (rawData.columns.contains("key_skills")) { col("key_skills") }
+        else { lit(Array.empty[String]) }
+      )
+
+      .withColumn("schedule_id", col("schedule").getField("id"))
+      .withColumn("experience_id", col("experience").getField("id"))
+      .withColumn("employment_id", col("employment").getField("id"))
+
+      .withColumn("publish_date", to_timestamp(col("published_at"), "yyyy-MM-dd'T'HH:mm:ssZ"))
+
+      .withColumn("roles", explode(col("professional_roles")))
+      .withColumn("role_id", col("roles.id").cast(LongType))
+
+      .dropDuplicates("id")
+
+
+  private def saveData(conf: Conf, data: DataFrame): Unit = {
+
+    val vacancies: DataFrame = data
+      .select("id", "name", "region_area_id", "country_area_id", "salary_from", "salary_to", "close_to_metro", "publish_date",
+        "schedule_id", "experience_id", "employment_id", "employer_id", "currency_id", "role_id")
+
+    val employers: DataFrame = data
+      .select(col("employer_id").as("id"), col("employer_name").as("name"))
+      .filter(col("id").isNotNull)
+      .dropDuplicates("id")
+
+    val skills: DataFrame = data
+      .select(col("id"), explode(col("skills")).as("name"))
+
+
+    val saveCurr = save(conf.commonConf)_
+
+    saveCurr(FolderName.Vac, vacancies, conf.transformPartitions)
+    saveCurr(FolderName.Employer, employers, 1)
+    saveCurr(FolderName.Skills, skills, 1)
+
+  }
+
+
+  private def save (conf: CommonConfig)(folderName: FolderName, data: DataFrame, repartition: Int): Unit = {
+    HDFSHandler.save(conf)(folderName, data.repartition(repartition))
   }
 }
