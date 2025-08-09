@@ -51,9 +51,12 @@ def build_jar_path(etlPart):
     return str(Path(args["repDir"]) / "jobs" / "scala_ETL_project" / project / module / etlPart / "target" / f"scala-{args["scalaVersion"]}" / f"{etlPart}.jar")
 
 
-def spark_task_build(part:str, app_args):
+def spark_task_build(part:str, app_args, task_id = None):
+    if task_id is None:
+        task_id = part
+    
     return SparkSubmitOperator(
-        task_id = part,
+        task_id = task_id,
         conn_id = args["sparkConnId"],
         application = build_jar_path(part),
         application_args = app_args,

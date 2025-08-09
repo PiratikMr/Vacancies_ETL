@@ -1,82 +1,63 @@
 package com.files
 
-import com.files.URLHandler.readURL
 import org.apache.spark.sql.functions.{col, explode}
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.{Dataset, SaveMode, SparkSession}
+import org.rogach.scallop.ScallopOption
 
-object ExtractVacancies extends SparkApp {
+
+object ExtractVacancies extends App with SparkApp {
 
   private class Conf(args: Array[String]) extends LocalConfig(args) {
     lazy val fieldId: Int = getFromConfFile[Int]("fieldId")
     lazy val vacsPerPage: Int = getFromConfFile[Int]("vacsPerPage")
     lazy val pageLimit: Int = getFromConfFile[Int]("pageLimit")
-    lazy val urlsPerSecond: Int = getFromConfFile[Int]("urlsPerSecond")
     lazy val rawPartitions: Int = getFromConfFile[Int]("rawPartitions")
+
+    val dateFrom: ScallopOption[String] = opt[String](name = "datefrom")
 
     define()
   }
+  private val conf: Conf = new Conf(args)
+  private val spark: SparkSession = defineSession(conf.sparkConf, conf.urlConf.requestsPS)
+
+  private def clusterURL(id: Long, page: Long = 0, perPage: Long = 0): String =
+    s"https://api.hh.ru/vacancies?page=$page&per_page=$perPage&professional_role=$id&date_from=${conf.dateFrom()}"
+
+  private def vacUrl(id: String): String = s"https://api.hh.ru/vacancies/$id"
 
 
-  def main(args: Array[String]): Unit = {
-
-    val conf: Conf = new Conf(args)
-    val spark: SparkSession = defineSession(conf.commonConf)
-
-    val ids: Seq[Long] = getProfessionalIds(spark, conf)
-
-    val df: DataFrame = getDataFromUrls(spark, conf, ids)
-    println(s"\n\n\nTotal vacancies: ${df.count()}\n\n\n")
-
-    HDFSHandler.save(conf.commonConf)(FolderName.Raw, df)
-
-    spark.stop()
-
-  }
+  import spark.implicits._
 
 
-  private def getProfessionalIds(spark: SparkSession, conf: Conf): Seq[Long] = {
-    HDFSHandler.load(spark, conf.commonConf)(FolderName.Roles)
-      .where(col("parent_id").equalTo(conf.fieldId))
-      .select("id")
-      .collect()
-      .map(r => r.getLong(0))
-      .toSeq
-  }
+  private val ids: Dataset[Long] = HDFSHandler.load(spark, conf.fsConf.getPath(FolderName.Roles))
+    .where(col("parent_id").equalTo(conf.fieldId)).select("id").map(row => row.getLong(0)).repartition(6)
 
 
-  private def getDataFromUrls(spark: SparkSession, conf: Conf, ids: Seq[Long]): DataFrame = {
-    import spark.implicits._
+  private val clusterData: Dataset[String] = ids.mapPartitions(partition => {
+    partition.flatMap(id => {
+      val data: String = URLHandler.readOrDefault(clusterURL(id), conf.urlConf, """{"found":0}""")
 
-    val urlSeq: Seq[String] =
-      ids.map (id => {
-          val res: Long = readURL(url(id), conf.commonConf) match {
-            case Some(body) => spark.read.json(Seq(body).toDS()).first().getAs[Long]("found")
-            case _ => 0L
-          }
-          (id, math.min(res / conf.vacsPerPage, conf.pageLimit - 1))
-        })
-        .filter { case(_, found) => found <= 0 }
-        .map { case(id, found) => url(id, conf.vacsPerPage, found) }
+      val found: Long = """"found"\s*:\s*(\d+)""".r.findFirstMatchIn(data).get.group(1).toLong
 
-    println(s"\n\n\nURLs to read: ${urlSeq.length}\n\n\n")
-
-    // dataset of body urls
-    val data: Dataset[String] = urlSeq.foldLeft(Seq.empty[String])((acc, url) => {
-      Thread.sleep(1000 / conf.urlsPerSecond)
-      readURL(url, conf.commonConf) match {
-        case Some(body) => body +: acc
-        case _ => acc
+      if (found <= 0) Nil
+      else {
+        val pages: Long = math.min(found / conf.vacsPerPage, conf.pageLimit)
+        (0L to pages).map(page => clusterURL(id, page, conf.vacsPerPage))
       }
-    }).toDS
+    })
+  }).mapPartitions(urls => urls.flatMap(url => URLHandler.readOrNone(url, conf.urlConf)))
 
-    println(s"\n\n\nRead URLs: ${data.count()}\n\n\n")
+  private val schema: StructType = StructType(Seq(StructField("items", ArrayType(StructType(Seq(StructField("id", StringType)))))))
+  private val vacIdsDS: Dataset[String] = spark.read.schema(schema)
+    .json(clusterData).select(explode(col("items.id")).as("id")).dropDuplicates("id").map(row => vacUrl(row.getString(0)))
 
-    // final DataFrame of body urls
-    spark.read.json(data.repartition(conf.rawPartitions))
-      .withColumn("items", explode(col("items")))
-      .select("items.*")
-  }
 
-  private def url(id: Long, perPage: Int = 0, page: Long = 0): String =
-    s"https://api.hh.ru/vacancies?page=$page&per_page=$perPage&professional_role=$id"
+  private val vacData: Dataset[String] = vacIdsDS.repartition(conf.urlConf.requestsPS).mapPartitions(part => part.flatMap(
+    url => URLHandler.readOrNone(url, conf.urlConf)
+  ))
+
+  vacData.repartition(conf.rawPartitions).write.mode(SaveMode.Overwrite).text(conf.fsConf.getPath(FolderName.RawVacancies))
+
+  spark.stop()
 }

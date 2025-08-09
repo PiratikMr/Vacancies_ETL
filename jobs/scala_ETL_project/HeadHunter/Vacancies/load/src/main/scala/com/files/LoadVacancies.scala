@@ -1,58 +1,42 @@
 package com.files
 
 import com.files.DBHandler.save
-import com.files.FolderName.FolderName
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-object LoadVacancies extends SparkApp {
+object LoadVacancies extends App with SparkApp {
 
-  def main(args: Array[String]): Unit = {
-
-    val conf: LocalConfig = new LocalConfig(args) { define() }
-    val spark: SparkSession = defineSession(conf.commonConf)
-
-    loadData(spark, conf)
-
-    spark.stop()
-
-  }
+  private val conf: LocalConfig = new LocalConfig(args) { define() }
+  private val spark: SparkSession = defineSession(conf.sparkConf)
 
 
-  private def loadData(spark: SparkSession, conf: LocalConfig): Unit = {
+  private val vacDf: DataFrame = HDFSHandler.load(spark, conf.fsConf.getPath(FolderName.Vacancies))
+  private val updates: Seq[String] = vacDf.columns.filterNot(col => Set("id", "publish_date").contains(col))
 
-    val loadWithConf = loadHelper(spark, conf)_
-    val loadWithConflict = loadWithConf(Seq("id"), None, Seq("name"))
+  private val baseConflicts: Seq[String] = Seq("id")
 
-    loadWithConflict(FolderName.Employer)
-    loadWithConflict(FolderName.Skills)
+  saveHelper(FolderName.Employers, Seq("id"), Some(Seq("name", "trusted")))
 
-    val vacancies: DataFrame = HDFSHandler.load(spark = spark, conf = conf.commonConf)(FolderName.Vac)
+  saveHelper(FolderName.Vacancies, baseConflicts, Some(updates), Some(vacDf))
 
-    loadWithConf(
-      Seq("id"),
-      Some(vacancies),
-      vacancies.columns.toSeq.filterNot(col => Set("id", "publish_date").contains(col))
-    )(FolderName.Vac)
-
-  }
+  saveHelper(FolderName.Skills, baseConflicts :+ "name", None)
+  //saveHelper(FolderName.DriverLicenses, baseConflicts, None)
+  saveHelper(FolderName.Languages, baseConflicts ++ Seq("name", "level"), None)
 
 
-  private def loadHelper(spark: SparkSession, conf: LocalConfig)
-                        (conflicts: Seq[String], data: Option[DataFrame], updates: Seq[String])
-                        (folderName: FolderName): Unit = {
+  spark.stop()
 
-    val toSave: DataFrame = data match {
+
+  private def saveHelper(
+                          folderName: FolderName,
+                          conflicts: Seq[String],
+                          updates: Option[Seq[String]],
+                          df: Option[DataFrame] = None
+                        ): Unit = {
+    val toSave: DataFrame = df match {
       case Some(value) => value
-      case None => HDFSHandler.load(spark = spark, conf = conf.commonConf)(folderName)
+      case None => HDFSHandler.load(spark, conf.fsConf.getPath(folderName))
     }
-
-    save(
-      conf = conf.commonConf,
-      data = toSave,
-      tableName = conf.tableName(folderName),
-      conflicts = conflicts,
-      updates = updates
-    )
+    save(df = toSave, conf = conf.dbConf, folderName = folderName, conflicts = conflicts, updates = updates)
   }
 
 }

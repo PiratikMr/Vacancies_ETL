@@ -1,37 +1,46 @@
 package com.files
 
-object FolderName {
-  type FolderName = String
 
-  // General
+class FolderName(val path: String) extends Serializable {
+  def isDictionary: Boolean = false
+  def getName: String = path
+  def getDBName: String = getName.toLowerCase
+}
 
-  val Raw = "RawVacancies"
-  val Vac = "Vacancies"
-  val Skills = "Skills"
+object FolderName extends FolderNames {
+  def apply(str: String): FolderName = new FolderName(str)
+}
 
-  // HeadHunter
 
-  private val dict: String = "Dictionaries"
+private case class Dictionary(name: String) extends FolderName(s"Dictionaries/$name") {
+  override def isDictionary: Boolean = true
+  override def getName: String = name
+}
 
-  val Areas = s"$dict/Areas"
-  val Currency = s"$dict/Currency"
-  val Employment = s"$dict/Employment"
-  val Experience = s"$dict/Experience"
-  val Roles = s"$dict/Roles"
-  val Schedule = s"$dict/Schedule"
 
-  val Employer = "Employers"
 
-  def isDict(folderName: FolderName): Boolean = folderName.startsWith(dict)
+trait FolderNames {
 
-  // GetMatch -- GeekJOB
+  // common
+  val RawVacancies: FolderName = FolderName("RawVacancies")
+  val Vacancies: FolderName = FolderName("Vacancies")
+  val Skills: FolderName = FolderName("Skills")
 
-  val Locations = "Locations"
+  // dictionaries
+  val Areas: FolderName = Dictionary("Areas")
+  val Currency: FolderName = Dictionary("Currency")
+  val Employment: FolderName = Dictionary("Employment")
+  val Experience: FolderName = Dictionary("Experience")
+  val Roles: FolderName = Dictionary("ProfessionalRoles")
+  val Schedule: FolderName = Dictionary("Schedule")
 
-  // GeekJOB
-
-  val JobFormats = "JobFormat"
-  val Fields = "Fields"
-  val Levels = "Level"
+  // specific
+  val Employers: FolderName = FolderName("Employers")
+  val DriverLicenses: FolderName = FolderName("DriverLicenses")
+  val Languages: FolderName = FolderName("Languages")
+  val Locations: FolderName = FolderName("Locations")
+  val JobFormats: FolderName = FolderName("JobFormats")
+  val Fields: FolderName = FolderName("Fields")
+  val Levels: FolderName = FolderName("Levels")
 
 }

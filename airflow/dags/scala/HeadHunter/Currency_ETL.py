@@ -17,7 +17,7 @@ app_args = [
 ]
 
 with DAG(
-    "Currency_EL",
+    "HeadHunter_Currency_EL",
     default_args = {
         "start_date": args["start_date"]
     },

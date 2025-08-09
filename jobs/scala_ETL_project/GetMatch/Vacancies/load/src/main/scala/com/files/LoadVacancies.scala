@@ -1,46 +1,21 @@
 package com.files
 
-import com.files.FolderName.FolderName
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-object LoadVacancies extends SparkApp {
+object LoadVacancies extends App with SparkApp {
+
+  private val conf: LocalConfig = new LocalConfig(args) { define() }
+  private val spark: SparkSession = defineSession(conf.sparkConf)
 
 
-  def main(args: Array[String]): Unit = {
+  private val vacanciesDF: DataFrame = HDFSHandler.load(spark, conf.fsConf.getPath(FolderName.Vacancies))
+  private val updates: Seq[String] = vacanciesDF.columns.filterNot(col => Seq("id", "published_at").contains(col))
 
-    val conf: LocalConfig = new LocalConfig(args) { define() }
-    val spark: SparkSession = defineSession(conf.commonConf)
+  DBHandler.save(vacanciesDF, conf.dbConf, FolderName.Vacancies, Seq("id"), Some(updates))
 
+  private val skillsDF: DataFrame = HDFSHandler.load(spark, conf.fsConf.getPath(FolderName.Skills))
 
-    val loadWithConf = loadHelper(spark, conf)_
+  DBHandler.save(skillsDF, conf.dbConf, FolderName.Skills, Seq("id", "name"), None)
 
-    loadWithConf(Seq("id", "name"), null, None, FolderName.Skills)
-    loadWithConf(Seq("id", "city", "country"), null, None, FolderName.Locations)
-
-    val vacs: DataFrame = HDFSHandler.load(spark, conf.commonConf)(FolderName.Vac)
-
-    loadWithConf(
-      Seq("id"),
-      vacs.columns.toSeq.filterNot (col => Set("id", "publish_date").contains(col)),
-      Some(vacs),
-      FolderName.Vac
-    )
-
-    spark.stop()
-
-  }
-
-
-  private def loadHelper(spark: SparkSession, conf: LocalConfig)
-                        (conflicts: Seq[String], updates: Seq[String], data: Option[DataFrame], folderName: FolderName): Unit = {
-
-    val toSave: DataFrame = data match {
-      case Some(df) => df
-      case None => HDFSHandler.load(spark, conf.commonConf)(folderName)
-    }
-
-    DBHandler.save(conf.commonConf, toSave, conf.tableName(folderName), conflicts, updates)
-
-  }
-
+  spark.stop()
 }

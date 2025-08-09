@@ -7,75 +7,58 @@ import org.rogach.scallop.ScallopOption
 
 import scala.annotation.tailrec
 
-object ExtractDictionaries extends SparkApp {
+object ExtractDictionaries extends App with SparkApp {
 
   private class Conf(args: Array[String]) extends LocalConfig(args) {
-
     private val allDictionaries: String = "areas roles dict:curr dict:schd dict:empl dict:expr"
     val dictionaries: ScallopOption[String] = opt[String](name = "dictionaries", default = Some(allDictionaries))
 
     define()
   }
 
-  def main(args: Array[String]): Unit = {
-
-    val conf: Conf = new Conf(args)
-    val spark: SparkSession = defineSession(conf.commonConf)
-
-
-    val dictSet: Set[String] = conf.dictionaries().split(" ").map(_.trim.toLowerCase).toSet
-    val dictionaries: Option[DataFrame] = if (dictSet.exists(_.startsWith("dict:")))
-      getDictionariesDF(spark, conf, "https://api.hh.ru/dictionaries")
-    else None
-
-    dictSet.foreach(arg => {
-      arg.trim.toLowerCase match {
-        case "areas" => processAreas(spark, conf, "https://api.hh.ru/areas")
-        case "roles" => processRoles(spark, conf, "https://api.hh.ru/professional_roles")
-        case s if s.startsWith("dict:") =>
-          dictionaries match {
-            case Some(data) => processDictionary(conf, data, s.stripPrefix("dict:"))
-            case None => ()
-          }
-      }
-    })
+  private val conf: Conf = new Conf(args)
+  private val spark: SparkSession = defineSession(conf.sparkConf)
+  private val dictSet: Set[String] = conf.dictionaries().split(" ").map(_.trim.toLowerCase).toSet
 
 
-    spark.stop()
+  import spark.implicits._
 
+  private lazy val dictCluster: DataFrame = {
+    val response: String = URLHandler.readOrThrow("https://api.hh.ru/dictionaries", conf.urlConf)
+    spark.read.json(Seq(response).toDS)
   }
 
 
-
-  private def areasToDF(spark: SparkSession, body: String): DataFrame = {
-    val initialDF = toDF(spark, body).drop("areas")
-
-    @tailrec
-    def flattenAreas(acc: DataFrame = initialDF, current: DataFrame = toDF(spark, body)): DataFrame = {
-      if (current.agg(count(when(functions.size(col("areas")).gt(0), 1))).first().getLong(0) == 0) {
-        acc
-          .withColumn("id", col("id").cast(LongType))
-          .withColumn("parent_id", col("parent_id").cast(LongType))
-      } else {
-        val next = current.withColumn("areas", explode(col("areas"))).select("areas.*")
-        flattenAreas(acc.union(next.drop("areas")), next)
-      }
-    }
-
-    flattenAreas()
+  dictSet.foreach {
+    case "areas" => handleAreas()
+    case "roles" => handleRoles()
+    case s if s.startsWith("dict:") => handleDictionary(s.stripPrefix("dict:"))
   }
 
-  private def processAreas(spark: SparkSession, conf: LocalConfig, url: String): Unit = {
-    import spark.implicits._
+  spark.stop()
 
-    val areas: String = URLHandler.readURL(url, conf.commonConf) match {
-      case Some(body) => body
-      case None => ""
+
+  private def handleAreas(): Unit = {
+
+    val rawDf: DataFrame = {
+      val body: String = URLHandler.readOrDefault("https://api.hh.ru/areas", conf.urlConf, "")
+      spark.read.json(Seq(body).toDS)
     }
 
-    val areasDF: DataFrame = areasToDF(spark, areas)
+    val flatAreas: DataFrame = {
+      @tailrec
+      def flattenAreas(acc: DataFrame = rawDf.drop("areas"), current: DataFrame = rawDf): DataFrame = {
+        if (current.agg(count(when(functions.size(col("areas")).gt(0), 1))).first().getLong(0) == 0) {
+          acc.withColumn("id", col("id").cast(LongType)).withColumn("parent_id", col("parent_id").cast(LongType))
+        } else {
+          val next = current.withColumn("areas", explode(col("areas"))).select("areas.*")
+          flattenAreas(acc.union(next.drop("areas")), next)
+        }
+      }
+      flattenAreas()
+    }
 
-    val areasMap: Map[Long,(String, Option[Long])] = areasDF.rdd
+    val areasMap: Map[Long,(String, Option[Long])] = flatAreas.rdd
       .map(row => {
         val id: Long = row.getAs[Long]("id")
         val name: String = row.getAs[String]("name")
@@ -86,7 +69,7 @@ object ExtractDictionaries extends SparkApp {
       .collectAsMap()
       .toMap
 
-    val transformedAreasDF: DataFrame = areasMap.map { case (i, (name, p)) =>
+    val areas: DataFrame = areasMap.map { case (i, (name, p)) =>
         @tailrec
         def loop(id: Long, prev: Option[Long], parent: Option[Long]): (Long, Option[Long]) = {
           parent match {
@@ -101,75 +84,52 @@ object ExtractDictionaries extends SparkApp {
       }.toSeq
       .toDF("id", "name", "parent_id")
 
-    HDFSHandler.save(conf.commonConf)(FolderName.Areas, transformedAreasDF)
-
+    HDFSHandler.saveParquet(areas, conf.fsConf.getPath(FolderName.Areas))
   }
 
+  private def handleRoles(): Unit = {
 
-  private def processRoles(spark: SparkSession, conf: LocalConfig, url: String): Unit = {
-
-    val roles: String = URLHandler.readURL(url, conf.commonConf) match {
-      case Some(body) => body
-      case None => ""
+    val rawDf: DataFrame = {
+      val body: String = URLHandler.readOrDefault("https://api.hh.ru/professional_roles", conf.urlConf, "")
+      spark.read.json(Seq(body).toDS)
     }
 
-    val rolesDF: DataFrame = toDF(spark, roles)
-      .withColumn("categories", explode(col("categories")))
-      .select("categories.*")
+
+    val roles: DataFrame = rawDf
+      .withColumn("categories", explode(col("categories"))).select("categories.*")
       .withColumn("id", col("id").cast(LongType))
       .withColumn("roles", explode(col("roles")))
       .select(col("id").as("parent_id"),
-        col("roles").getField("id").cast(LongType).as("id"),
-        col("roles").getField("name").as("name"))
+        col("roles.id").cast(LongType).as("id"),
+        col("roles.name").as("name"))
 
-    HDFSHandler.save(conf.commonConf)(FolderName.Roles, rolesDF)
-
+    HDFSHandler.saveParquet(roles, conf.fsConf.getPath(FolderName.Roles))
   }
 
+  private def handleDictionary(code: String): Unit = {
 
-  private def getDictionariesDF(spark: SparkSession, conf: LocalConfig, url: String): Option[DataFrame] = {
-    URLHandler.readURL(url, conf.commonConf) match {
-      case Some(body) => Some(toDF(spark, body))
-      case None => None
+    def saveData(folderName: FolderName): Unit = {
+
+      val field: String = folderName match {
+        case FolderName.Schedule => "schedule"
+        case FolderName.Employment => "employment"
+        case FolderName.Experience => "experience"
+      }
+
+      val df: DataFrame = expl(dictCluster, field).select("id", "name")
+      HDFSHandler.saveParquet(df, conf.fsConf.getPath(folderName))
     }
-  }
-
-
-  private def dictHelper(data:DataFrame)(name: String): DataFrame = expl(data, name).select("id", "name")
-
-  private def processDictionary(conf: Conf, data: DataFrame, code: String): Unit = {
-
-    val saveWithConf = HDFSHandler.save(conf.commonConf)_
-    val defData = dictHelper(data)_
 
     code match {
-      case "curr" => saveWithConf(
-        FolderName.Currency,
-        expl(data,"currency")
-          .withColumn("id", col("code"))
-          .select("id", "name", "rate")
-      )
-      case "schd" => saveWithConf(
-        FolderName.Schedule,
-        defData("schedule")
-      )
-      case "empl" => saveWithConf(
-        FolderName.Employment,
-        defData("employment")
-      )
-      case "expr" => saveWithConf(
-        FolderName.Experience,
-        defData("experience")
-      )
+      case "curr" =>
+        val curr: DataFrame = expl(dictCluster,"currency").withColumn("id", col("code")).select("id", "name", "rate")
+        HDFSHandler.saveParquet(curr, conf.fsConf.getPath(FolderName.Currency))
+      case "schd" => saveData(FolderName.Schedule)
+      case "empl" => saveData(FolderName.Employment)
+      case "expr" => saveData(FolderName.Experience)
     }
+
   }
-
-
   private def expl(df: DataFrame, field: String): DataFrame = df
     .withColumn(s"$field", explode(col(s"$field"))).select(s"$field.*")
-
-  private def toDF(spark: SparkSession, s: String): DataFrame = {
-    import spark.implicits._
-    spark.read.json(Seq(s).toDS())
-  }
 }

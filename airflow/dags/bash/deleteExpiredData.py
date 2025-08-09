@@ -16,17 +16,17 @@ hdfsPrefix = dag_params["hdfsPrefix"]
 hdfsPath = get_section_params("FS", ["path"])["path"]
 
 sites = [
-    ("hh", "hh.conf", ["Employers"]),
-    ("gj", "gj.conf", ["Fields", "JobFormat", "Level", "Locations"]),
-    ("gm", "gm.conf", ["Locations"]),
+    ("hh", "hh.conf", ["Employers", "Languages"]),
+    ("gj", "gj.conf", ["Fields", "JobFormats", "Levels", "Locations"]),
+    ("gm", "gm.conf", []),
 ]
 params = {}
 for site, file, dirs in sites:
     set_config(file, None, None)
-    tmp_params = get_section_params("Dags.DeleteData", ["raw", "trans"])
+    tmp_params = get_section_params("Dags.DeleteData", ["rawData", "transformedData"])
     params.update({ site : {
-        "raw" : tmp_params["raw"],
-        "trans" : tmp_params["trans"]
+        "raw" : tmp_params["rawData"],
+        "trans" : tmp_params["transformedData"]
     }})
 
 
@@ -54,9 +54,10 @@ def deleteData_command(task_id, key, path):
         {hdfsPrefix} hdfs dfs -ls {path} |
             grep '^d' |
             awk -F '{path}/' '{{print $NF}}' |
-            grep -E '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}' |
+            grep -E '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}(T[0-9]{{2}})?' |
             while read -r dir; do
-                curr=$(date -d "$dir" +%s 2>/dev/null)
+                date_part=${{dir%%T*}}
+                curr=$(date -d "$date_part" +%s 2>/dev/null)
                 if [[ -n "$curr" && "$target" -gt "$curr" ]]; then
                     {hdfsPrefix} hdfs dfs -rm -r {path}/$dir
                 fi 
@@ -93,7 +94,7 @@ with DAG(
 
     
     for sc in siteConfs:
-        dirPath = f'{hdfsPath}{sc.tag}/'
+        dirPath = f'/{hdfsPath}{sc.tag}/'
         for dir_type, dirs in [("raw", sc.rawDirs), ("trans", sc.transDirs)]:
             for dir in dirs:
                 bash_task = BashOperator(

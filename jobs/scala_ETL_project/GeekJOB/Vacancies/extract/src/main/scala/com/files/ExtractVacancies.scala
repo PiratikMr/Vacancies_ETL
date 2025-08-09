@@ -1,87 +1,62 @@
 package com.files
 
-import com.files.URLHandler.{readURL, requestError}
-import org.apache.hadoop.fs.{FileSystem, Path}
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.SparkSession
-
-import scala.util.matching.Regex
+import com.files.URLHandler._
+import org.apache.spark.sql.{Dataset, SaveMode, SparkSession}
 
 object ExtractVacancies extends App with SparkApp {
 
-  private val conf = new LocalConfig(args) {
+  private class Conf(args: Array[String]) extends LocalConfig(args) {
     lazy val pageLimit: Int = getFromConfFile[Int]("pageLimit")
     lazy val rawPartitions: Int = getFromConfFile[Int]("rawPartitions")
 
     define()
   }
-  val spark: SparkSession = defineSession(conf.commonConf)
 
-  private val pagesPattern: Regex = """<small>страниц (\d+)</small>""".r
-  private val codePattern: Regex = """/vacancy/([a-z0-9]{24})"""".r
+  private val conf: Conf = new Conf(args)
+  private val spark: SparkSession = defineSession(conf.sparkConf, conf.urlConf.requestsPS)
 
-  private val codesRDD: RDD[String] = {
-    val firstPageContent = readURL(pageUrl(1), conf.commonConf) match {
-      case Some(body) => body
-      case _ => requestError(pageUrl(1))
-    }
-    val totalPages = pagesPattern.findFirstMatchIn(firstPageContent).get.group(1).toInt
-    val pagesToProcess = math.min(totalPages, conf.pageLimit)
 
-    val pagesRDD = spark.sparkContext.parallelize(2 to pagesToProcess, conf.rawPartitions)
+  private def pageURL(page: Int): String = s"https://geekjob.ru/vacancies/$page"
+  private def vacURL(code: String): String = s"https://geekjob.ru/vacancy/$code"
 
-    val codesRDD = pagesRDD.flatMap { page =>
-      readURL(pageUrl(page), conf.commonConf) match {
-        case Some(content) => codePattern.findAllMatchIn(content).map(_.group(1)).toSeq.distinct
-        case _ => Seq.empty[String]
+
+  private val firstPageContent: String = readOrThrow(pageURL(1), conf.urlConf)
+
+
+  import spark.implicits._
+
+  private val pageURLs: Dataset[String] = {
+    val totalPages: Int = """<small>страниц (\d+)</small>""".r.findFirstMatchIn(firstPageContent).get.group(1).toInt
+    val pagesToProcess: Int = math.min(totalPages, conf.pageLimit)
+
+    (2 to pagesToProcess).map(page => pageURL(page))
+  }.toDS
+
+  private val vacancyIds: Dataset[String] = pageURLs.repartition(conf.urlConf.requestsPS).mapPartitions(part => {
+    part.flatMap(url => {
+      readOrNone(url, conf.urlConf) match {
+        case Some(body) => """/vacancy/([a-z0-9]{24})""".r.findAllMatchIn(body).map(_.group(1))
+        case None => None
       }
-    }.distinct()
+    })
+  }).dropDuplicates()
 
-    val firstPageCodes = spark.sparkContext.parallelize(
-      codePattern.findAllMatchIn(firstPageContent).map(_.group(1)).toSeq.distinct
-    )
+  private val vacanciesDS: Dataset[String] = vacancyIds.repartition(conf.urlConf.requestsPS).mapPartitions(part => {
+    part.flatMap(id => {
+      readOrNone(vacURL(id), conf.urlConf) match {
+        case Some(body) =>
+          val start: Int = body.indexOf("""<article class="row vacancy">""")
 
-    firstPageCodes.union(codesRDD).distinct()
-  }
+          val bodyEnd: String = "</article>"
+          val end: Int = body.indexOf(bodyEnd, start) + bodyEnd.length
 
-  println(s"Total codes: ${codesRDD.count()}")
-
-  private val vacanciesRDD: RDD[String] = {
-    codesRDD.flatMap { code =>
-      readURL(vacancyUrl(code), conf.commonConf) match {
-        case Some(content) =>
-          val endText: String = "</article>"
-
-          val fullText: String = content
-          val startIdx: Integer = fullText.indexOf("""<article class="row vacancy">""")
-          val endIdx: Integer = fullText.indexOf(endText, startIdx) + endText.length
-
-          Some(code + fullText.substring(startIdx, endIdx).replace("\n", ""))
-        case _ => None
+          Some(id + body.substring(start, end).replace("\n", ""))
+        case None => None
       }
-    }
-  }
+    })
+  })
 
-  println(s"Total vacancies loaded: ${vacanciesRDD.count()}")
-
-  private val outputPath = conf.commonConf.fs.getPath(FolderName.Raw)
-  spark.sparkContext.hadoopConfiguration.set("fs.defaultFS", conf.commonConf.fs.url)
-  private val fs = FileSystem.get(spark.sparkContext.hadoopConfiguration)
-
-  if (fs.exists(new Path(outputPath))) {
-    fs.delete(new Path(outputPath), true)
-  }
-
-  vacanciesRDD.repartition(conf.rawPartitions).saveAsTextFile(outputPath)
-
+  vacanciesDS.repartition(conf.rawPartitions).write.mode(SaveMode.Overwrite).text(conf.fsConf.getPath(FolderName.RawVacancies))
 
   spark.stop()
-
-  private def pageUrl(page: Integer): String = {
-    s"https://geekjob.ru/vacancies/$page"
-  }
-
-  private def vacancyUrl(code: String): String = {
-    s"https://geekjob.ru/vacancy/$code"
-  }
 }

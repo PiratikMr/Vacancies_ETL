@@ -37,7 +37,7 @@ services:
       - "9090:8080"
       - "7077:7077"
 
-  spark-worker:
+  spark-worker-1:
     <<: *spark-common
     container_name: spark-worker-1
     command: bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
@@ -45,8 +45,8 @@ services:
       - spark-master
     environment:
       SPARK_MODE: worker
-      SPARK_WORKER_CORES: 2
-      SPARK_WORKER_MEMORY: 1g
+      SPARK_WORKER_CORES: 4
+      SPARK_WORKER_MEMORY: 2g
       SPARK_MASTER_URL: spark://spark-master:7077
 
   app-postgres:
@@ -67,12 +67,12 @@ services:
   superset:
     image: apache/superset
     container_name: superset
+    env_file: ./superset/conf/.env
     ports:
       - "8088:8088"
-    environment:
-      SUPERSET_SECRET_KEY: "nhgH0yelqENg+jgNw9I16VLdFF3P206ciSsOyyM3ng4sPG1m2UUxqrNi"
     volumes:
       - superset_volume:/app/superset_data
+      - ./superset/data/superset.db:/app/superset_home/superset.db
       - ./superset/conf/start-superset.sh:/start-superset.sh
     command: [ "/bin/bash", "/start-superset.sh" ]
 
@@ -137,8 +137,6 @@ services:
       start_period: 5s
 
   redis:
-    # Redis is limited to 7.2-bookworm due to licencing change
-    # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
     image: redis:7.2-bookworm
     expose:
       - 6379
@@ -186,7 +184,6 @@ services:
     container_name: airflow-worker-1
     command: celery worker
     healthcheck:
-      # yamllint disable rule:line-length
       test:
         - "CMD-SHELL"
         - 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}" || celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
@@ -196,8 +193,6 @@ services:
       start_period: 30s
     environment:
       <<: *airflow-common-env
-      # Required to handle warm shutdown of the celery workers properly
-      # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
       DUMB_INIT_SETSID: "0"
     depends_on:
       <<: *airflow-common-depends-on
@@ -223,14 +218,12 @@ services:
     <<: *airflow-common
     entrypoint: /bin/bash
     container_name: airflow-init
-    # yamllint disable rule:line-length
     command:
       - -c
       - |
         mkdir -p /sources/logs /sources/dags /sources/plugins
         chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
         exec /entrypoint airflow version
-    # yamllint enable rule:line-length
     environment:
       <<: *airflow-common-env
       _AIRFLOW_DB_MIGRATE: 'true'
@@ -249,15 +242,11 @@ services:
     environment:
       <<: *airflow-common-env
       CONNECTION_CHECK_MAX_COUNT: "0"
-    # Workaround for entrypoint issue. See: https://github.com/apache/airflow/issues/16252
     command:
       - bash
       - -c
       - airflow
 
-  # You can enable flower by adding "--profile flower" option e.g. docker-compose --profile flower up
-  # or by explicitly targeted on the command line e.g. docker-compose up flower.
-  # See: https://docs.docker.com/compose/profiles/
   flower:
     <<: *airflow-common
     command: celery flower

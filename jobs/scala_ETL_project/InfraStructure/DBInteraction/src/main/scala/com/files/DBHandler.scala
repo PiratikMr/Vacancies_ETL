@@ -1,11 +1,13 @@
 package com.files
 
+import com.files.Common.DBConf
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 import java.io.Serializable
 import java.sql.{Connection, DatabaseMetaData, DriverManager, PreparedStatement, ResultSet}
 
 object DBHandler extends Serializable {
+
 
   private def tableExists(conn: Connection, tableName: String): Boolean = {
     val meta: DatabaseMetaData = conn.getMetaData
@@ -17,69 +19,70 @@ object DBHandler extends Serializable {
 
 
   def save(
-            conf: CommonConfig,
-            data: DataFrame,
-            tableName: String,
+            df: DataFrame,
+            conf: DBConf,
+            folderName: FolderName,
             conflicts: Seq[String],
-            updates: Seq[String] = null
+            updates: Option[Seq[String]]
           ): Unit = {
     val conn = DriverManager.getConnection(
-      conf.db.DBurl,
-      conf.db.userName,
-      conf.db.userPassword
+      conf.url,
+      conf.name,
+      conf.pass
     )
+    val tableName: String = conf.getDBTableName(folderName)
+
     val isExist: Boolean = tableExists(conn, tableName)
     conn.close()
 
     if (isExist) {
       saveWithOnConflict(
+        df = df,
         conf = conf,
-        data = data,
         tableName = tableName,
         conflicts = conflicts,
         updates = updates
       )
     } else {
       saveWithCreatingTable(
+        df = df,
         conf = conf,
-        data = data,
         tableName = tableName,
       )
     }
   }
 
   private def saveWithCreatingTable(
-            conf: CommonConfig,
-            data: DataFrame,
-            tableName: String,
+            df: DataFrame,
+            conf: DBConf,
+            tableName: String
           ): Unit = {
-    data.write
+    df.write
       .format("jdbc")
       .option("truncate", value = true)
       .option("driver", "org.postgresql.Driver")
-      .option("url", conf.db.DBurl)
-      .option("user", conf.db.userName)
-      .option("password", conf.db.userPassword)
+      .option("url", conf.url)
+      .option("user", conf.name)
+      .option("password", conf.pass)
       .option("dbtable", tableName)
       .save()
   }
 
   private def saveWithOnConflict(
-          conf: CommonConfig,
-          data: DataFrame,
-          tableName: String,
-          conflicts: Seq[String],
-          updates: Seq[String]
+            df: DataFrame,
+            conf: DBConf,
+            tableName: String,
+            conflicts: Seq[String],
+            updates: Option[Seq[String]]
           ): Unit = {
 
-    val columns = data.columns
+    val columns = df.columns
     val columnList = columns.mkString(", ")
     val placeholders = columns.map(_ => "?").mkString(", ")
     val conflictCols = conflicts.mkString(", ")
-    val conflictAction = if (updates != null) {
-      s"do update set ${updates.map(col => s"$col = EXCLUDED.$col").mkString(", ")}"
-    } else {
-      "do nothing"
+    val conflictAction = updates match {
+      case Some(value) => s"do update set ${value.map(col => s"$col = EXCLUDED.$col").mkString(", ")}"
+      case None => "do nothing"
     }
 
     val sql = s"""
@@ -88,15 +91,15 @@ object DBHandler extends Serializable {
         $conflictAction
     """
 
-    data.foreachPartition { (partition: Iterator[Row]) =>
+    df.foreachPartition { (partition: Iterator[Row]) =>
       var conn: Connection = null
       var stmt: PreparedStatement = null
 
       try {
         conn = DriverManager.getConnection(
-          conf.db.DBurl,
-          conf.db.userName,
-          conf.db.userPassword
+          conf.url,
+          conf.name,
+          conf.pass
         )
         stmt = conn.prepareStatement(sql)
 
@@ -130,19 +133,30 @@ object DBHandler extends Serializable {
 
 
 
+  private def loadHelper(
+                        spark: SparkSession,
+                        conf: DBConf,
+                        option: Either[FolderName, String]
+                        ): DataFrame = {
 
-  def load(
-            ss: SparkSession,
-            conf: CommonConfig,
-            tableName: String
-          ): DataFrame = {
-    ss.read
+    val op: (String, String) = option match {
+      case Left(name) => ("dbtable", conf.getDBTableName(name))
+      case Right(query) => ("query", query)
+    }
+
+    spark.read
       .format("jdbc")
       .option("driver", "org.postgresql.Driver")
-      .option("url", conf.db.DBurl)
-      .option("user", conf.db.userName)
-      .option("password", conf.db.userPassword)
-      .option("dbtable", tableName)
+      .option("url", conf.url)
+      .option("user", conf.name)
+      .option("password", conf.pass)
+      .option(op._1, op._2)
       .load()
   }
+
+  def load(spark: SparkSession, conf: DBConf, folderName: FolderName): DataFrame =
+    loadHelper(spark, conf, Left(folderName))
+
+  def load(spark: SparkSession, conf: DBConf, query: String): DataFrame =
+    loadHelper(spark, conf, Right(query))
 }

@@ -16,7 +16,7 @@ app_args = [
 ]
 
 with DAG(
-    "Dictionaries_EL",
+    "HeadHunter_Dictionaries_EL",
     default_args = {
         "start_date": args["start_date"]
     },

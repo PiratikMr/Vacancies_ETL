@@ -1,18 +1,15 @@
 package com.files
 
-import com.files.FolderName.FolderName
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
-
 import scala.util.{Failure, Success, Try}
 
 object HDFSHandler {
 
-  def load(spark: SparkSession, conf: CommonConfig)
-          (folderName: FolderName)
+  def load(spark: SparkSession, filePath: String)
   : DataFrame = {
 
     Try(
-      spark.read.parquet(conf.fs.getPath(folderName))
+      spark.read.parquet(filePath)
     ) match {
       case Failure(exception) => throw exception
       case Success(value) => value
@@ -20,15 +17,13 @@ object HDFSHandler {
 
   }
 
-
-  def save(conf: CommonConfig)
-          (folderName: FolderName, data: DataFrame)
+  def saveParquet(df: DataFrame, filePath: String)
   : Unit = {
 
     Try (
-      data.write
+      df.write
         .mode(SaveMode.Overwrite)
-        .parquet(conf.fs.getPath(folderName))
+        .parquet(filePath)
     ) match {
       case Failure(exception) => throw exception
       case Success(_) => ()
