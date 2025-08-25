@@ -1,6 +1,7 @@
 import pendulum
 from airflow.utils.dates import days_ago
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
+from airflow.providers.postgres.operators.postgres import PostgresOperator
 from pathlib import Path
 from pyhocon import ConfigFactory
 from airflow.models import Variable
@@ -61,4 +62,11 @@ def spark_task_build(part:str, app_args, task_id = None):
         application = build_jar_path(part),
         application_args = app_args,
         spark_binary = args["spark_binary"]
+    )
+
+def postgres_getActiveVacancies():
+    return PostgresOperator(
+        task_id=f'getActiveVacancies',
+        sql=f"select count(*) from {args["confPath"].stem}_vacancies where is_active is true;",
+        postgres_conn_id=args["postgresConnId"]
     )

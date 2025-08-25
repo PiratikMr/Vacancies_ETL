@@ -36,7 +36,7 @@ object LoadVacancies extends App with SparkApp {
       case Some(value) => value
       case None => HDFSHandler.load(spark, conf.fsConf.getPath(folderName))
     }
-    save(df = toSave, conf = conf.dbConf, folderName = folderName, conflicts = conflicts, updates = updates)
+    save(conf.dbConf, toSave, folderName, Some(conflicts), updates)
   }
 
 }

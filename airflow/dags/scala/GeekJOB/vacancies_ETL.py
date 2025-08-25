@@ -22,7 +22,7 @@ with DAG(
         "start_date": args["start_date"]
     },
     schedule_interval = dag_params["schedule"] or None,
-    tags = ["scala", "geekJob"]
+    tags = ["scala", "gj", "etl"]
 ) as dag:
     
     extract = spark_task_build("extract", app_args)  

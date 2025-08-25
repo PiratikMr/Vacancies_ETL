@@ -11,11 +11,11 @@ object LoadVacancies extends App with SparkApp {
   private val vacanciesDF: DataFrame = HDFSHandler.load(spark, conf.fsConf.getPath(FolderName.Vacancies))
   private val updates: Seq[String] = vacanciesDF.columns.filterNot(col => Seq("id", "published_at").contains(col))
 
-  DBHandler.save(vacanciesDF, conf.dbConf, FolderName.Vacancies, Seq("id"), Some(updates))
+  DBHandler.save(conf.dbConf, vacanciesDF, FolderName.Vacancies, Some(Seq("id")), Some(updates))
 
   private val skillsDF: DataFrame = HDFSHandler.load(spark, conf.fsConf.getPath(FolderName.Skills))
 
-  DBHandler.save(skillsDF, conf.dbConf, FolderName.Skills, Seq("id", "name"), None)
+  DBHandler.save(conf.dbConf, skillsDF, FolderName.Skills, Some(Seq("id", "name")), None)
 
   spark.stop()
 }

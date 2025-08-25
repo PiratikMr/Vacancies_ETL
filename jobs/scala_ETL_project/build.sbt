@@ -163,13 +163,49 @@ lazy val gj_dir = "GeekJOB/"
   //
 //
 
+// Finder/
+lazy val fn_dir = "Finder/"
+// Vacancies
+lazy val fn_vacs = fn_dir + "Vacancies/"
+
+lazy val fn_vacs_extract = (project in file(fn_vacs + extract))
+  .settings(
+    assembly / mainClass := Some("com.files.ExtractVacancies"),
+    assembly / assemblyJarName := s"$extract.jar"
+  )
+  .dependsOn(URLInteraction, Core)
+
+lazy val fn_vacs_transform = (project in file(fn_vacs + transform))
+  .settings(
+    assembly / mainClass := Some("com.files.TransformVacancies"),
+    assembly / assemblyJarName := s"$transform.jar"
+  )
+  .dependsOn(DBInteraction, Core)
+
+lazy val fn_vacs_load = (project in file(fn_vacs + load))
+  .settings(
+    assembly / mainClass := Some("com.files.LoadVacancies"),
+    assembly / assemblyJarName := s"$load.jar"
+  )
+  .dependsOn(DBInteraction, Core)
+
+lazy val fn_vacs_update = (project in file(fn_vacs + update))
+  .settings(
+    assembly / mainClass := Some("com.files.UpdateVacancies"),
+    assembly / assemblyJarName := s"$update.jar"
+  )
+  .dependsOn(URLInteraction, DBInteraction)
+//
+//
+
 
 lazy val root = (project in file("."))
   .aggregate(Config, Core, URLInteraction, DBInteraction,
     hh_dict_extract, hh_dict_load,
     hh_vacs_extract, hh_vacs_transform, hh_vacs_load, hh_vacs_update,
     gm_vacs_extract, gm_vacs_transform, gm_vacs_load, gm_vacs_update,
-    gj_vacs_extract, gj_vacs_transform, gj_vacs_load, gj_vacs_update
+    gj_vacs_extract, gj_vacs_transform, gj_vacs_load, gj_vacs_update,
+    fn_vacs_extract, fn_vacs_transform, fn_vacs_load, fn_vacs_update,
   )
 
 
@@ -191,6 +227,11 @@ lazy val get_match = (project in file("GetMatch"))
 lazy val geek_job = (project in file("GeekJOB"))
   .aggregate(
     gj_vacs_extract, gj_vacs_transform, gj_vacs_load, gj_vacs_update
+  )
+
+lazy val finder = (project in file("Finder"))
+  .aggregate(
+    fn_vacs_extract, fn_vacs_transform, fn_vacs_load, fn_vacs_update
   )
 
 
@@ -234,6 +275,18 @@ addCommandAlias("hhHelperCompile",
     |""".stripMargin
 )
 
+// fn_helper
+addCommandAlias("fnHelperCompile",
+  """
+    |project finder; clean; compile;
+    |project fn_vacs_extract; assembly;
+    |project fn_vacs_transform; assembly;
+    |project fn_vacs_load; assembly;
+    |project fn_vacs_update; assembly;
+    |project root;
+    |""".stripMargin
+)
+
 
 // HeadHunter
 addCommandAlias("compileHH",
@@ -259,6 +312,14 @@ addCommandAlias("compileGJ",
     |""".stripMargin
 )
 
+// Finder
+addCommandAlias("compileFn",
+  """
+    |project infra_structure; clean; compile;
+    |fnHelperCompile;
+    |""".stripMargin
+)
+
 
 // Whole Project
 addCommandAlias("compileWholeProj",
@@ -269,9 +330,6 @@ addCommandAlias("compileWholeProj",
     |gmHelperCompile;
     |hhHelperCompile;
     |gjHelperCompile;
+    |fnHelperCompile;
     |""".stripMargin
 )
-
-
-
-// $ export JAVA_OPTS='--add-exports java.base/sun.nio.ch=ALL-UNNAMED'

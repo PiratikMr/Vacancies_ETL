@@ -9,7 +9,7 @@ import org.rogach.scallop.ScallopOption
 object ExtractVacancies extends App with SparkApp {
 
   private class Conf(args: Array[String]) extends LocalConfig(args) {
-    lazy val fieldId: Int = getFromConfFile[Int]("fieldId")
+    lazy val fieldIds: Seq[Int] = getFromConfFile[Seq[Int]]("fieldIds")
     lazy val vacsPerPage: Int = getFromConfFile[Int]("vacsPerPage")
     lazy val pageLimit: Int = getFromConfFile[Int]("pageLimit")
     lazy val rawPartitions: Int = getFromConfFile[Int]("rawPartitions")
@@ -31,8 +31,7 @@ object ExtractVacancies extends App with SparkApp {
 
 
   private val ids: Dataset[Long] = HDFSHandler.load(spark, conf.fsConf.getPath(FolderName.Roles))
-    .where(col("parent_id").equalTo(conf.fieldId)).select("id").map(row => row.getLong(0)).repartition(6)
-
+    .where(col("parent_id").isin(conf.fieldIds: _*)).select("id").map(row => row.getLong(0)).repartition(6)
 
   private val clusterData: Dataset[String] = ids.mapPartitions(partition => {
     partition.flatMap(id => {

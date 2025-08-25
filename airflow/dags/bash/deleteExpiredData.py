@@ -16,13 +16,14 @@ hdfsPrefix = dag_params["hdfsPrefix"]
 hdfsPath = get_section_params("FS", ["path"])["path"]
 
 sites = [
-    ("hh", "hh.conf", ["Employers", "Languages"]),
-    ("gj", "gj.conf", ["Fields", "JobFormats", "Levels", "Locations"]),
-    ("gm", "gm.conf", []),
+    ("hh", ["Skills", "Employers", "Languages"]),
+    ("gj", ["Skills", "Fields", "JobFormats", "Levels", "Locations"]),
+    ("gm", ["Skills"]),
+    ("fn", ["Fields", "Locations"])
 ]
 params = {}
-for site, file, dirs in sites:
-    set_config(file, None, None)
+for site, dirs in sites:
+    set_config(f"{site}.conf", None, None)
     tmp_params = get_section_params("Dags.DeleteData", ["rawData", "transformedData"])
     params.update({ site : {
         "raw" : tmp_params["rawData"],
@@ -32,19 +33,19 @@ for site, file, dirs in sites:
 
 class SiteConfig:
     def __init__(self, tag: str, trans_data_days: int, raw_data_days: int, 
-                 trans_dirs=None, raw_dirs=None):
+                 trans_dirs=None):
         self.tag = tag
         self.transDataDays = trans_data_days
-        self.transDirs = ["Vacancies", "Skills"] + (trans_dirs or [])
+        self.transDirs = ["Vacancies", ] + (trans_dirs or [])
         self.rawDataDays = raw_data_days
-        self.rawDirs = ["RawVacancies"] + (raw_dirs or [])
+        self.rawDirs = ["RawVacancies"]
 
 siteConfs = [
     SiteConfig(tag, 
                params[tag]["raw"], 
                params[tag]["trans"], 
                trans_dirs=dirs)
-    for tag, file, dirs in sites
+    for tag, dirs in sites
 ]
 
 

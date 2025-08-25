@@ -1,7 +1,7 @@
 package com.files
 
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{ArrayType, BooleanType, LongType, StringType, StructField, StructType}
+import org.apache.spark.sql.types.{ArrayType, BooleanType, IntegerType, LongType, StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 object TransformVacancies extends App with SparkApp {
@@ -37,11 +37,13 @@ object TransformVacancies extends App with SparkApp {
     StructField("company", StructType(Seq(
       StructField("name", StringType)
     ))),
+    StructField("position_level", StringType),
+    StructField("required_years_of_experience", IntegerType),
+
   ))
   private val rawDF: DataFrame = {
     val ds: Dataset[String] = spark.read.textFile(conf.fsConf.getPath(FolderName.RawVacancies))
-    spark.read.schema(StructType(Seq(StructField("offers", ArrayType(scheme))))).json(ds)
-      .select(explode(col("offers")).as("offer")).select("offer.*")
+    spark.read.schema(scheme).json(ds)
   }
 
   private val transformedDF: DataFrame = rawDF
@@ -55,12 +57,15 @@ object TransformVacancies extends App with SparkApp {
     .withColumn("url", concat(lit("https://getmatch.ru"), col("url")))
     .withColumn("english_level", col("english_level.name"))
     .withColumn("employer", col("company.name"))
+    .withColumn("level", col("position_level"))
+    .withColumn("experience_years", col("required_years_of_experience"))
 
     .dropDuplicates("id")
 
 
   private val vacanciesDF: DataFrame = transformedDF.select("published_at", "is_active", "title", "id", "salary_from",
-  "salary_to", "salary_currency_id", "url", "english_level", "remote_options", "office_options", "employer")
+  "salary_to", "salary_currency_id", "url", "english_level", "remote_options", "office_options", "employer",
+      "level", "experience_years")
     .repartition(conf.transformPartitions)
 
   private val skillsDF: DataFrame = transformedDF.select(col("id"), explode(col("stack")).as("name"))

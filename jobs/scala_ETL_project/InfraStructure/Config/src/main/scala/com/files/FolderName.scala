@@ -41,6 +41,6 @@ trait FolderNames {
   val Locations: FolderName = FolderName("Locations")
   val JobFormats: FolderName = FolderName("JobFormats")
   val Fields: FolderName = FolderName("Fields")
-  val Levels: FolderName = FolderName("Levels")
+  val Levels: FolderName = FolderName("Grades")
 
 }

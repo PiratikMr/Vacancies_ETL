@@ -42,6 +42,6 @@ object LoadDictionaries extends App with SparkApp {
       case Some(value) => value
       case None => HDFSHandler.load(spark, conf.fsConf.getPath(folderName))
     }
-    DBHandler.save(toSave, conf.dbConf, folderName, Seq("id"), updates)
+    DBHandler.save(conf.dbConf, toSave, folderName, Some(Seq("id")), updates)
   }
 }
