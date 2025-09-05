@@ -35,8 +35,8 @@ object TransformVacancies extends App with SparkApp {
       ))),
     )))),
     StructField("place", StructType(Seq(
-      StructField("lat", DoubleType),
-      StructField("lon", DoubleType),
+      StructField("lat", StringType),
+      StructField("lon", StringType),
     ))),
     StructField("professions", ArrayType(StructType(Seq(
       StructField("title", StringType)
@@ -52,8 +52,8 @@ object TransformVacancies extends App with SparkApp {
     .withColumn("salary_currency_id", when(col("currency_symbol") === "RUB", lit("RUR")).otherwise(col("currency_symbol")))
     .withColumn("url", concat(lit("https://finder.work/vacancies/"), col("id")))
     .withColumn("employer", col("company.title"))
-    .withColumn("address_lat", col("place.lat"))
-    .withColumn("address_lng", col("place.lon"))
+    .withColumn("address_lat", col("place.lat").cast(DoubleType))
+    .withColumn("address_lng", col("place.lon").cast(DoubleType))
     .withColumn("is_active", lit(true))
     .dropDuplicates("id")
 

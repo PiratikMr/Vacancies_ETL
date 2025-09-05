@@ -19,7 +19,7 @@ object ExtractVacancies extends App with SparkApp {
     define()
   }
   private val conf: Conf = new Conf(args)
-  private val spark: SparkSession = defineSession(conf.sparkConf, conf.urlConf.requestsPS)
+  private val spark: SparkSession = defineSession(conf.sparkConf)
 
   private def clusterURL(id: Long, page: Long = 0, perPage: Long = 0): String =
     s"https://api.hh.ru/vacancies?page=$page&per_page=$perPage&professional_role=$id&date_from=${conf.dateFrom()}"

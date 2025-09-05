@@ -46,7 +46,10 @@ abstract class LocalConfig (args: Seq[String]) extends ScallopConf(args) with Se
   lazy val sparkConf: SparkConf = SparkConf(
     name = sparkconfig.getString("name"),
     master = sparkconfig.getString("master"),
-    defaultParallelism = sparkconfig.getInt("defaultParallelism")
+    driverMemory = sparkconfig.getString("driverMemory"),
+    driverCores = sparkconfig.getString("driverCores"),
+    executorMemory = sparkconfig.getString("executorMemory"),
+    executorCores = sparkconfig.getString("executorCores")
   )
 
   private lazy val urlconfig: Config = conf.getConfig("URL")

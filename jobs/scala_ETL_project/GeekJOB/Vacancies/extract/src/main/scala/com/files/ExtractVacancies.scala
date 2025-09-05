@@ -13,7 +13,7 @@ object ExtractVacancies extends App with SparkApp {
   }
 
   private val conf: Conf = new Conf(args)
-  private val spark: SparkSession = defineSession(conf.sparkConf, conf.urlConf.requestsPS)
+  private val spark: SparkSession = defineSession(conf.sparkConf)
 
 
   private def pageURL(page: Int): String = s"https://geekjob.ru/vacancies/$page"

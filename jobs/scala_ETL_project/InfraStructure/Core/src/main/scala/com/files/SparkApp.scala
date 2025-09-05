@@ -5,11 +5,14 @@ import org.apache.spark.sql.SparkSession
 
 trait SparkApp extends Serializable {
 
-  def defineSession(conf: SparkConf, parallelism: Int = -1): SparkSession = {
+  def defineSession(conf: SparkConf): SparkSession = {
     SparkSession.builder()
       .appName(conf.name)
       .master(conf.master)
-      .config("spark.default.parallelism", if (parallelism < 1) conf.defaultParallelism.toString else parallelism.toString)
+      .config("spark.driver.memory", conf.driverMemory)
+      .config("spark.driver.cores", conf.driverCores)
+      .config("spark.executor.memory", conf.executorMemory)
+      .config("spark.executor.cores", conf.executorCores)
       .getOrCreate()
   }
 

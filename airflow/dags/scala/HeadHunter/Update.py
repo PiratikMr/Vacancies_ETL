@@ -22,7 +22,7 @@ with DAG(
     default_args={
         "start_date": args["start_date"]
     },
-    schedule_interval=None,
+    schedule_interval=dag_params["schedule"] or None,
     tags=["scala", "hh"]
 ) as dag:
     

@@ -4,7 +4,7 @@ x-airflow-common:
   build: .
   # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.10.2}
 
-  env_file: ./airflow/airflow-config/airflow.env
+  env_file: ./airflow/airflow.env
   environment:
     &airflow-common-env
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
@@ -43,10 +43,12 @@ services:
     command: bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
     depends_on:
       - spark-master
+    ports:
+      - "4040:4040"
     environment:
       SPARK_MODE: worker
-      SPARK_WORKER_CORES: 4
-      SPARK_WORKER_MEMORY: 2g
+      SPARK_WORKER_CORES: 7
+      SPARK_WORKER_MEMORY: 8g
       SPARK_MASTER_URL: spark://spark-master:7077
 
   app-postgres:
@@ -55,7 +57,7 @@ services:
       env_file: ./dataBase/postgres-init/.env 
       volumes:
         - app-postgres-db-volume:/var/lib/postgresql/data
-        - ./dataBase/postgres-init:/docker-entrypoint-initdb.d
+        - ./dataBase:/docker-entrypoint-initdb.d
       ports:
         - "5432:5432"
       healthcheck:
@@ -67,13 +69,15 @@ services:
   superset:
     image: apache/superset
     container_name: superset
-    env_file: ./superset/conf/.env
     ports:
       - "8088:8088"
     volumes:
       - superset_volume:/app/superset_data
       - ./superset/data/superset.db:/app/superset_home/superset.db
       - ./superset/conf/start-superset.sh:/start-superset.sh
+      - ./superset/conf/superset_config.py:/superset_config.py
+    environment:
+      - SUPERSET_CONFIG_PATH=/superset_config.py
     command: [ "/bin/bash", "/start-superset.sh" ]
 
   grafana:

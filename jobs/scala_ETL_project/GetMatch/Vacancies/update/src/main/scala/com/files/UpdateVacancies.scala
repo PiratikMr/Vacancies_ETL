@@ -13,7 +13,7 @@ object UpdateVacancies extends App with SparkApp {
   }
 
   private val conf: Conf = new Conf(args)
-  private val spark: SparkSession = defineSession(conf.sparkConf, conf.urlConf.requestsPS)
+  private val spark: SparkSession = defineSession(conf.sparkConf)
 
   private val ids: DataFrame = DBHandler.load(spark, conf.dbConf,
       s"SELECT id FROM gm_vacancies WHERE is_active is true ORDER BY published_at LIMIT ${math.min(conf.limit, conf.activeVacancies())}")

@@ -13,7 +13,7 @@ object UpdateVacancies extends App with SparkApp {
   }
 
   private val conf: Conf = new Conf(args)
-  private val spark: SparkSession = defineSession(conf.sparkConf, conf.urlConf.requestsPS)
+  private val spark: SparkSession = defineSession(conf.sparkConf)
 
 
   private val ids: DataFrame = DBHandler.load(spark, conf.dbConf,

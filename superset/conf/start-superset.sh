@@ -6,6 +6,5 @@ superset fab create-admin \
                --email admin@admin.com \
                --password admin
 superset db upgrade
-# superset load_examples
 superset init
 /usr/bin/run-server.sh

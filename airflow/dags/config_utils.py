@@ -49,7 +49,7 @@ def get_section_params(section, params):
     return {k: v for k, v in params.items() if v is not None}
 
 def build_jar_path(etlPart):
-    return str(Path(args["repDir"]) / "jobs" / "scala_ETL_project" / project / module / etlPart / "target" / f"scala-{args["scalaVersion"]}" / f"{etlPart}.jar")
+    return str(Path(args['repDir']) / "jobs" / "scala_ETL_project" / project / module / etlPart / "target" / f"scala-{args['scalaVersion']}" / f"{etlPart}.jar")
 
 
 def spark_task_build(part:str, app_args, task_id = None):
@@ -67,6 +67,6 @@ def spark_task_build(part:str, app_args, task_id = None):
 def postgres_getActiveVacancies():
     return PostgresOperator(
         task_id=f'getActiveVacancies',
-        sql=f"select count(*) from {args["confPath"].stem}_vacancies where is_active is true;",
+        sql=f"select count(*) from {args['confPath'].stem}_vacancies where is_active is true;",
         postgres_conn_id=args["postgresConnId"]
     )

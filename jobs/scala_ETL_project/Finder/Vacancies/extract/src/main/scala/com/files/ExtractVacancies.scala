@@ -17,7 +17,7 @@ object ExtractVacancies extends App with SparkApp {
   }
 
   private val conf: Conf = new Conf(args)
-  private val spark: SparkSession = defineSession(conf.sparkConf, conf.urlConf.requestsPS)
+  private val spark: SparkSession = defineSession(conf.sparkConf)
 
   private def clusterUrl(l: Int, offset: Int): String = {
     val limit: Int = if (offset + l > conf.vacsLimit) conf.vacsLimit - offset else l

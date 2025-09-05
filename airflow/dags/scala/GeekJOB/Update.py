@@ -8,7 +8,7 @@ sys.path.append(common_path)
 
 from config_utils import set_config, get_section_params, spark_task_build, postgres_getActiveVacancies
 
-args = set_config("gj.conf", "GeekJob", "Vacancies")
+args = set_config("gj.conf", "GeekJOB", "Vacancies")
 dag_params = get_section_params("Dags.Update", ["schedule"])
 
 

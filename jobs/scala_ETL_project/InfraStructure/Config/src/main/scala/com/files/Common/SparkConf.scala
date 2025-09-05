@@ -3,5 +3,8 @@ package com.files.Common
 case class SparkConf(
                name: String,
                master: String,
-               defaultParallelism: Int
+               driverMemory: String,
+               driverCores: String,
+               executorMemory: String,
+               executorCores: String
                ) extends Serializable
