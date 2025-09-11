@@ -8,9 +8,10 @@ lazy val sparkVersion = "3.5.4"
 ThisBuild / version := "1"
 ThisBuild / scalaVersion := "2.12.18"
 ThisBuild / libraryDependencies ++= Seq(
-    "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
-    "org.apache.spark" %% "spark-sql" % sparkVersion % "provided"
+  "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
+  "org.apache.spark" %% "spark-sql" % sparkVersion % "provided"
 )
+
 
 val extract: String = "extract"
 val transform: String = "transform"
@@ -26,19 +27,48 @@ lazy val inf_struct = "InfraStructure/"
     libraryDependencies += "org.rogach" %% "scallop" % "5.2.0"
   )
 
-  lazy val Core = (project in file (inf_struct + "Core"))
-    .dependsOn(Config)
+  lazy val Core = (project in file (inf_struct + "Core")).dependsOn(Config)
 
   lazy val URLInteraction = (project in file(inf_struct + "URLInteraction"))
     .settings(
-      libraryDependencies += "com.softwaremill.sttp.client3" %% "core" % "3.11.0"
+      libraryDependencies += "com.softwaremill.sttp.client4" %% "core" % "4.0.10"
     ).dependsOn(Config)
 
   lazy val DBInteraction = (project in file(inf_struct + "DBInteraction"))
     .settings(
       libraryDependencies += "org.postgresql" % "postgresql" % "42.7.7"
     ).dependsOn(Core)
-//
+
+/*  lazy val URLExtract = (project in file(inf_struct + "URLExtract"))
+    .settings(
+//      assembly / assemblyMergeStrategy := {
+//        case PathList("META-INF", "versions", "9", "module-info.class") => MergeStrategy.discard
+//        case PathList("META-INF", "services", _*) => MergeStrategy.filterDistinctLines
+//        case PathList("META-INF", _*) => MergeStrategy.discard
+//        case PathList("cats", "kernel", _*) => MergeStrategy.first // Важно для Cats
+//        case PathList("org", "typelevel", "cats", _*) => MergeStrategy.first
+//        case _ => MergeStrategy.first
+//      },
+//            assembly / assemblyMergeStrategy := {
+//        case PathList("META-INF", "versions", "9", "module-info.class") => MergeStrategy.discard
+//        case PathList("META-INF", "io.netty.versions.properties") => MergeStrategy.first
+//        case PathList("org", "apache", "hadoop", "security", "authentication", "server", "package-info.class") => MergeStrategy.first
+//        case PathList("META-INF", "services", xs @ _*) => MergeStrategy.filterDistinctLines
+//        case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+//        case PathList("cats", "kernel", xs @ _*) => MergeStrategy.first
+//        case PathList("org", "typelevel", "cats", xs @ _*) => MergeStrategy.first
+//        case _ => MergeStrategy.first
+//      },
+      libraryDependencies ++= Seq(
+        "com.softwaremill.sttp.client4" %% "core" % "4.0.10",
+        "com.softwaremill.sttp.client4" %% "cats" % "4.0.10",
+        "org.typelevel" %% "cats-effect" % "3.6.3",
+        "com.lihaoyi" %% "upickle" % "4.3.0"/*,
+        "org.apache.hadoop" % "hadoop-common" % "3.4.2"*/
+      )
+    ).dependsOn(Config)
+*/
+
 
 // HeadHunter/
 lazy val hh_dir = "HeadHunter/"
@@ -67,7 +97,11 @@ lazy val hh_dir = "HeadHunter/"
     lazy val hh_vacs_extract = (project in file(hh_vacs + extract))
         .settings(
           assembly / mainClass := Some("com.files.ExtractVacancies"),
-          assembly / assemblyJarName := s"$extract.jar"
+          assembly / assemblyJarName := s"$extract.jar",
+          assembly / assemblyShadeRules := Seq(
+            ShadeRule.rename("org.typelevel.cats.**" -> "repackaged.org.typelevel.cats.@1").inAll,
+            ShadeRule.rename("cats.**" -> "repackaged.cats.@1").inAll,
+          )
         )
         .dependsOn(URLInteraction, Core)
 

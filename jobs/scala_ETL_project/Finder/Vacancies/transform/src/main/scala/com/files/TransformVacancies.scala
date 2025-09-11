@@ -6,13 +6,11 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 object TransformVacancies extends App with SparkApp {
 
-  private class Conf(args: Array[String]) extends LocalConfig(args) {
+  private val conf = new ProjectConfig(args) {
     lazy val transformPartitions: Int = getFromConfFile[Int]("transformPartitions")
 
-    define()
+    verify()
   }
-
-  private val conf: Conf = new Conf(args)
   private val spark: SparkSession = defineSession(conf.sparkConf)
 
   private val scheme: StructType = StructType(Seq(

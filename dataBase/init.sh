@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-user="postgres"
-pass="1234"
-def_db="postgres"
+user="${POSTGRES_USER}"
+pass="${POSTGRES_PASSWORD}"
+def_db="${POSTGRES_DB}"
 app_db="vacstorage"
 
 sql="/docker-entrypoint-initdb.d/.sql"

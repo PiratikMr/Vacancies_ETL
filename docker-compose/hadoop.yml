@@ -1,0 +1,30 @@
+services:
+  namenode:
+    image: apache/hadoop:3.3.5
+    container_name: namenode
+    hostname: namenode
+    user: root
+    environment:
+      - HADOOP_HOME=/opt/hadoop
+    volumes:
+      - hadoop_namenode:/opt/hadoop/data/nameNode
+      - ../hadoop/hadoop_config:/opt/hadoop/etc/hadoop
+      - ../hadoop/start-hdfs.sh:/start-hdfs.sh
+    ports:
+      - "9870:9870"
+    command: [ "/bin/bash", "/start-hdfs.sh" ]
+
+  datanode1:
+    image: apache/hadoop:3.3.5
+    container_name: datanode1
+    hostname: datanode1
+    user: root
+    environment:
+      - HADOOP_HOME=/opt/hadoop
+    volumes:
+      - hadoop_datanode1:/hadoop/dfs/data
+      - ../hadoop/hadoop_config:/opt/hadoop/etc/hadoop
+      - ../hadoop/init-datanode.sh:/init-datanode.sh
+    depends_on:
+      - namenode
+    command: [ "/bin/bash", "/init-datanode.sh" ]

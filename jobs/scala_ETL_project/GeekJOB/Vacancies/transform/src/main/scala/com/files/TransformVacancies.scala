@@ -12,83 +12,89 @@ import java.time.format.DateTimeFormatter
 import scala.jdk.CollectionConverters.asScalaBufferConverter
 import scala.util.matching.Regex
 
-object TransformVacancies extends App with SparkApp {
-
-  implicit class DataFrameOps(df: DataFrame) {
-    def save(field: String, fn: FolderName): Unit = {
-      df.select(col("id"), explode(col(field)).as("name")).dropDuplicates(Seq("id", "name"))
-        .save(fn)
-    }
-
-    def save(fn: FolderName): Unit = HDFSHandler.saveParquet(df, conf.fsConf.getPath(fn))
-  }
-
-  private class Conf(args: Array[String]) extends LocalConfig(args) {
-    lazy val transformPartitions: Int = getFromConfFile[Int]("transformPartitions")
-    define()
-  }
-
-  private val conf: Conf = new Conf(args)
-  private val spark: SparkSession = defineSession(conf.sparkConf)
-
-  private val currencyDF: DataFrame = DBHandler.load(spark, conf.dbConf, FolderName.Currency)
-    .select(col("id").as("c_id"), col("code").as("c_code"))
-
-  private val rawDataDS: Dataset[String] = spark.read.textFile(conf.fsConf.getPath(FolderName.RawVacancies))
+object TransformVacancies extends SparkApp {
 
   private val schema: StructType = StructType(Seq(
-        StructField("id", StringType, nullable = false),
-        StructField("title", StringType, nullable = true),
-        StructField("employer", StringType, nullable = true),
-        StructField("experience", StringType, nullable = true),
-        StructField("locations", ArrayType(StringType), nullable = true),
-        StructField("publish_date", TimestampType, nullable = true),
-        StructField("job_format", ArrayType(StringType), nullable = true),
-        StructField("salary_from", LongType, nullable = true),
-        StructField("salary_to", LongType, nullable = true),
-        StructField("currency", StringType, nullable = true),
-        StructField("specs", ArrayType(StringType), nullable = true),
-        StructField("fields", ArrayType(StringType), nullable = true),
-        StructField("level", ArrayType(StringType), nullable = true)
-      ))
+    StructField("id", StringType),
+    StructField("title", StringType),
+    StructField("employer", StringType),
+    StructField("experience", StringType),
+    StructField("locations", ArrayType(StringType)),
+    StructField("publish_date", TimestampType),
+    StructField("job_format", ArrayType(StringType)),
+    StructField("salary_from", LongType),
+    StructField("salary_to", LongType),
+    StructField("currency", StringType),
+    StructField("specs", ArrayType(StringType)),
+    StructField("fields", ArrayType(StringType)),
+    StructField("level", ArrayType(StringType))
+  ))
 
 
-  private val currencyPattern: Regex = {
-    val tmp: String = currencyDF.select("c_code").collect().map(_.getString(0)).filter(_.length == 1).mkString("", "", "")
-    s"""([$tmp])""".r
-  }
-  private val currYear: String = conf.currDate().substring(0, 4)
+  def main(args: Array[String]): Unit = {
 
+    val conf = new ProjectConfig(args) {
+      lazy val transformPartitions: Int = getFromConfFile[Int]("transformPartitions")
 
-  private val transformedDF: DataFrame = {
-    val rowsRDD = rawDataDS.rdd.mapPartitions { iterator => iterator.map { row => transformHelper(row) }
+      verify()
     }
 
-    spark.createDataFrame(rowsRDD, schema)
-      .join(currencyDF, col("currency") === currencyDF("c_code"), "left_outer")
-      .withColumn("salary_currency_id",
-        when(col("c_code").isNotNull, col("c_id"))
-          .otherwise(col("currency")))
-      .withColumn("url", concat(lit("https://geekjob.ru/vacancy/"), col("id")))
-      .withColumn("published_at", col("publish_date"))
-      .withColumn("is_active", lit(true))
-  }.repartition(conf.transformPartitions)
+    val spark: SparkSession = defineSession(conf.sparkConf)
+
+    // parameters
+    val currYear: String = conf.currDate().substring(0, 4)
 
 
-  transformedDF.select("id", "title", "employer", "experience", "salary_from", "salary_to", "salary_currency_id",
-    "url", "published_at", "is_active").save(FolderName.Vacancies)
+    val currencyDF: DataFrame = DBHandler.load(spark, conf.dbConf, FolderName.Currency)
+      .select(col("id").as("c_id"), col("code").as("c_code"))
 
-  transformedDF.save("locations", FolderName.Locations)
-  transformedDF.save("job_format", FolderName.JobFormats)
-  transformedDF.save("specs", FolderName.Skills)
-  transformedDF.save("fields", FolderName.Fields)
-  transformedDF.save("level", FolderName.Levels)
-
-  spark.stop()
+    val currencyPattern: Regex = {
+      val tmp: String = currencyDF.select("c_code").collect().map(_.getString(0)).filter(_.length == 1).mkString("", "", "")
+      s"""([$tmp])""".r
+    }
 
 
+    val rawDataDS: Dataset[String] = spark.read.textFile(conf.fsConf.getPath(FolderName.RawVacancies))
 
-  private def transformHelper(row: String): Row = {
+    val transformedDF: DataFrame = {
+      val rowsRDD = rawDataDS.rdd.mapPartitions { part => part.map { row => transformHelper(row, currencyPattern, currYear) }}
+
+      spark.createDataFrame(rowsRDD, schema)
+        .join(currencyDF, col("currency") === currencyDF("c_code"), "left_outer")
+        .withColumn("salary_currency_id",
+          when(col("c_code").isNotNull, col("c_id"))
+            .otherwise(col("currency")))
+        .withColumn("url", concat(lit("https://geekjob.ru/vacancy/"), col("id")))
+        .withColumn("published_at", col("publish_date"))
+        .withColumn("is_active", lit(true))
+    }.repartition(conf.transformPartitions)
+
+
+    implicit class DataFrameOps(df: DataFrame) {
+      def save(field: String, fn: FolderName): Unit = {
+        df.select(col("id"), explode(col(field)).as("name")).dropDuplicates(Seq("id", "name"))
+          .save(fn)
+      }
+
+      def save(fn: FolderName): Unit = HDFSHandler.saveParquet(df, conf.fsConf.getPath(fn))
+    }
+
+
+    transformedDF.select("id", "title", "employer", "experience", "salary_from", "salary_to", "salary_currency_id",
+      "url", "published_at", "is_active").save(FolderName.Vacancies)
+
+    transformedDF.save("locations", FolderName.Locations)
+    transformedDF.save("job_format", FolderName.JobFormats)
+    transformedDF.save("specs", FolderName.Skills)
+    transformedDF.save("fields", FolderName.Fields)
+    transformedDF.save("level", FolderName.Levels)
+
+    spark.stop()
+
+  }
+
+
+  private def transformHelper(row: String, currencyPattern: Regex, currYear: String): Row = {
     val Doc: Document = Jsoup.parse(row.substring(24))
     val Header: Elements = Doc.select("header")
     val Company: Elements = Header.select("h5.company-name")
@@ -106,7 +112,7 @@ object TransformVacancies extends App with SparkApp {
 
     val locations = Header.select("div.location").text().split(", ").map(_.trim)
 
-    val date: Timestamp = dateTransform(Header.select("div.time").text())
+    val date: Timestamp = dateTransform(Header.select("div.time").text(), currYear)
 
     val (exp, jobFormat) = transformJobFormat(JobInfo.select("span.jobformat").html())
 
@@ -121,12 +127,13 @@ object TransformVacancies extends App with SparkApp {
     Row(id, title, company, exp, locations, date, jobFormat, salary_from, salary_to, currency, specs, fields, level)
   }
 
+
   private lazy val monthsMap: Map[String, String] = Map(
     "января" -> "01", "февраля" -> "02", "марта" -> "03", "апреля" -> "04",
     "мая" -> "05", "июня" -> "06", "июля" -> "07", "августа" -> "08",
     "сентября" -> "09", "октября" -> "10", "ноября" -> "11", "декабря" -> "12"
   )
-  private def dateTransform(raw: String): Timestamp = {
+  private def dateTransform(raw: String, currYear: String): Timestamp = {
     val times: Array[String] = raw.split(" ")
 
     val day: String = if (times(0).length < 2) s"0${times(0)}" else times(0)

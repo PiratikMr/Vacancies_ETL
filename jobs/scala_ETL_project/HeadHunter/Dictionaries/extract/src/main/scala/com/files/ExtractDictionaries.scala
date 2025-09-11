@@ -7,41 +7,48 @@ import org.rogach.scallop.ScallopOption
 
 import scala.annotation.tailrec
 
-object ExtractDictionaries extends App with SparkApp {
+object ExtractDictionaries extends SparkApp {
 
-  private class Conf(args: Array[String]) extends LocalConfig(args) {
+  private class Conf(args: Array[String]) extends ProjectConfig(args) {
     private val allDictionaries: String = "areas roles dict:curr dict:schd dict:empl dict:expr"
     val dictionaries: ScallopOption[String] = opt[String](name = "dictionaries", default = Some(allDictionaries))
 
-    define()
+    verify()
   }
 
-  private val conf: Conf = new Conf(args)
-  private val spark: SparkSession = defineSession(conf.sparkConf)
-  private val dictSet: Set[String] = conf.dictionaries().split(" ").map(_.trim.toLowerCase).toSet
+  def main(args: Array[String]): Unit = {
 
+    val conf: Conf = new Conf(args)
 
-  import spark.implicits._
+    val spark: SparkSession = defineSession(conf.sparkConf)
+    val dictSet: Set[String] = conf.dictionaries().split(" ").map(_.trim.toLowerCase).toSet
 
-  private lazy val dictCluster: DataFrame = {
-    val response: String = URLHandler.readOrThrow("https://api.hh.ru/dictionaries", conf.urlConf)
-    spark.read.json(Seq(response).toDS)
+    import spark.implicits._
+
+    lazy val dictCluster: DataFrame = {
+      val response: String = URLHandler.readOrThrow(conf.urlConf, "https://api.hh.ru/dictionaries")
+      spark.read.json(Seq(response).toDS)
+    }
+
+    dictSet.foreach {
+      case "areas" => handleAreas(spark, conf)
+      case "roles" => handleRoles(spark, conf)
+      case s if s.startsWith("dict:") => handleDictionary(s.stripPrefix("dict:"), dictCluster, conf)
+    }
+
+    spark.stop()
+
   }
 
 
-  dictSet.foreach {
-    case "areas" => handleAreas()
-    case "roles" => handleRoles()
-    case s if s.startsWith("dict:") => handleDictionary(s.stripPrefix("dict:"))
-  }
-
-  spark.stop()
 
 
-  private def handleAreas(): Unit = {
+  private def handleAreas(spark: SparkSession, conf: Conf): Unit = {
+
+    import spark.implicits._
 
     val rawDf: DataFrame = {
-      val body: String = URLHandler.readOrDefault("https://api.hh.ru/areas", conf.urlConf, "")
+      val body: String = URLHandler.readOrDefault(conf.urlConf, "https://api.hh.ru/areas")
       spark.read.json(Seq(body).toDS)
     }
 
@@ -87,10 +94,12 @@ object ExtractDictionaries extends App with SparkApp {
     HDFSHandler.saveParquet(areas, conf.fsConf.getPath(FolderName.Areas))
   }
 
-  private def handleRoles(): Unit = {
+  private def handleRoles(spark: SparkSession, conf: Conf): Unit = {
+
+    import spark.implicits._
 
     val rawDf: DataFrame = {
-      val body: String = URLHandler.readOrDefault("https://api.hh.ru/professional_roles", conf.urlConf, "")
+      val body: String = URLHandler.readOrDefault(conf.urlConf, "https://api.hh.ru/professional_roles")
       spark.read.json(Seq(body).toDS)
     }
 
@@ -106,7 +115,7 @@ object ExtractDictionaries extends App with SparkApp {
     HDFSHandler.saveParquet(roles, conf.fsConf.getPath(FolderName.Roles))
   }
 
-  private def handleDictionary(code: String): Unit = {
+  private def handleDictionary(code: String, cluster: DataFrame, conf: Conf): Unit = {
 
     def saveData(folderName: FolderName): Unit = {
 
@@ -116,13 +125,13 @@ object ExtractDictionaries extends App with SparkApp {
         case FolderName.Experience => "experience"
       }
 
-      val df: DataFrame = expl(dictCluster, field).select("id", "name")
+      val df: DataFrame = expl(cluster, field).select("id", "name")
       HDFSHandler.saveParquet(df, conf.fsConf.getPath(folderName))
     }
 
     code match {
       case "curr" =>
-        val curr: DataFrame = expl(dictCluster,"currency").withColumn("id", col("code")).select("id", "name", "rate")
+        val curr: DataFrame = expl(cluster,"currency").withColumn("id", col("code")).select("id", "name", "rate")
         HDFSHandler.saveParquet(curr, conf.fsConf.getPath(FolderName.Currency))
       case "schd" => saveData(FolderName.Schedule)
       case "empl" => saveData(FolderName.Employment)
@@ -130,6 +139,7 @@ object ExtractDictionaries extends App with SparkApp {
     }
 
   }
+
   private def expl(df: DataFrame, field: String): DataFrame = df
     .withColumn(s"$field", explode(col(s"$field"))).select(s"$field.*")
 }

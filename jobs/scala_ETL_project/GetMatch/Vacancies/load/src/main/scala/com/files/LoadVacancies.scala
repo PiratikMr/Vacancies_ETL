@@ -4,7 +4,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object LoadVacancies extends App with SparkApp {
 
-  private val conf: LocalConfig = new LocalConfig(args) { define() }
+  private val conf: ProjectConfig = new ProjectConfig(args) { verify() }
   private val spark: SparkSession = defineSession(conf.sparkConf)
 
 

@@ -2,6 +2,7 @@
 
 _stuff/
 grafana/data/plugins/
+prometheus/prometheus-data
 
 jobs/python_TelegramChannels/
 

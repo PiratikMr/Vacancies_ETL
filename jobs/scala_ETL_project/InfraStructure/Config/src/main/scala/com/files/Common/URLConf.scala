@@ -1,7 +1,8 @@
 package com.files.Common
 
 case class URLConf(
-                    headers: Map[String, String],
+                    headers: Array[(String, String)],
                     requestsPS: Int,
+                    maxConcurrentStreams: Int,
                     timeout: Int
                   ) extends Serializable

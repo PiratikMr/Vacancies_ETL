@@ -1,43 +1,49 @@
 package com.files
 
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import com.files.Common.URLConf
+import org.apache.spark.sql.{Dataset, SparkSession}
 import org.rogach.scallop.ScallopOption
 import sttp.model.StatusCode
 
-object UpdateVacancies extends App with SparkApp {
+object UpdateVacancies extends SparkApp {
 
-  private class Conf(args: Array[String]) extends LocalConfig(args) {
-    lazy val activeVacancies: ScallopOption[Int] = opt[Int](name = "activevacancies")
-    lazy val limit: Int = getFromConfFile[Int]("updateLimit")
+  def main(args: Array[String]): Unit = {
 
-    define()
+    val conf = new ProjectConfig(args) {
+      lazy val activeVacancies: ScallopOption[Int] = opt[Int](name = "activevacancies")
+      lazy val limit: Int = getFromConfFile[Int]("updateLimit")
+
+      verify()
+    }
+
+    val spark: SparkSession = defineSession(conf.sparkConf)
+    import spark.implicits._
+
+    // parameters
+    val urlConf: URLConf = conf.urlConf
+
+
+    val vacIds: Dataset[Long] = DBHandler.load(spark, conf.dbConf,
+        s"SELECT id FROM hh_vacancies WHERE is_active is true ORDER BY published_at LIMIT ${math.min(conf.activeVacancies(), conf.limit)}")
+      .repartition(conf.urlConf.requestsPS).mapPartitions(part => part.map(row => row.getLong(0)))
+
+
+    val update: Dataset[Long] = vacIds.mapPartitions(part => {
+
+      URLHandler.useClient[Long, Long](part, (backend, id) => {
+        val res = URLHandler.read(urlConf, s"https://api.hh.ru/vacancies/$id", Some(backend))
+        if (
+          (res.isSuccess && res.body.right.get.contains(""""archived":true"""))
+            || res.code.equals(StatusCode.NotFound)
+        ) Some(id)
+        else None
+      })
+
+    })
+
+    DBHandler.updateActiveVacancies[Long](conf.dbConf, update)
+
+    spark.stop()
   }
 
-  private val conf: Conf = new Conf(args)
-  private val spark: SparkSession = defineSession(conf.sparkConf)
-
-
-  private val ids: DataFrame = DBHandler.load(spark, conf.dbConf,
-    s"SELECT id FROM hh_vacancies WHERE is_active is true ORDER BY published_at LIMIT ${math.min(conf.activeVacancies(), conf.limit)}")
-    .repartition(conf.urlConf.requestsPS)
-
-
-  import spark.implicits._
-
-  private val update: Dataset[Long] = ids.mapPartitions(part => {
-    part.flatMap(row => {
-      val id: Long = row.getLong(0)
-      val res = URLHandler.read(s"https://api.hh.ru/vacancies/$id", conf.urlConf)
-
-      if (
-        (res.isSuccess && res.body.right.get.contains(""""archived":true"""))
-          || res.code.equals(StatusCode.NotFound)
-      ) Some(id)
-      else None
-    })
-  })
-
-  DBHandler.updateActiveVacancies[Long](conf.dbConf, update)
-
-  spark.stop()
 }
