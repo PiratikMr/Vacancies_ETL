@@ -15,6 +15,14 @@ scrape_configs:
     scheme: http
     metrics_path: metrics/prometheus
     static_configs:
-      - targets: ['host.docker.internal:4040', 'host.docker.internal:4041', 'host.docker.internal:9090']
+      - targets: ['host.docker.internal:4040', 'host.docker.internal:9090']
         labels:
           spark_id: 'spark'
+
+  - job_name: hadoop
+    scheme: http
+    metrics_path: metrics
+    static_configs:
+      - targets: ['host.docker.internal:8001', 'host.docker.internal:8002']
+        labels:
+          hadoop_id: 'hadoop'

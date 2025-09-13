@@ -1,30 +1,47 @@
+x-hadoop-common: &hadoop-common
+  image: apache/hadoop:3.3.5
+  user: root
+  environment: &hadoop-common-env
+    HADOOP_HOME: /opt/hadoop
+
+
 services:
   namenode:
-    image: apache/hadoop:3.3.5
+    <<: *hadoop-common
     container_name: namenode
-    hostname: namenode
-    user: root
-    environment:
-      - HADOOP_HOME=/opt/hadoop
-    volumes:
+    environment: 
+      <<: *hadoop-common-env
+      JMX_PORT: 8001
+      JMX_FILE_NAME: namenode
+    volumes: 
       - hadoop_namenode:/opt/hadoop/data/nameNode
-      - ../hadoop/hadoop_config:/opt/hadoop/etc/hadoop
-      - ../hadoop/start-hdfs.sh:/start-hdfs.sh
+      - ../hadoop/hadoop-config:/opt/hadoop/etc/hadoop
+      - ../hadoop/jmx-exporter:/opt/jmx-exporter
+      - ../hadoop/init-scripts:/init-scripts
     ports:
-      - "9870:9870"
-    command: [ "/bin/bash", "/start-hdfs.sh" ]
+      - "9870:9870" # WEB UI
+      - "8001:8001" # JMX
+    command: [ "/bin/bash", "/init-scripts/start-hdfs.sh" ]
 
   datanode1:
-    image: apache/hadoop:3.3.5
+    <<: *hadoop-common
     container_name: datanode1
     hostname: datanode1
-    user: root
     environment:
-      - HADOOP_HOME=/opt/hadoop
-    volumes:
-      - hadoop_datanode1:/hadoop/dfs/data
-      - ../hadoop/hadoop_config:/opt/hadoop/etc/hadoop
-      - ../hadoop/init-datanode.sh:/init-datanode.sh
+      <<: *hadoop-common-env
+      JMX_PORT: 8002
+      JMX_FILE_NAME: datanode
+    volumes: 
+      - hadoop_datanode1:/opt/hadoop/data/dataNode
+      - ../hadoop/hadoop-config:/opt/hadoop/etc/hadoop
+      - ../hadoop/jmx-exporter:/opt/jmx-exporter
+      - ../hadoop/init-scripts:/init-scripts
+    ports:
+      - "8002:8002" # JMX
+    command: [ "/bin/bash", "/init-scripts/init-datanode.sh" ]
     depends_on:
       - namenode
-    command: [ "/bin/bash", "/init-datanode.sh" ]
+
+volumes:
+  hadoop_namenode:
+  hadoop_datanode1:

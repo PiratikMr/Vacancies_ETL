@@ -21,22 +21,7 @@ services:
       - "4040:4040"
     environment:
       SPARK_MODE: worker
-      SPARK_WORKER_CORES: 4
-      SPARK_WORKER_MEMORY: 3g
+      SPARK_WORKER_CORES: 7
+      SPARK_WORKER_MEMORY: 6g
       SPARK_MASTER_URL: spark://spark-master:7077
       SPARK_WORKER_WEBUI_PORT: 4040
-
-  spark-worker-2:
-    <<: *spark-common
-    container_name: spark-worker-2
-    command: bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
-    depends_on:
-      - spark-master
-    ports:
-      - "4041:4041"
-    environment:
-      SPARK_MODE: worker
-      SPARK_WORKER_CORES: 4
-      SPARK_WORKER_MEMORY: 3g
-      SPARK_MASTER_URL: spark://spark-master:7077
-      SPARK_WORKER_WEBUI_PORT: 4041

@@ -1,0 +1,19 @@
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+rules:
+- pattern: 'Hadoop<service=DataNode, name=DataNodeInfo><>Capacity(:?)'
+  name: hadoop_datanode_capacity_bytes
+  help: "Total storage capacity of the DataNode in bytes"
+  type: GAUGE
+- pattern: 'Hadoop<service=DataNode, name=DataNodeInfo><>DfsUsed(:?)'
+  name: hadoop_datanode_dfs_used_bytes
+  help: "Space used by HDFS on the DataNode in bytes"
+  type: GAUGE
+- pattern: 'Hadoop<service=DataNode, name=DataNodeInfo><>Remaining(:?)'
+  name: hadoop_datanode_remaining_bytes
+  help: "Remaining space on the DataNode in bytes"
+  type: GAUGE
+- pattern: 'Hadoop<service=DataNode, name=DataNodeInfo><>NumBlocks(:?)'
+  name: hadoop_datanode_num_blocks
+  help: "Number of blocks on the DataNode"
+  type: GAUGE

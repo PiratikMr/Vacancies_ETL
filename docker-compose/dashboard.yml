@@ -6,7 +6,7 @@ services:
       - "8088:8088"
     volumes:
       - superset_volume:/app/superset_data
-      - ../superset/data/superset.db:/app/superset_home/superset.db
+      - ../superset/dashboard_export.zip:/app/superset_export/dashboard_vacs.zip
       - ../superset/conf/start-superset.sh:/start-superset.sh
       - ../superset/conf/superset_config.py:/superset_config.py
     environment:

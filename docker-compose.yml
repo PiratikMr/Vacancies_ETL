@@ -8,8 +8,6 @@ include:
 
 volumes:
   postgres-db-volume:
-  hadoop_datanode1:
-  hadoop_namenode:
   app-postgres-db-volume:
   superset_volume:
   prometheus_data:

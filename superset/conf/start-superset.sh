@@ -7,4 +7,7 @@ superset fab create-admin \
                --password admin
 superset db upgrade
 superset init
+
+superset import-dashboards -p /app/superset_export/dashboard_vacs.zip -u admin
+
 /usr/bin/run-server.sh
