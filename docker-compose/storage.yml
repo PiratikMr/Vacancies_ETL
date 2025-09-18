@@ -18,7 +18,7 @@ services:
         start_period: 5s
 
   postgres-exporter:
-    image: bitnami/postgres-exporter:latest
+    image: bitnamilegacy/postgres-exporter:latest
     environment:
       DATA_SOURCE_NAME: "postgresql://postgres:1234@app-postgres:5432/vacstorage"
     ports:
