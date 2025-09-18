@@ -8,8 +8,7 @@ services:
     container_name: spark-master
     command: bin/spark-class org.apache.spark.deploy.master.Master
     ports:
-      - "9090:8080"
-      - "7077:7077"
+      - "12080:8080"
 
   spark-worker-1:
     <<: *spark-common
@@ -18,7 +17,7 @@ services:
     depends_on:
       - spark-master
     ports:
-      - "4040:4040"
+      - "12040:4040"
     environment:
       SPARK_MODE: worker
       SPARK_WORKER_CORES: 7

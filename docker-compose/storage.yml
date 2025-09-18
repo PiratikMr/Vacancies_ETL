@@ -6,7 +6,7 @@ services:
         - app-postgres-db-volume:/var/lib/postgresql/data
         - ../dataBase:/docker-entrypoint-initdb.d
       ports:
-        - "5432:5432"
+        - "14432:5432"
       environment:
         POSTGRES_USER: postgres
         POSTGRES_PASSWORD: 1234
@@ -16,3 +16,15 @@ services:
         interval: 10s
         retries: 5
         start_period: 5s
+
+  postgres-exporter:
+    image: bitnami/postgres-exporter:latest
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:1234@app-postgres:5432/vacstorage"
+    ports:
+      - "14187:9187"
+    depends_on:
+      - app-postgres
+
+volumes:
+  app-postgres-db-volume:

@@ -6,7 +6,7 @@ pass="${POSTGRES_PASSWORD}"
 def_db="${POSTGRES_DB}"
 app_db="vacstorage"
 
-sql="/docker-entrypoint-initdb.d/.sql"
+sql="/docker-entrypoint-initdb.d/_sql/.sql"
 
 
 psql -v ON_ERROR_STOP=1 --username "$user" --dbname "$def_db" <<-EOSQL

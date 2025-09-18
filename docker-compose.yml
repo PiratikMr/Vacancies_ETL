@@ -5,9 +5,3 @@ include:
   - path: ./docker-compose/prometheus/prometheus.yml
   - path: ./docker-compose/dashboard.yml
   - path: ./docker-compose/storage.yml
-
-volumes:
-  postgres-db-volume:
-  app-postgres-db-volume:
-  superset_volume:
-  prometheus_data:

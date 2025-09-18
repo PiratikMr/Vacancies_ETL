@@ -3,7 +3,7 @@ services:
     image: apache/superset
     container_name: superset
     ports:
-      - "8088:8088"
+      - "16088:8088"
     volumes:
       - superset_volume:/app/superset_data
       - ../superset/dashboard_export.zip:/app/superset_export/dashboard_vacs.zip
@@ -12,12 +12,15 @@ services:
     environment:
       - SUPERSET_CONFIG_PATH=/superset_config.py
     command: [ "/bin/bash", "/start-superset.sh" ]
+    depends_on:
+      app-postgres:
+        condition: service_healthy
 
   grafana:
     image: grafana/grafana-enterprise:11.6.1
     container_name: grafana
     ports:
-      - "3000:3000"
+      - "16000:3000"
     volumes:
       - ../grafana/data:/var/lib/grafana
       - ../grafana/provisioning:/etc/grafana/provisioning
@@ -25,6 +28,6 @@ services:
     environment:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_PATHS_PROVISIONING: /etc/grafana/provisioning
-    depends_on:
-      app-postgres:
-        condition: service_healthy
+
+volumes:
+  superset_volume:

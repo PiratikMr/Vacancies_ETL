@@ -7,7 +7,7 @@ scrape_configs:
     scheme: http
     metrics_path: metrics
     static_configs:
-      - targets: ['host.docker.internal:9102']
+      - targets: ['host.docker.internal:11102']
         labels:
           airflow_id: 'airflow'
 
@@ -15,7 +15,7 @@ scrape_configs:
     scheme: http
     metrics_path: metrics/prometheus
     static_configs:
-      - targets: ['host.docker.internal:4040', 'host.docker.internal:9090']
+      - targets: ['host.docker.internal:12080', 'host.docker.internal:12040']
         labels:
           spark_id: 'spark'
 
@@ -23,6 +23,12 @@ scrape_configs:
     scheme: http
     metrics_path: metrics
     static_configs:
-      - targets: ['host.docker.internal:8001', 'host.docker.internal:8002']
+      - targets: ['host.docker.internal:13001', 'host.docker.internal:13002']
         labels:
           hadoop_id: 'hadoop'
+
+  - job_name: postgres
+    scheme: http
+    metrics_path: metrics
+    static_configs:
+      - targets: ['host.docker.internal:14187']

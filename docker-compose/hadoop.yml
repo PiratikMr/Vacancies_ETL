@@ -19,8 +19,8 @@ services:
       - ../hadoop/jmx-exporter:/opt/jmx-exporter
       - ../hadoop/init-scripts:/init-scripts
     ports:
-      - "9870:9870" # WEB UI
-      - "8001:8001" # JMX
+      - "13870:9870" # WEB UI
+      - "13001:8001" # JMX
     command: [ "/bin/bash", "/init-scripts/start-hdfs.sh" ]
 
   datanode1:
@@ -37,7 +37,7 @@ services:
       - ../hadoop/jmx-exporter:/opt/jmx-exporter
       - ../hadoop/init-scripts:/init-scripts
     ports:
-      - "8002:8002" # JMX
+      - "13002:8002" # JMX
     command: [ "/bin/bash", "/init-scripts/init-datanode.sh" ]
     depends_on:
       - namenode
