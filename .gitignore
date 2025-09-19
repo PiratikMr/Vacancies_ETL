@@ -12,10 +12,14 @@ jobs/java_*
 
 __pycache__/
 
-*.idea
-target
+.idea
 test
 
 config.conf
 *.docx
 *.drawio
+
+**/target/**
+!**/target/scala-*
+**/target/scala-*/**/
+!**/target/scala-*/*.jar
