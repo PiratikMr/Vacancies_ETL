@@ -1,7 +1,8 @@
 package com.files
 
 import com.typesafe.config.Config
-import scala.jdk.CollectionConverters.asScalaBufferConverter
+
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 sealed trait ConfigGetter[T] {
   def get(config: Config, path: String): T
@@ -17,6 +18,6 @@ object ConfigGetter {
   }
 
   implicit object IntSeqGetter extends ConfigGetter[Seq[Int]] {
-    def get(config: Config, path: String): Seq[Int] = config.getIntList(path).asScala.map(_.toInt)
+    def get(config: Config, path: String): Seq[Int] = config.getIntList(path).asScala.map(_.toInt).toSeq
   }
 }

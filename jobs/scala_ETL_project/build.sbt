@@ -3,10 +3,10 @@ import sbtassembly.AssemblyPlugin.autoImport.assembly
 
 import scala.collection.Seq
 
-lazy val sparkVersion = "3.5.4"
+lazy val sparkVersion = "4.0.0"
 
 ThisBuild / version := "1"
-ThisBuild / scalaVersion := "2.12.18"
+ThisBuild / scalaVersion := "2.13.16"
 ThisBuild / libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
   "org.apache.spark" %% "spark-sql" % sparkVersion % "provided"
@@ -38,36 +38,6 @@ lazy val inf_struct = "InfraStructure/"
     .settings(
       libraryDependencies += "org.postgresql" % "postgresql" % "42.7.7"
     ).dependsOn(Core)
-
-/*  lazy val URLExtract = (project in file(inf_struct + "URLExtract"))
-    .settings(
-//      assembly / assemblyMergeStrategy := {
-//        case PathList("META-INF", "versions", "9", "module-info.class") => MergeStrategy.discard
-//        case PathList("META-INF", "services", _*) => MergeStrategy.filterDistinctLines
-//        case PathList("META-INF", _*) => MergeStrategy.discard
-//        case PathList("cats", "kernel", _*) => MergeStrategy.first // Важно для Cats
-//        case PathList("org", "typelevel", "cats", _*) => MergeStrategy.first
-//        case _ => MergeStrategy.first
-//      },
-//            assembly / assemblyMergeStrategy := {
-//        case PathList("META-INF", "versions", "9", "module-info.class") => MergeStrategy.discard
-//        case PathList("META-INF", "io.netty.versions.properties") => MergeStrategy.first
-//        case PathList("org", "apache", "hadoop", "security", "authentication", "server", "package-info.class") => MergeStrategy.first
-//        case PathList("META-INF", "services", xs @ _*) => MergeStrategy.filterDistinctLines
-//        case PathList("META-INF", xs @ _*) => MergeStrategy.discard
-//        case PathList("cats", "kernel", xs @ _*) => MergeStrategy.first
-//        case PathList("org", "typelevel", "cats", xs @ _*) => MergeStrategy.first
-//        case _ => MergeStrategy.first
-//      },
-      libraryDependencies ++= Seq(
-        "com.softwaremill.sttp.client4" %% "core" % "4.0.10",
-        "com.softwaremill.sttp.client4" %% "cats" % "4.0.10",
-        "org.typelevel" %% "cats-effect" % "3.6.3",
-        "com.lihaoyi" %% "upickle" % "4.3.0"/*,
-        "org.apache.hadoop" % "hadoop-common" % "3.4.2"*/
-      )
-    ).dependsOn(Config)
-*/
 
 
 // HeadHunter/
@@ -176,9 +146,13 @@ lazy val gj_dir = "GeekJOB/"
 
   lazy val gj_vacs_transform = (project in file(gj_vacs + transform))
     .settings(
-      libraryDependencies += "net.ruippeixotog" %% "scala-scraper" % "2.1.0",
+      libraryDependencies += "net.ruippeixotog" %% "scala-scraper" % "2.2.1",
       assembly / mainClass := Some("com.files.TransformVacancies"),
-      assembly / assemblyJarName := s"$transform.jar"
+      assembly / assemblyJarName := s"$transform.jar",
+      assembly / assemblyMergeStrategy := {
+        case PathList("module-info.class") => MergeStrategy.discard
+        case x => (assembly / assemblyMergeStrategy).value(x)
+      }
     )
     .dependsOn(DBInteraction, Core)
 

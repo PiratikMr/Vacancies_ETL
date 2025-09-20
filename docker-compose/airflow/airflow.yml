@@ -1,11 +1,11 @@
 x-airflow-common:
   &airflow-common
   build: .
-  env_file: ./airflow.env
+  env_file: ./.env
   volumes:
     - ../../airflow/dags:/opt/airflow/dags
     - ../../jobs:/opt/airflow/jobs
-    - ../../airflow/logs:/opt/airflow/logs
+    - airflow-volume:/opt/airflow/logs
     - ../../conf:/opt/airflow/conf
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
@@ -85,7 +85,7 @@ services:
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
     volumes:
-      - postgres-db-volume:/var/lib/postgresql/data
+      - airflow-db-volume:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
@@ -103,4 +103,5 @@ services:
       - "11102:9102"
 
 volumes:
-  postgres-db-volume:
+  airflow-db-volume:
+  airflow-volume:

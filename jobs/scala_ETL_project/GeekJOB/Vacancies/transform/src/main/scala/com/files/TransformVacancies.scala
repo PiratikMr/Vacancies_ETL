@@ -9,7 +9,7 @@ import org.jsoup.select.Elements
 
 import java.sql.Timestamp
 import java.time.format.DateTimeFormatter
-import scala.jdk.CollectionConverters.asScalaBufferConverter
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 import scala.util.matching.Regex
 
 object TransformVacancies extends SparkApp {

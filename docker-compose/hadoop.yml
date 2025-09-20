@@ -14,14 +14,13 @@ services:
       JMX_PORT: 8001
       JMX_FILE_NAME: namenode
     volumes: 
-      - hadoop_namenode:/opt/hadoop/data/nameNode
+      - hadoop-namenode-volume:/opt/hadoop/data/nameNode
       - ../hadoop/hadoop-config:/opt/hadoop/etc/hadoop
-      - ../hadoop/jmx-exporter:/opt/jmx-exporter
-      - ../hadoop/init-scripts:/init-scripts
+      - ../hadoop/other:/hadoop-conf
     ports:
       - "13870:9870" # WEB UI
       - "13001:8001" # JMX
-    command: [ "/bin/bash", "/init-scripts/start-hdfs.sh" ]
+    command: [ "/bin/bash", "/hadoop-conf/init-scripts/start-hdfs.sh" ]
 
   datanode1:
     <<: *hadoop-common
@@ -32,16 +31,15 @@ services:
       JMX_PORT: 8002
       JMX_FILE_NAME: datanode
     volumes: 
-      - hadoop_datanode1:/opt/hadoop/data/dataNode
+      - hadoop-datanode1-volume:/opt/hadoop/data/dataNode
       - ../hadoop/hadoop-config:/opt/hadoop/etc/hadoop
-      - ../hadoop/jmx-exporter:/opt/jmx-exporter
-      - ../hadoop/init-scripts:/init-scripts
+      - ../hadoop/other:/hadoop-conf
     ports:
       - "13002:8002" # JMX
-    command: [ "/bin/bash", "/init-scripts/init-datanode.sh" ]
+    command: [ "/bin/bash", "/hadoop-conf/init-scripts/init-datanode.sh" ]
     depends_on:
       - namenode
 
 volumes:
-  hadoop_namenode:
-  hadoop_datanode1:
+  hadoop-namenode-volume:
+  hadoop-datanode1-volume:

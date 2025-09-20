@@ -1,12 +1,12 @@
 services:
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.5.0
     container_name: prometheus
     ports:
       - '15090:9090'
     volumes:
       - ./prometheus_conf.yml:/etc/prometheus/prometheus.yml
-      - ../../prometheus/prometheus-data:/prometheus
+      - prometheus-volume:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -16,4 +16,4 @@ services:
       - "host.docker.internal:host-gateway"
 
 volumes:
-  prometheus_data:
+  prometheus-volume:

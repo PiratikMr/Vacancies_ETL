@@ -6,7 +6,7 @@ import org.rogach.scallop.{ScallopConf, ScallopOption}
 
 import java.io.File
 import java.nio.file.Paths
-import scala.jdk.CollectionConverters.asScalaSetConverter
+import scala.jdk.CollectionConverters._
 
 abstract class ProjectConfig(args: Array[String]) extends ScallopConf(args) {
 
