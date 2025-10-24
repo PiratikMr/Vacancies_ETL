@@ -206,6 +206,33 @@ lazy val fn_vacs_update = (project in file(fn_vacs + update))
 //
 //
 
+// HabrCareer/
+lazy val hc_dir = "HabrCareer/"
+// Vacancies/
+lazy val hc_vacs = hc_dir + "Vacancies/"
+
+lazy val hc_vacs_extract = (project in file(hc_vacs + extract))
+  .settings(
+    assembly / mainClass := Some("com.files.ExtractVacancies"),
+    assembly / assemblyJarName := s"$extract.jar"
+  )
+  .dependsOn(URLInteraction, Core)
+
+lazy val hc_vacs_transform = (project in file(hc_vacs + transform))
+  .settings(
+    assembly / mainClass := Some("com.files.TransformVacancies"),
+    assembly / assemblyJarName := s"$transform.jar"
+  )
+  .dependsOn(Core, DBInteraction)
+
+lazy val hc_vacs_load = (project in file(hc_vacs + load))
+  .settings(
+    assembly / mainClass := Some("com.files.LoadVacancies"),
+    assembly / assemblyJarName := s"$load.jar"
+  )
+  .dependsOn(DBInteraction)
+//
+//
 
 lazy val root = (project in file("."))
   .aggregate(Config, Core, URLInteraction, DBInteraction,
@@ -214,6 +241,7 @@ lazy val root = (project in file("."))
     gm_vacs_extract, gm_vacs_transform, gm_vacs_load, gm_vacs_update,
     gj_vacs_extract, gj_vacs_transform, gj_vacs_load, gj_vacs_update,
     fn_vacs_extract, fn_vacs_transform, fn_vacs_load, fn_vacs_update,
+    hc_vacs_extract, hc_vacs_transform, hc_vacs_load
   )
 
 
@@ -235,6 +263,11 @@ lazy val get_match = (project in file("GetMatch"))
 lazy val geek_job = (project in file("GeekJOB"))
   .aggregate(
     gj_vacs_extract, gj_vacs_transform, gj_vacs_load, gj_vacs_update
+  )
+
+lazy val habr_career = (project in file("HabrCareer"))
+  .aggregate(
+    hc_vacs_extract, hc_vacs_transform, hc_vacs_load
   )
 
 lazy val finder = (project in file("Finder"))
@@ -295,6 +328,17 @@ addCommandAlias("fnHelperCompile",
     |""".stripMargin
 )
 
+// hc_helper
+addCommandAlias("hcHelperCompile",
+  """
+    |project habr_career; clean; compile;
+    |project hc_vacs_extract; assembly;
+    |project hc_vacs_transform; assembly;
+    |project hc_vacs_load; assembly;
+    |project root;
+    |""".stripMargin
+)
+
 
 // HeadHunter
 addCommandAlias("compileHH",
@@ -328,6 +372,14 @@ addCommandAlias("compileFn",
     |""".stripMargin
 )
 
+// HabrCareer
+addCommandAlias("compileHC",
+  """
+    |project infra_structure; clean; compile;
+    |hcHelperCompile;
+    |""".stripMargin
+)
+
 
 // Whole Project
 addCommandAlias("compileWholeProj",
@@ -339,5 +391,6 @@ addCommandAlias("compileWholeProj",
     |hhHelperCompile;
     |gjHelperCompile;
     |fnHelperCompile;
+    |hcHelperCompile;
     |""".stripMargin
 )

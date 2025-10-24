@@ -33,7 +33,7 @@ object UpdateVacancies extends SparkApp {
       URLHandler.useClient[Long, Long](part, (backend, id) => {
         val res = URLHandler.read(urlConf, s"https://api.hh.ru/vacancies/$id", Some(backend))
         if (
-          (res.isSuccess && res.body.right.get.contains(""""archived":true"""))
+          (res.isSuccess && res.body.contains(""""archived":true"""))
             || res.code.equals(StatusCode.NotFound)
         ) Some(id)
         else None

@@ -95,10 +95,8 @@ services:
 
   statsd-exporter:
     image: prom/statsd-exporter:v0.28.0
-    volumes:
-      - ./statsd.yml:/home/statsd-mapping-configs.yml
     entrypoint: ["/bin/sh", "-c", "--"]
-    command: ["statsd_exporter --log.level debug --statsd.mapping-config=/home/statsd-mapping-configs.yml"]
+    command: ["statsd_exporter --log.level debug"]
     ports:
       - "11102:9102"
 

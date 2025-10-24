@@ -2,8 +2,10 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 17.5 (Debian 17.5-1.pgdg120+1)
--- Dumped by pg_dump version 17.5
+\restrict XaibDDiuDEtQhc1hlDsVJT1no0CBVbLJ22QCXKd7a7FLrmLgDdJqcqzd268rz4r
+
+-- Dumped from database version 17.6 (Debian 17.6-1.pgdg13+1)
+-- Dumped by pg_dump version 17.6 (Debian 17.6-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -18,13 +20,22 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: overview; Type: SCHEMA; Schema: -; Owner: postgres
+-- Name: output; Type: SCHEMA; Schema: -; Owner: postgres
 --
 
-CREATE SCHEMA overview;
+CREATE SCHEMA output;
 
 
-ALTER SCHEMA overview OWNER TO postgres;
+ALTER SCHEMA output OWNER TO postgres;
+
+--
+-- Name: private; Type: SCHEMA; Schema: -; Owner: postgres
+--
+
+CREATE SCHEMA private;
+
+
+ALTER SCHEMA private OWNER TO postgres;
 
 --
 -- Name: salary; Type: SCHEMA; Schema: -; Owner: postgres
@@ -78,54 +89,6 @@ CREATE TABLE public.fn_vacancies (
 ALTER TABLE public.fn_vacancies OWNER TO postgres;
 
 --
--- Name: fn; Type: MATERIALIZED VIEW; Schema: salary; Owner: postgres
---
-
-CREATE MATERIALIZED VIEW salary.fn AS
- WITH salary AS (
-         SELECT v.id,
-                CASE
-                    WHEN ((v.salary_from IS NOT NULL) AND (v.salary_to IS NOT NULL)) THEN (((v.salary_from + v.salary_to))::double precision / ((2)::double precision * c.rate))
-                    WHEN (v.salary_from IS NOT NULL) THEN ((v.salary_from)::double precision / c.rate)
-                    WHEN (v.salary_to IS NOT NULL) THEN ((v.salary_to)::double precision / c.rate)
-                    ELSE NULL::double precision
-                END AS salary,
-                CASE
-                    WHEN ((v.salary_from IS NOT NULL) AND (v.salary_to IS NOT NULL)) THEN true
-                    ELSE false
-                END AS has_range
-           FROM (public.fn_vacancies v
-             JOIN public.currency c ON ((c.id = v.salary_currency_id)))
-          WHERE (((v.salary_from IS NOT NULL) OR (v.salary_to IS NOT NULL)) AND (v.salary_currency_id IS NOT NULL))
-        )
- SELECT id,
-    has_range,
-    salary
-   FROM salary s
-  WHERE ((salary >= (0)::double precision) AND (salary <= (1000000)::double precision))
-  WITH NO DATA;
-
-
-ALTER MATERIALIZED VIEW salary.fn OWNER TO postgres;
-
---
--- Name: fn; Type: MATERIALIZED VIEW; Schema: overview; Owner: postgres
---
-
-CREATE MATERIALIZED VIEW overview.fn AS
- SELECT v.id,
-    'Finder'::text AS platform,
-    v.is_active,
-    v.published_at,
-    s.salary
-   FROM (public.fn_vacancies v
-     LEFT JOIN salary.fn s ON ((s.id = v.id)))
-  WITH NO DATA;
-
-
-ALTER MATERIALIZED VIEW overview.fn OWNER TO postgres;
-
---
 -- Name: gj_vacancies; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -144,54 +107,6 @@ CREATE TABLE public.gj_vacancies (
 
 
 ALTER TABLE public.gj_vacancies OWNER TO postgres;
-
---
--- Name: gj; Type: MATERIALIZED VIEW; Schema: salary; Owner: postgres
---
-
-CREATE MATERIALIZED VIEW salary.gj AS
- WITH salary AS (
-         SELECT v.id,
-                CASE
-                    WHEN ((v.salary_from IS NOT NULL) AND (v.salary_to IS NOT NULL)) THEN (((v.salary_from + v.salary_to))::double precision / ((2)::double precision * c.rate))
-                    WHEN (v.salary_from IS NOT NULL) THEN ((v.salary_from)::double precision / c.rate)
-                    WHEN (v.salary_to IS NOT NULL) THEN ((v.salary_to)::double precision / c.rate)
-                    ELSE NULL::double precision
-                END AS salary,
-                CASE
-                    WHEN ((v.salary_from IS NOT NULL) AND (v.salary_to IS NOT NULL)) THEN true
-                    ELSE false
-                END AS has_range
-           FROM (public.gj_vacancies v
-             JOIN public.currency c ON ((c.id = v.salary_currency_id)))
-          WHERE (((v.salary_from IS NOT NULL) OR (v.salary_to IS NOT NULL)) AND (v.salary_currency_id IS NOT NULL))
-        )
- SELECT id,
-    has_range,
-    salary
-   FROM salary s
-  WHERE ((salary >= (0)::double precision) AND (salary <= (1000000)::double precision))
-  WITH NO DATA;
-
-
-ALTER MATERIALIZED VIEW salary.gj OWNER TO postgres;
-
---
--- Name: gj; Type: MATERIALIZED VIEW; Schema: overview; Owner: postgres
---
-
-CREATE MATERIALIZED VIEW overview.gj AS
- SELECT v.id,
-    'GeekJOB'::text AS platform,
-    v.is_active,
-    v.published_at,
-    s.salary
-   FROM (public.gj_vacancies v
-     LEFT JOIN salary.gj s ON ((s.id = v.id)))
-  WITH NO DATA;
-
-
-ALTER MATERIALIZED VIEW overview.gj OWNER TO postgres;
 
 --
 -- Name: gm_vacancies; Type: TABLE; Schema: public; Owner: postgres
@@ -218,52 +133,26 @@ CREATE TABLE public.gm_vacancies (
 ALTER TABLE public.gm_vacancies OWNER TO postgres;
 
 --
--- Name: gm; Type: MATERIALIZED VIEW; Schema: salary; Owner: postgres
+-- Name: hc_vacancies; Type: TABLE; Schema: public; Owner: postgres
 --
 
-CREATE MATERIALIZED VIEW salary.gm AS
- WITH salary AS (
-         SELECT v.id,
-                CASE
-                    WHEN ((v.salary_from IS NOT NULL) AND (v.salary_to IS NOT NULL)) THEN (((v.salary_from + v.salary_to))::double precision / ((2)::double precision * c.rate))
-                    WHEN (v.salary_from IS NOT NULL) THEN ((v.salary_from)::double precision / c.rate)
-                    WHEN (v.salary_to IS NOT NULL) THEN ((v.salary_to)::double precision / c.rate)
-                    ELSE NULL::double precision
-                END AS salary,
-                CASE
-                    WHEN ((v.salary_from IS NOT NULL) AND (v.salary_to IS NOT NULL)) THEN true
-                    ELSE false
-                END AS has_range
-           FROM (public.gm_vacancies v
-             JOIN public.currency c ON ((c.id = v.salary_currency_id)))
-          WHERE (((v.salary_from IS NOT NULL) OR (v.salary_to IS NOT NULL)) AND (v.salary_currency_id IS NOT NULL))
-        )
- SELECT id,
-    has_range,
-    salary
-   FROM salary s
-  WHERE ((salary >= (0)::double precision) AND (salary <= (1000000)::double precision))
-  WITH NO DATA;
+CREATE TABLE public.hc_vacancies (
+    id bigint NOT NULL,
+    title text,
+    remote_work boolean,
+    grade text,
+    published_at timestamp with time zone,
+    employer text,
+    employment_type text,
+    salary_from bigint,
+    salary_to bigint,
+    salary_currency_id text,
+    is_active boolean,
+    url text
+);
 
 
-ALTER MATERIALIZED VIEW salary.gm OWNER TO postgres;
-
---
--- Name: gm; Type: MATERIALIZED VIEW; Schema: overview; Owner: postgres
---
-
-CREATE MATERIALIZED VIEW overview.gm AS
- SELECT v.id,
-    'GetMatch'::text AS platform,
-    v.is_active,
-    v.published_at,
-    s.salary
-   FROM (public.gm_vacancies v
-     LEFT JOIN salary.gm s ON ((s.id = v.id)))
-  WITH NO DATA;
-
-
-ALTER MATERIALIZED VIEW overview.gm OWNER TO postgres;
+ALTER TABLE public.hc_vacancies OWNER TO postgres;
 
 --
 -- Name: hh_vacancies; Type: TABLE; Schema: public; Owner: postgres
@@ -297,6 +186,130 @@ CREATE TABLE public.hh_vacancies (
 ALTER TABLE public.hh_vacancies OWNER TO postgres;
 
 --
+-- Name: fn; Type: MATERIALIZED VIEW; Schema: salary; Owner: postgres
+--
+
+CREATE MATERIALIZED VIEW salary.fn AS
+ WITH salary AS (
+         SELECT v.id,
+                CASE
+                    WHEN ((v.salary_from IS NOT NULL) AND (v.salary_to IS NOT NULL)) THEN (((v.salary_from + v.salary_to))::double precision / ((2)::double precision * c.rate))
+                    WHEN (v.salary_from IS NOT NULL) THEN ((v.salary_from)::double precision / c.rate)
+                    WHEN (v.salary_to IS NOT NULL) THEN ((v.salary_to)::double precision / c.rate)
+                    ELSE NULL::double precision
+                END AS salary,
+                CASE
+                    WHEN ((v.salary_from IS NOT NULL) AND (v.salary_to IS NOT NULL)) THEN true
+                    ELSE false
+                END AS has_range
+           FROM (public.fn_vacancies v
+             JOIN public.currency c ON ((c.id = v.salary_currency_id)))
+          WHERE (((v.salary_from IS NOT NULL) OR (v.salary_to IS NOT NULL)) AND (v.salary_currency_id IS NOT NULL))
+        )
+ SELECT id,
+    has_range,
+    salary
+   FROM salary s
+  WHERE ((salary >= (1000)::double precision) AND (salary <= (1000000)::double precision))
+  WITH NO DATA;
+
+
+ALTER MATERIALIZED VIEW salary.fn OWNER TO postgres;
+
+--
+-- Name: gj; Type: MATERIALIZED VIEW; Schema: salary; Owner: postgres
+--
+
+CREATE MATERIALIZED VIEW salary.gj AS
+ WITH salary AS (
+         SELECT v.id,
+                CASE
+                    WHEN ((v.salary_from IS NOT NULL) AND (v.salary_to IS NOT NULL)) THEN (((v.salary_from + v.salary_to))::double precision / ((2)::double precision * c.rate))
+                    WHEN (v.salary_from IS NOT NULL) THEN ((v.salary_from)::double precision / c.rate)
+                    WHEN (v.salary_to IS NOT NULL) THEN ((v.salary_to)::double precision / c.rate)
+                    ELSE NULL::double precision
+                END AS salary,
+                CASE
+                    WHEN ((v.salary_from IS NOT NULL) AND (v.salary_to IS NOT NULL)) THEN true
+                    ELSE false
+                END AS has_range
+           FROM (public.gj_vacancies v
+             JOIN public.currency c ON ((c.id = v.salary_currency_id)))
+          WHERE (((v.salary_from IS NOT NULL) OR (v.salary_to IS NOT NULL)) AND (v.salary_currency_id IS NOT NULL))
+        )
+ SELECT id,
+    has_range,
+    salary
+   FROM salary s
+  WHERE ((salary >= (1000)::double precision) AND (salary <= (1000000)::double precision))
+  WITH NO DATA;
+
+
+ALTER MATERIALIZED VIEW salary.gj OWNER TO postgres;
+
+--
+-- Name: gm; Type: MATERIALIZED VIEW; Schema: salary; Owner: postgres
+--
+
+CREATE MATERIALIZED VIEW salary.gm AS
+ WITH salary AS (
+         SELECT v.id,
+                CASE
+                    WHEN ((v.salary_from IS NOT NULL) AND (v.salary_to IS NOT NULL)) THEN (((v.salary_from + v.salary_to))::double precision / ((2)::double precision * c.rate))
+                    WHEN (v.salary_from IS NOT NULL) THEN ((v.salary_from)::double precision / c.rate)
+                    WHEN (v.salary_to IS NOT NULL) THEN ((v.salary_to)::double precision / c.rate)
+                    ELSE NULL::double precision
+                END AS salary,
+                CASE
+                    WHEN ((v.salary_from IS NOT NULL) AND (v.salary_to IS NOT NULL)) THEN true
+                    ELSE false
+                END AS has_range
+           FROM (public.gm_vacancies v
+             JOIN public.currency c ON ((c.id = v.salary_currency_id)))
+          WHERE (((v.salary_from IS NOT NULL) OR (v.salary_to IS NOT NULL)) AND (v.salary_currency_id IS NOT NULL))
+        )
+ SELECT id,
+    has_range,
+    salary
+   FROM salary s
+  WHERE ((salary >= (1000)::double precision) AND (salary <= (1000000)::double precision))
+  WITH NO DATA;
+
+
+ALTER MATERIALIZED VIEW salary.gm OWNER TO postgres;
+
+--
+-- Name: hc; Type: MATERIALIZED VIEW; Schema: salary; Owner: postgres
+--
+
+CREATE MATERIALIZED VIEW salary.hc AS
+ WITH salary AS (
+         SELECT v.id,
+                CASE
+                    WHEN ((v.salary_from IS NOT NULL) AND (v.salary_to IS NOT NULL)) THEN (((v.salary_from + v.salary_to))::double precision / ((2)::double precision * c.rate))
+                    WHEN (v.salary_from IS NOT NULL) THEN ((v.salary_from)::double precision / c.rate)
+                    WHEN (v.salary_to IS NOT NULL) THEN ((v.salary_to)::double precision / c.rate)
+                    ELSE NULL::double precision
+                END AS salary,
+                CASE
+                    WHEN ((v.salary_from IS NOT NULL) AND (v.salary_to IS NOT NULL)) THEN true
+                    ELSE false
+                END AS has_range
+           FROM (public.hc_vacancies v
+             JOIN public.currency c ON ((c.id = v.salary_currency_id)))
+          WHERE (((v.salary_from IS NOT NULL) OR (v.salary_to IS NOT NULL)) AND (v.salary_currency_id IS NOT NULL))
+        )
+ SELECT id,
+    has_range,
+    salary
+   FROM salary s
+  WHERE ((salary >= (1000)::double precision) AND (salary <= (1000000)::double precision))
+  WITH NO DATA;
+
+
+ALTER MATERIALIZED VIEW salary.hc OWNER TO postgres;
+
+--
 -- Name: hh; Type: MATERIALIZED VIEW; Schema: salary; Owner: postgres
 --
 
@@ -321,87 +334,246 @@ CREATE MATERIALIZED VIEW salary.hh AS
     has_range,
     salary
    FROM salary s
-  WHERE ((salary >= (0)::double precision) AND (salary <= (1000000)::double precision))
+  WHERE ((salary >= (1000)::double precision) AND (salary <= (1000000)::double precision))
   WITH NO DATA;
 
 
 ALTER MATERIALIZED VIEW salary.hh OWNER TO postgres;
 
 --
--- Name: hh; Type: MATERIALIZED VIEW; Schema: overview; Owner: postgres
+-- Name: overview; Type: MATERIALIZED VIEW; Schema: output; Owner: postgres
 --
 
-CREATE MATERIALIZED VIEW overview.hh AS
- SELECT v.id,
-    'HeadHunter'::text AS platform,
-    v.is_active,
-    v.published_at,
-    s.salary
+CREATE MATERIALIZED VIEW output.overview AS
+ SELECT 'fn'::text AS source,
+    count(*) AS total,
+    count(
+        CASE
+            WHEN (v.is_active IS TRUE) THEN 1
+            ELSE NULL::integer
+        END) AS active,
+    count(
+        CASE
+            WHEN (s.salary IS NOT NULL) THEN 1
+            ELSE NULL::integer
+        END) AS with_salary,
+    count(
+        CASE
+            WHEN (s.has_range IS TRUE) THEN 1
+            ELSE NULL::integer
+        END) AS with_range,
+    round(avg(s.salary)) AS salary
+   FROM (public.fn_vacancies v
+     LEFT JOIN salary.fn s ON ((s.id = v.id)))
+UNION ALL
+ SELECT 'gj'::text AS source,
+    count(*) AS total,
+    count(
+        CASE
+            WHEN (v.is_active IS TRUE) THEN 1
+            ELSE NULL::integer
+        END) AS active,
+    count(
+        CASE
+            WHEN (s.salary IS NOT NULL) THEN 1
+            ELSE NULL::integer
+        END) AS with_salary,
+    count(
+        CASE
+            WHEN (s.has_range IS TRUE) THEN 1
+            ELSE NULL::integer
+        END) AS with_range,
+    round(avg(s.salary)) AS salary
+   FROM (public.gj_vacancies v
+     LEFT JOIN salary.gj s ON ((s.id = v.id)))
+UNION ALL
+ SELECT 'gm'::text AS source,
+    count(*) AS total,
+    count(
+        CASE
+            WHEN (v.is_active IS TRUE) THEN 1
+            ELSE NULL::integer
+        END) AS active,
+    count(
+        CASE
+            WHEN (s.salary IS NOT NULL) THEN 1
+            ELSE NULL::integer
+        END) AS with_salary,
+    count(
+        CASE
+            WHEN (s.has_range IS TRUE) THEN 1
+            ELSE NULL::integer
+        END) AS with_range,
+    round(avg(s.salary)) AS salary
+   FROM (public.gm_vacancies v
+     LEFT JOIN salary.gm s ON ((s.id = v.id)))
+UNION ALL
+ SELECT 'hc'::text AS source,
+    count(*) AS total,
+    count(
+        CASE
+            WHEN (v.is_active IS TRUE) THEN 1
+            ELSE NULL::integer
+        END) AS active,
+    count(
+        CASE
+            WHEN (s.salary IS NOT NULL) THEN 1
+            ELSE NULL::integer
+        END) AS with_salary,
+    count(
+        CASE
+            WHEN (s.has_range IS TRUE) THEN 1
+            ELSE NULL::integer
+        END) AS with_range,
+    round(avg(s.salary)) AS salary
+   FROM (public.hc_vacancies v
+     LEFT JOIN salary.hc s ON ((s.id = v.id)))
+UNION ALL
+ SELECT 'hh'::text AS source,
+    count(*) AS total,
+    count(
+        CASE
+            WHEN (v.is_active IS TRUE) THEN 1
+            ELSE NULL::integer
+        END) AS active,
+    count(
+        CASE
+            WHEN (s.salary IS NOT NULL) THEN 1
+            ELSE NULL::integer
+        END) AS with_salary,
+    count(
+        CASE
+            WHEN (s.has_range IS TRUE) THEN 1
+            ELSE NULL::integer
+        END) AS with_range,
+    round(avg(s.salary)) AS salary
    FROM (public.hh_vacancies v
      LEFT JOIN salary.hh s ON ((s.id = v.id)))
   WITH NO DATA;
 
 
-ALTER MATERIALIZED VIEW overview.hh OWNER TO postgres;
+ALTER MATERIALIZED VIEW output.overview OWNER TO postgres;
 
 --
--- Name: hh_employers; Type: TABLE; Schema: public; Owner: postgres
+-- Name: gj_skills; Type: TABLE; Schema: public; Owner: postgres
 --
 
-CREATE TABLE public.hh_employers (
+CREATE TABLE public.gj_skills (
     id text NOT NULL,
-    name text,
-    trusted boolean
+    name text NOT NULL
 );
 
 
-ALTER TABLE public.hh_employers OWNER TO postgres;
+ALTER TABLE public.gj_skills OWNER TO postgres;
 
 --
--- Name: employers; Type: MATERIALIZED VIEW; Schema: public; Owner: postgres
+-- Name: gm_skills; Type: TABLE; Schema: public; Owner: postgres
 --
 
-CREATE MATERIALIZED VIEW public.employers AS
- SELECT (o.id)::text AS id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    v.employer
-   FROM (overview.fn o
-     JOIN public.fn_vacancies v ON ((v.id = o.id)))
+CREATE TABLE public.gm_skills (
+    id bigint NOT NULL,
+    name text NOT NULL
+);
+
+
+ALTER TABLE public.gm_skills OWNER TO postgres;
+
+--
+-- Name: hc_skills; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.hc_skills (
+    id bigint NOT NULL,
+    name text NOT NULL
+);
+
+
+ALTER TABLE public.hc_skills OWNER TO postgres;
+
+--
+-- Name: hh_skills; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.hh_skills (
+    id bigint NOT NULL,
+    name text NOT NULL
+);
+
+
+ALTER TABLE public.hh_skills OWNER TO postgres;
+
+--
+-- Name: skills_view; Type: VIEW; Schema: private; Owner: postgres
+--
+
+CREATE VIEW private.skills_view AS
+ SELECT concat('gj', v.id) AS id,
+    sk.name AS skill,
+    s.salary
+   FROM ((public.gj_vacancies v
+     JOIN public.gj_skills sk ON ((sk.id = v.id)))
+     LEFT JOIN salary.gj s ON ((s.id = v.id)))
 UNION ALL
- SELECT o.id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    v.employer
-   FROM (overview.gj o
-     JOIN public.gj_vacancies v ON ((v.id = o.id)))
+ SELECT concat('gm', v.id) AS id,
+    sk.name AS skill,
+    s.salary
+   FROM ((public.gm_vacancies v
+     JOIN public.gm_skills sk ON ((sk.id = v.id)))
+     LEFT JOIN salary.gm s ON ((s.id = v.id)))
 UNION ALL
- SELECT (o.id)::text AS id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    v.employer
-   FROM (overview.gm o
-     JOIN public.gm_vacancies v ON ((v.id = o.id)))
+ SELECT concat('hc', v.id) AS id,
+    sk.name AS skill,
+    s.salary
+   FROM ((public.hc_vacancies v
+     JOIN public.hc_skills sk ON ((sk.id = v.id)))
+     LEFT JOIN salary.hc s ON ((s.id = v.id)))
 UNION ALL
- SELECT (o.id)::text AS id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    e.name AS employer
-   FROM ((overview.hh o
-     JOIN public.hh_vacancies v ON ((v.id = o.id)))
-     JOIN public.hh_employers e ON ((e.id = v.employer_id)))
+ SELECT concat('hh', v.id) AS id,
+    sk.name AS skill,
+    s.salary
+   FROM ((public.hh_vacancies v
+     JOIN public.hh_skills sk ON ((sk.id = v.id)))
+     LEFT JOIN salary.hh s ON ((s.id = v.id)));
+
+
+ALTER VIEW private.skills_view OWNER TO postgres;
+
+--
+-- Name: skills; Type: MATERIALIZED VIEW; Schema: output; Owner: postgres
+--
+
+CREATE MATERIALIZED VIEW output.skills AS
+ SELECT skill,
+    count(*) AS total,
+    round(avg(salary)) AS salary
+   FROM private.skills_view s
+  GROUP BY skill
+  ORDER BY (count(*)) DESC
+ LIMIT 100
   WITH NO DATA;
 
 
-ALTER MATERIALIZED VIEW public.employers OWNER TO postgres;
+ALTER MATERIALIZED VIEW output.skills OWNER TO postgres;
+
+--
+-- Name: skills_pairs; Type: MATERIALIZED VIEW; Schema: output; Owner: postgres
+--
+
+CREATE MATERIALIZED VIEW output.skills_pairs AS
+ SELECT a.skill AS skill1,
+    b.skill AS skill2,
+    count(*) AS total,
+    round(avg(a.salary)) AS salary
+   FROM (private.skills_view a
+     JOIN private.skills_view b ON (((a.id = b.id) AND (a.skill < b.skill))))
+  WHERE (a.skill <> b.skill)
+  GROUP BY a.skill, b.skill
+  ORDER BY (count(*)) DESC
+ LIMIT 100
+  WITH NO DATA;
+
+
+ALTER MATERIALIZED VIEW output.skills_pairs OWNER TO postgres;
 
 --
 -- Name: fn_fields; Type: TABLE; Schema: public; Owner: postgres
@@ -477,125 +649,28 @@ CREATE TABLE public.gj_locations (
 ALTER TABLE public.gj_locations OWNER TO postgres;
 
 --
--- Name: gj_skills; Type: TABLE; Schema: public; Owner: postgres
+-- Name: hc_fields; Type: TABLE; Schema: public; Owner: postgres
 --
 
-CREATE TABLE public.gj_skills (
-    id text NOT NULL,
-    name text NOT NULL
-);
-
-
-ALTER TABLE public.gj_skills OWNER TO postgres;
-
---
--- Name: gm_skills; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.gm_skills (
+CREATE TABLE public.hc_fields (
     id bigint NOT NULL,
     name text NOT NULL
 );
 
 
-ALTER TABLE public.gm_skills OWNER TO postgres;
+ALTER TABLE public.hc_fields OWNER TO postgres;
 
 --
--- Name: hh_experience; Type: TABLE; Schema: public; Owner: postgres
+-- Name: hc_locations; Type: TABLE; Schema: public; Owner: postgres
 --
 
-CREATE TABLE public.hh_experience (
-    id text NOT NULL,
-    name text
+CREATE TABLE public.hc_locations (
+    id bigint NOT NULL,
+    name text NOT NULL
 );
 
 
-ALTER TABLE public.hh_experience OWNER TO postgres;
-
---
--- Name: grades; Type: MATERIALIZED VIEW; Schema: public; Owner: postgres
---
-
-CREATE MATERIALIZED VIEW public.grades AS
- SELECT (o.id)::text AS id,
-    o.is_active,
-    o.platform,
-    o.published_at,
-    o.salary,
-        CASE
-            WHEN (v.experience = 'three_years_more'::text) THEN 'Более 3 лет'::text
-            WHEN (v.experience = 'no_experience'::text) THEN 'Нет опыта'::text
-            WHEN (v.experience = 'up_to_one_year'::text) THEN 'Менее 1 года'::text
-            WHEN (v.experience = 'two_years_more'::text) THEN 'Более 2 лет'::text
-            WHEN (v.experience = 'five_years_more'::text) THEN 'Более 5 лет'::text
-            WHEN (v.experience = 'year_minimum'::text) THEN 'От 1 года'::text
-            ELSE 'Не указан'::text
-        END AS experience,
-        CASE
-            WHEN (lower(v.title) ~ '.*(intern|стаж).*'::text) THEN 'Стажер'::text
-            WHEN (lower(v.title) ~ '.*(jun|джун).*'::text) THEN 'Джуниор'::text
-            WHEN (lower(v.title) ~ '.*(midd|мидд).*'::text) THEN 'Миддл'::text
-            WHEN (lower(v.title) ~ '.*(sen|сеньор).*'::text) THEN 'Сеньор'::text
-            ELSE 'Не указано'::text
-        END AS grade
-   FROM (overview.fn o
-     JOIN public.fn_vacancies v ON ((v.id = o.id)))
-UNION ALL
- SELECT o.id,
-    o.is_active,
-    o.platform,
-    o.published_at,
-    o.salary,
-    COALESCE(v.experience, 'Не указан'::text) AS experience,
-    g.name AS grade
-   FROM ((overview.gj o
-     JOIN public.gj_vacancies v ON ((v.id = o.id)))
-     LEFT JOIN public.gj_grades g ON ((g.id = o.id)))
-UNION ALL
- SELECT (o.id)::text AS id,
-    o.is_active,
-    o.platform,
-    o.published_at,
-    o.salary,
-        CASE
-            WHEN (v.experience_years < 1) THEN 'Нет опыта'::text
-            WHEN ((v.experience_years >= 1) AND (v.experience_years <= 3)) THEN 'От 1 года до 3 лет'::text
-            WHEN ((v.experience_years >= 3) AND (v.experience_years <= 6)) THEN 'От 3 до 6 лет'::text
-            WHEN (v.experience_years > 6) THEN 'Более 6 лет'::text
-            ELSE 'Не указан'::text
-        END AS experience,
-        CASE
-            WHEN (v.level = 'Senior'::text) THEN 'Сеньор'::text
-            WHEN (v.level = 'Lead'::text) THEN 'Тимлид/Руководитель группы'::text
-            WHEN (v.level = 'Middle'::text) THEN 'Миддл'::text
-            WHEN (v.level = 'Middle-to-Senior'::text) THEN 'Миддл'::text
-            WHEN (v.level = 'C-level'::text) THEN 'Руководитель отдела/подразделения'::text
-            WHEN (v.level = 'Junior'::text) THEN 'Джуниор'::text
-            ELSE 'Не указано'::text
-        END AS grade
-   FROM (overview.gm o
-     JOIN public.gm_vacancies v ON ((v.id = o.id)))
-UNION ALL
- SELECT (o.id)::text AS id,
-    o.is_active,
-    o.platform,
-    o.published_at,
-    o.salary,
-    COALESCE(exp.name, 'Не указан'::text) AS experience,
-        CASE
-            WHEN (lower(v.title) ~ '.*(intern|стаж).*'::text) THEN 'Стажер'::text
-            WHEN (lower(v.title) ~ '.*(jun|джун).*'::text) THEN 'Джуниор'::text
-            WHEN (lower(v.title) ~ '.*(midd|мидд).*'::text) THEN 'Миддл'::text
-            WHEN (lower(v.title) ~ '.*(sen|сеньор).*'::text) THEN 'Сеньор'::text
-            ELSE 'Не указано'::text
-        END AS grade
-   FROM ((overview.hh o
-     JOIN public.hh_vacancies v ON ((v.id = o.id)))
-     LEFT JOIN public.hh_experience exp ON ((exp.id = v.experience_id)))
-  WITH NO DATA;
-
-
-ALTER MATERIALIZED VIEW public.grades OWNER TO postgres;
+ALTER TABLE public.hc_locations OWNER TO postgres;
 
 --
 -- Name: hh_areas; Type: TABLE; Schema: public; Owner: postgres
@@ -611,6 +686,19 @@ CREATE TABLE public.hh_areas (
 ALTER TABLE public.hh_areas OWNER TO postgres;
 
 --
+-- Name: hh_employers; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.hh_employers (
+    id text NOT NULL,
+    name text,
+    trusted boolean
+);
+
+
+ALTER TABLE public.hh_employers OWNER TO postgres;
+
+--
 -- Name: hh_employment; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -621,6 +709,18 @@ CREATE TABLE public.hh_employment (
 
 
 ALTER TABLE public.hh_employment OWNER TO postgres;
+
+--
+-- Name: hh_experience; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.hh_experience (
+    id text NOT NULL,
+    name text
+);
+
+
+ALTER TABLE public.hh_experience OWNER TO postgres;
 
 --
 -- Name: hh_languages; Type: TABLE; Schema: public; Owner: postgres
@@ -658,280 +758,6 @@ CREATE TABLE public.hh_schedule (
 
 
 ALTER TABLE public.hh_schedule OWNER TO postgres;
-
---
--- Name: hh_skills; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.hh_skills (
-    id bigint NOT NULL,
-    name text NOT NULL
-);
-
-
-ALTER TABLE public.hh_skills OWNER TO postgres;
-
---
--- Name: languages; Type: MATERIALIZED VIEW; Schema: public; Owner: postgres
---
-
-CREATE MATERIALIZED VIEW public.languages AS
- SELECT (o.id)::text AS id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-        CASE
-            WHEN (v.english_level IS NOT NULL) THEN 'Английский'::text
-            ELSE 'Не указан'::text
-        END AS language,
-        CASE
-            WHEN (v.english_level ~~ '%A1%'::text) THEN 'A1 — Начальный'::text
-            WHEN (v.english_level ~~ '%A2%'::text) THEN 'A2 — Элементарный'::text
-            WHEN (v.english_level ~~ '%B1%'::text) THEN 'B1 — Средний'::text
-            WHEN (v.english_level ~~ '%B2%'::text) THEN 'B2 — Средне-продвинутый'::text
-            WHEN (v.english_level ~~ '%C1%'::text) THEN 'C1 — Продвинутый'::text
-            ELSE 'Не указан'::text
-        END AS level
-   FROM (overview.gm o
-     JOIN public.gm_vacancies v ON ((v.id = o.id)))
-UNION ALL
- SELECT (o.id)::text AS id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    COALESCE(l.name, 'Не указан'::text) AS language,
-    COALESCE(l.level, 'Не указан'::text) AS level
-   FROM ((overview.hh o
-     JOIN public.hh_vacancies v ON ((v.id = o.id)))
-     LEFT JOIN public.hh_languages l ON ((l.id = o.id)))
-  WITH NO DATA;
-
-
-ALTER MATERIALIZED VIEW public.languages OWNER TO postgres;
-
---
--- Name: overview; Type: MATERIALIZED VIEW; Schema: public; Owner: postgres
---
-
-CREATE MATERIALIZED VIEW public.overview AS
- SELECT (o.id)::text AS id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    s.has_range
-   FROM (overview.fn o
-     LEFT JOIN salary.fn s ON ((s.id = o.id)))
-UNION ALL
- SELECT o.id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    s.has_range
-   FROM (overview.gj o
-     LEFT JOIN salary.gj s ON ((s.id = o.id)))
-UNION ALL
- SELECT (o.id)::text AS id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    s.has_range
-   FROM (overview.gm o
-     LEFT JOIN salary.gm s ON ((s.id = o.id)))
-UNION ALL
- SELECT (o.id)::text AS id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    s.has_range
-   FROM (overview.hh o
-     LEFT JOIN salary.hh s ON ((s.id = o.id)))
-  WITH NO DATA;
-
-
-ALTER MATERIALIZED VIEW public.overview OWNER TO postgres;
-
---
--- Name: places; Type: MATERIALIZED VIEW; Schema: public; Owner: postgres
---
-
-CREATE MATERIALIZED VIEW public.places AS
- SELECT (o.id)::text AS id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    v.title,
-    v.url,
-    v.address_lat AS lat,
-    v.address_lng AS lng,
-    l.name AS region,
-    l.country
-   FROM ((overview.fn o
-     JOIN public.fn_vacancies v ON ((v.id = o.id)))
-     LEFT JOIN public.fn_locations l ON ((l.id = o.id)))
-UNION ALL
- SELECT o.id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    v.title,
-    v.url,
-    NULL::double precision AS lat,
-    NULL::double precision AS lng,
-    l.name AS region,
-    NULL::text AS country
-   FROM ((overview.gj o
-     JOIN public.gj_vacancies v ON ((v.id = o.id)))
-     LEFT JOIN public.gj_locations l ON ((l.id = o.id)))
-UNION ALL
- SELECT (o.id)::text AS id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    v.title,
-    v.url,
-    v.address_lat AS lat,
-    v.address_lng AS lng,
-    a1.name AS region,
-    a2.name AS country
-   FROM (((overview.hh o
-     JOIN public.hh_vacancies v ON ((v.id = o.id)))
-     LEFT JOIN public.hh_areas a1 ON ((a1.id = o.id)))
-     LEFT JOIN public.hh_areas a2 ON ((a2.id = a1.id)))
-  WITH NO DATA;
-
-
-ALTER MATERIALIZED VIEW public.places OWNER TO postgres;
-
---
--- Name: skills; Type: MATERIALIZED VIEW; Schema: public; Owner: postgres
---
-
-CREATE MATERIALIZED VIEW public.skills AS
- SELECT o.id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    sk.name AS skill
-   FROM (overview.gj o
-     JOIN public.gj_skills sk ON ((sk.id = o.id)))
-UNION ALL
- SELECT (o.id)::text AS id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    sk.name AS skill
-   FROM ((overview.gm o
-     LEFT JOIN salary.gm s ON ((s.id = o.id)))
-     JOIN public.gm_skills sk ON ((sk.id = o.id)))
-UNION ALL
- SELECT (o.id)::text AS id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    sk.name AS skill
-   FROM (overview.hh o
-     JOIN public.hh_skills sk ON ((sk.id = o.id)))
-  WITH NO DATA;
-
-
-ALTER MATERIALIZED VIEW public.skills OWNER TO postgres;
-
---
--- Name: skills_pair; Type: MATERIALIZED VIEW; Schema: public; Owner: postgres
---
-
-CREATE MATERIALIZED VIEW public.skills_pair AS
- SELECT a.id,
-    a.platform,
-    a.is_active,
-    a.published_at,
-    a.skill,
-    b.skill AS skill2
-   FROM (public.skills a
-     JOIN public.skills b ON (((a.id = b.id) AND (a.skill < b.skill))))
-  WHERE (a.skill <> b.skill)
-  WITH NO DATA;
-
-
-ALTER MATERIALIZED VIEW public.skills_pair OWNER TO postgres;
-
---
--- Name: vacancies; Type: MATERIALIZED VIEW; Schema: public; Owner: postgres
---
-
-CREATE MATERIALIZED VIEW public.vacancies AS
- SELECT (o.id)::text AS id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    v.title,
-    v.url
-   FROM (overview.fn o
-     JOIN public.fn_vacancies v ON ((v.id = o.id)))
-UNION
- SELECT o.id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    v.title,
-    v.url
-   FROM (overview.gj o
-     JOIN public.gj_vacancies v ON ((v.id = o.id)))
-UNION
- SELECT (o.id)::text AS id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    v.title,
-    v.url
-   FROM (overview.gm o
-     JOIN public.gm_vacancies v ON ((v.id = o.id)))
-UNION
- SELECT (o.id)::text AS id,
-    o.platform,
-    o.is_active,
-    o.published_at,
-    o.salary,
-    v.title,
-    v.url
-   FROM (overview.hh o
-     JOIN public.hh_vacancies v ON ((v.id = o.id)))
-  WITH NO DATA;
-
-
-ALTER MATERIALIZED VIEW public.vacancies OWNER TO postgres;
-
---
--- Data for Name: currency; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.currency (id, name, rate, code) FROM stdin;
-AZN	Манаты	0.021244	₼
-BYR	Белорусские рубли	0.037183	Br
-EUR	Евро	0.010671	€
-GEL	Грузинский лари	0.034069	₾
-KGS	Кыргызский сом	1.092644	сом
-KZT	Тенге	6.723503	₸
-RUR	Рубли	1	₽
-UAH	Гривны	0.516606	₴
-USD	Доллары	0.012497	$
-UZS	Узбекский сум	157.230479	so’m
-\.
 
 --
 -- Name: currency currency_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
@@ -1027,6 +853,38 @@ ALTER TABLE ONLY public.gm_skills
 
 ALTER TABLE ONLY public.gm_vacancies
     ADD CONSTRAINT gm_vacancies_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hc_fields hc_fields_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.hc_fields
+    ADD CONSTRAINT hc_fields_pkey PRIMARY KEY (id, name);
+
+
+--
+-- Name: hc_locations hc_locations_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.hc_locations
+    ADD CONSTRAINT hc_locations_pkey PRIMARY KEY (id, name);
+
+
+--
+-- Name: hc_skills hc_skills_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.hc_skills
+    ADD CONSTRAINT hc_skills_pkey PRIMARY KEY (id, name);
+
+
+--
+-- Name: hc_vacancies hc_vacancies_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.hc_vacancies
+    ADD CONSTRAINT hc_vacancies_pkey PRIMARY KEY (id);
 
 
 --
@@ -1138,6 +996,14 @@ ALTER TABLE ONLY public.gm_vacancies
 --
 
 ALTER TABLE ONLY public.fn_vacancies
+    ADD CONSTRAINT fk_currency_id FOREIGN KEY (salary_currency_id) REFERENCES public.currency(id);
+
+
+--
+-- Name: hc_vacancies fk_currency_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.hc_vacancies
     ADD CONSTRAINT fk_currency_id FOREIGN KEY (salary_currency_id) REFERENCES public.currency(id);
 
 
@@ -1262,117 +1128,45 @@ ALTER TABLE ONLY public.fn_fields
 
 
 --
--- Name: fn; Type: MATERIALIZED VIEW DATA; Schema: salary; Owner: postgres
+-- Name: hc_locations fk_vacancy_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
-REFRESH MATERIALIZED VIEW salary.fn;
-
-
---
--- Name: fn; Type: MATERIALIZED VIEW DATA; Schema: overview; Owner: postgres
---
-
-REFRESH MATERIALIZED VIEW overview.fn;
+ALTER TABLE ONLY public.hc_locations
+    ADD CONSTRAINT fk_vacancy_id FOREIGN KEY (id) REFERENCES public.hc_vacancies(id);
 
 
 --
--- Name: gj; Type: MATERIALIZED VIEW DATA; Schema: salary; Owner: postgres
+-- Name: hc_skills fk_vacancy_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
-REFRESH MATERIALIZED VIEW salary.gj;
-
-
---
--- Name: gj; Type: MATERIALIZED VIEW DATA; Schema: overview; Owner: postgres
---
-
-REFRESH MATERIALIZED VIEW overview.gj;
+ALTER TABLE ONLY public.hc_skills
+    ADD CONSTRAINT fk_vacancy_id FOREIGN KEY (id) REFERENCES public.hc_vacancies(id);
 
 
 --
--- Name: gm; Type: MATERIALIZED VIEW DATA; Schema: salary; Owner: postgres
+-- Name: hc_fields fk_vacancy_id; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
-REFRESH MATERIALIZED VIEW salary.gm;
+ALTER TABLE ONLY public.hc_fields
+    ADD CONSTRAINT fk_vacancy_id FOREIGN KEY (id) REFERENCES public.hc_vacancies(id);
 
 
---
--- Name: gm; Type: MATERIALIZED VIEW DATA; Schema: overview; Owner: postgres
---
-
-REFRESH MATERIALIZED VIEW overview.gm;
-
-
---
--- Name: hh; Type: MATERIALIZED VIEW DATA; Schema: salary; Owner: postgres
---
-
-REFRESH MATERIALIZED VIEW salary.hh;
-
-
---
--- Name: hh; Type: MATERIALIZED VIEW DATA; Schema: overview; Owner: postgres
---
-
-REFRESH MATERIALIZED VIEW overview.hh;
-
-
---
--- Name: employers; Type: MATERIALIZED VIEW DATA; Schema: public; Owner: postgres
---
-
-REFRESH MATERIALIZED VIEW public.employers;
-
-
---
--- Name: grades; Type: MATERIALIZED VIEW DATA; Schema: public; Owner: postgres
---
-
-REFRESH MATERIALIZED VIEW public.grades;
-
-
---
--- Name: languages; Type: MATERIALIZED VIEW DATA; Schema: public; Owner: postgres
---
-
-REFRESH MATERIALIZED VIEW public.languages;
-
-
---
--- Name: overview; Type: MATERIALIZED VIEW DATA; Schema: public; Owner: postgres
---
-
-REFRESH MATERIALIZED VIEW public.overview;
-
-
---
--- Name: places; Type: MATERIALIZED VIEW DATA; Schema: public; Owner: postgres
---
-
-REFRESH MATERIALIZED VIEW public.places;
-
-
---
--- Name: skills; Type: MATERIALIZED VIEW DATA; Schema: public; Owner: postgres
---
-
-REFRESH MATERIALIZED VIEW public.skills;
-
-
---
--- Name: skills_pair; Type: MATERIALIZED VIEW DATA; Schema: public; Owner: postgres
---
-
-REFRESH MATERIALIZED VIEW public.skills_pair;
-
-
---
--- Name: vacancies; Type: MATERIALIZED VIEW DATA; Schema: public; Owner: postgres
---
-
-REFRESH MATERIALIZED VIEW public.vacancies;
-
+COPY public.currency (id, name, rate, code) FROM stdin;
+AZN	Манаты	0.021244	₼
+BYR	Белорусские рубли	0.037183	Br
+EUR	Евро	0.010671	€
+GEL	Грузинский лари	0.034069	₾
+KGS	Кыргызский сом	1.092644	сом
+KZT	Тенге	6.723503	₸
+RUR	Рубли	1	₽
+UAH	Гривны	0.516606	₴
+USD	Доллары	0.012497	$
+UZS	Узбекский сум	157.230479	so’m
+\.
 
 --
 -- PostgreSQL database dump complete
 --
+
+\unrestrict XaibDDiuDEtQhc1hlDsVJT1no0CBVbLJ22QCXKd7a7FLrmLgDdJqcqzd268rz4r
+

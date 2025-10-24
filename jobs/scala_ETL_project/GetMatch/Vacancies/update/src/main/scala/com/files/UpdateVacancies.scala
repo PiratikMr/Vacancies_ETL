@@ -30,7 +30,7 @@ object UpdateVacancies extends SparkApp {
     val update: Dataset[Long] = ids.mapPartitions(part => {
 
       URLHandler.useClient[Long, Long](part, (backend, id) => {
-        val body: String = URLHandler.readOrDefault(urlConf,  s"https://getmatch.ru/api/offers/$id", """"is_active":false""", Some(backend))
+        val body: String = URLHandler.readOrDefault(urlConf,  s"https://getmatch.ru/api/offers/$id", """"is_active":true""", Some(backend))
         """\s*"is_active":\s*false\s*""".r.findFirstMatchIn(body) match {
           case Some(_) => Some(id)
           case _ => None

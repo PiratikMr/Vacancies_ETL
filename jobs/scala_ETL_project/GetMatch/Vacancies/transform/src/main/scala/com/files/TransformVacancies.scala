@@ -37,7 +37,7 @@ object TransformVacancies extends App with SparkApp {
       StructField("name", StringType)
     ))),
     StructField("position_level", StringType),
-    StructField("required_years_of_experience", IntegerType),
+    StructField("required_years_of_experience", IntegerType)
 
   ))
   private val rawDF: DataFrame = {

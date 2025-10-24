@@ -54,11 +54,11 @@ object ExtractDictionaries extends SparkApp {
 
     val flatAreas: DataFrame = {
       @tailrec
-      def flattenAreas(acc: DataFrame = rawDf.drop("areas"), current: DataFrame = rawDf): DataFrame = {
+      def flattenAreas(acc: DataFrame = rawDf.select("id", "name", "parent_id"), current: DataFrame = rawDf): DataFrame = {
         if (current.agg(count(when(functions.size(col("areas")).gt(0), 1))).first().getLong(0) == 0) {
           acc.withColumn("id", col("id").cast(LongType)).withColumn("parent_id", col("parent_id").cast(LongType))
         } else {
-          val next = current.withColumn("areas", explode(col("areas"))).select("areas.*")
+          val next = current.withColumn("areas", explode(col("areas"))).select("areas.*").select("id", "name", "parent_id", "areas")
           flattenAreas(acc.union(next.drop("areas")), next)
         }
       }

@@ -14,31 +14,18 @@ dag_params = get_section_params("Dags.RefreshMatViews", ["schedule", "concurrenc
 
 
 
-platforms = ['fn', 'gj', 'gm', 'hh']
-
+platforms = ['fn', 'gj', 'gm', 'hc', 'hh']
 
 mat_views = [
 
     # salary
     [f'salary.{platform}' for platform in platforms],
 
-    # salary
-    [f'overview.{platform}' for platform in platforms],
-
-    # 1
+    # output
     [
-        'skills'
-    ],
-
-    # 2
-    [
-        'employers',
-        'grades',
-        'languages',
-        'overview',
-        'places',
-        'skills_pair',
-        'vacancies'
+        'output.overview',
+        'output.skills',
+        'output.skills_pairs'
     ]
 ]
 

@@ -3,3 +3,4 @@ pyspark==4.0.0
 apache-airflow-providers-apache-spark==5.3.2
 requests==2.32.5
 pyhocon==0.3.61
+apache-airflow[statsd]
