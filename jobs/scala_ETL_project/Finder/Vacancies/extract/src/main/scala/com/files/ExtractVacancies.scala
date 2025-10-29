@@ -29,7 +29,7 @@ object ExtractVacancies extends SparkApp {
 
     val clusterUrl: (Int, Int) => String = (l, offset) => {
       val limit: Int = if (offset + l > conf.vacsLimit) conf.vacsLimit - offset else l
-      s"https://api.finder.work/api/v2/vacancies/?categories=1&location=all&publication_time=$publicationTime&limit=$limit&offset=$offset"
+      s"https://api.finder.work/api/v1/vacancies/?categories=1&location=all&publication_time=$publicationTime&limit=$limit&offset=$offset"
     }
 
 

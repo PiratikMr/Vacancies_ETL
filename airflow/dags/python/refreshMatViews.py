@@ -1,21 +1,11 @@
-import sys
-from airflow.providers.postgres.operators.postgres import PostgresOperator
-from airflow.operators.dummy import DummyOperator
+import utils
 from airflow import DAG
-from pathlib import Path
-
-common_path = str(Path(__file__).parent.parent.parent)
-sys.path.append(common_path)
-
-from config_utils import set_config, get_section_params
-
-args = set_config("common.conf", None, None)
-dag_params = get_section_params("Dags.RefreshMatViews", ["schedule", "concurrency"])
+from airflow.operators.dummy import DummyOperator
 
 
+conf = utils.Config("common.conf")
 
 platforms = ['fn', 'gj', 'gm', 'hc', 'hh']
-
 mat_views = [
 
     # salary
@@ -29,22 +19,14 @@ mat_views = [
     ]
 ]
 
-
-def create_refresh_task(view):
-    return PostgresOperator(
-            task_id=f'refresh_{view}',
-            sql=f"refresh materialized view {view};",
-            postgres_conn_id=args["postgresConnId"]
-        )
-
 with DAG(
     'Refresh_Materialized_Views',
     default_args = {
-        "start_date": args["start_date"]
+        "start_date": conf.startDate
     },
-    schedule_interval = dag_params["schedule"] or None,
+    schedule_interval = conf.getParamFromConfFile("Dags.RefreshMatViews.schedule") or None,
     tags = ["python"],
-    concurrency = dag_params["concurrency"] or 5,
+    concurrency = 5,
 ) as dag:
     
     prevEmptyTask = None
@@ -53,7 +35,7 @@ with DAG(
         emptyTask = DummyOperator(task_id=f"empty_{idx}")
 
         for view in views:
-            refrashTask = create_refresh_task(view)
+            refrashTask = conf.postgres_refreshTask(view)
             if prevEmptyTask is not None:
                 prevEmptyTask >> refrashTask
             refrashTask >> emptyTask

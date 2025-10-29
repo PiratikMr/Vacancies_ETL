@@ -29,7 +29,7 @@ object UpdateVacancies extends SparkApp {
 
     val update: Dataset[Long] = activeIds.mapPartitions(part => part.flatMap(row => {
       val id: Long = row.getLong(0)
-      val body: String = URLHandler.readOrDefault(urlConf, s"https://api.finder.work/api/v2/vacancies/$id", """{"status": "pupu"}""")
+      val body: String = URLHandler.readOrDefault(urlConf, s"https://api.finder.work/api/v1/vacancies/$id", """{"status": "pupu"}""")
       """\s*"status": "active"\s*""".r.findFirstMatchIn(body) match {
         case Some(_) => None
         case None => Some(id)

@@ -4,7 +4,7 @@ x-airflow-common:
   env_file: ./.env
   volumes:
     - ../../airflow/dags:/opt/airflow/dags
-    - ../../jobs:/opt/airflow/jobs
+    - ../../jobs/scala_ETL_project:/opt/airflow/scalaProject
     - airflow-volume:/opt/airflow/logs
     - ../../conf:/opt/airflow/conf
   user: "${AIRFLOW_UID:-50000}:0"
@@ -31,6 +31,8 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+      airflow-scheduler:
+        condition: service_healthy
 
   airflow-scheduler:
     <<: *airflow-common

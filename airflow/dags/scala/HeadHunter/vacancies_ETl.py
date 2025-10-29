@@ -1,32 +1,20 @@
-import sys
+import utils
 from airflow import DAG
-from pathlib import Path
 
-common_path = str(Path(__file__).parent.parent.parent)
-sys.path.append(common_path)
-
-from config_utils import set_config, get_section_params, spark_task_build
-
-args = set_config("hh.conf", "HeadHunter", "Vacancies")
-dag_params = get_section_params("Dags.ETL", ["fileName", "schedule", "dateFrom"])
-
-
-app_args = [
-    "--filename", dag_params["fileName"],
-    "--conffile", str(args["confPath"])
-]
+conf = utils.Config("hh.conf")
+conf.configForETL("HeadHunter/Vacancies")
 
 with DAG(
     "HeadHunter_ETL",
-    default_args={
-        "start_date": args["start_date"]
+    default_args = {
+        "start_date": conf.startDate
     },
-    schedule_interval = dag_params["schedule"] or None,
+    schedule_interval = conf.schedule or None,
     tags = ["scala", "hh", "etl"]
 ) as dag:
     
-    extract = spark_task_build("extract", app_args + ["--datefrom", dag_params["dateFrom"]])  
-    transform = spark_task_build("transform", app_args)
-    load = spark_task_build("load", app_args)
+    extract = conf.spark_ETLPartBuild("extract", ["--datefrom", conf.getParamFromConfFile("Dags.ETL.dateFrom")])
+    transform = conf.spark_ETLPartBuild("transform")
+    load = conf.spark_ETLPartBuild("load")
 
     extract >> transform >> load

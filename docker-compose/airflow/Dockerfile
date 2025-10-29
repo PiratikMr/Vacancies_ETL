@@ -1,22 +1,20 @@
 FROM apache/airflow:2.10.2
 USER root
 
-RUN apt update -y;
+RUN apt-get update -y;
 
-RUN apt-get install -y \ 
-	openjdk-17-jdk \
-	ant \
-	zip \
-	unzip && \
-    apt-get clean;
+RUN apt-get install -y \
+	hdfs-cli \
+	openjdk-17-jdk && \
+	apt-get clean;
 
+ENV HADOOP_NAMENODE namenode:9000
 ENV JAVA_HOME /usr/lib/jvm/java-17-openjdk-amd64/
-RUN export JAVA_HOME
+
 
 USER airflow
 
-RUN curl -s "https://get.sdkman.io" | bash  && \
-    bash -c "source /home/airflow/.sdkman/bin/sdkman-init.sh; sdk install sbt"
+RUN echo "SESSION_COOKIE_NAME = 'airflow-session'" >> $AIRFLOW_HOME/webserver_config.py
 
 COPY ./requirements.txt /
 RUN pip install -r /requirements.txt

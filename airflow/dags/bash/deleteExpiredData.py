@@ -1,105 +1,49 @@
-import sys
+import utils
 from airflow import DAG
 from airflow.operators.bash import BashOperator
-from airflow.operators.python_operator import PythonOperator
-from datetime import timedelta
-from pathlib import Path
 
-common_path = str(Path(__file__).parent.parent)
-sys.path.append(common_path)
+conf = utils.Config("common.conf")
 
-from config_utils import set_config, get_section_params
+hdfsPath = conf.getParamFromConfFile("FS.path")
 
-args = set_config("common.conf", None, None)
-dag_params = get_section_params("Dags.DeleteData", ["hdfsPrefix", "schedule", "concurrency"])
-hdfsPrefix = dag_params["hdfsPrefix"]
-hdfsPath = get_section_params("FS", ["path"])["path"]
-
-sites = [
-    ("hh", ["Skills", "Employers", "Languages"]),
-    ("gj", ["Skills", "Fields", "JobFormats", "Levels", "Locations"]),
-    ("gm", ["Skills"]),
-    ("fn", ["Fields", "Locations"])
-]
-params = {}
-for site, dirs in sites:
-    set_config(f"{site}.conf", None, None)
-    tmp_params = get_section_params("Dags.DeleteData", ["rawData", "transformedData"])
-    params.update({ site : {
-        "raw" : tmp_params["rawData"],
-        "trans" : tmp_params["transformedData"]
-    }})
+rawDataExpiresIn = conf.getParamFromConfFile("Dags.DeleteData.rawData")
+transDataExpiresIn = conf.getParamFromConfFile("Dags.DeleteData.transformedData")
 
 
-class SiteConfig:
-    def __init__(self, tag: str, trans_data_days: int, raw_data_days: int, 
-                 trans_dirs=None):
-        self.tag = tag
-        self.transDataDays = trans_data_days
-        self.transDirs = ["Vacancies", ] + (trans_dirs or [])
-        self.rawDataDays = raw_data_days
-        self.rawDirs = ["RawVacancies"]
-
-siteConfs = [
-    SiteConfig(tag, 
-               params[tag]["raw"], 
-               params[tag]["trans"], 
-               trans_dirs=dirs)
-    for tag, dirs in sites
-]
-
-
-def deleteData_command(task_id, key, path):
+def deleteData_command():
     return f"""
-        target=$(date -d "{{{{ ti.xcom_pull(task_ids='{task_id}', key='{key}') }}}}" +%s)
-        {hdfsPrefix} hdfs dfs -ls {path} |
-            grep '^d' |
-            awk -F '{path}/' '{{print $NF}}' |
-            grep -E '[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}(T[0-9]{{2}})?' |
-            while read -r dir; do
-                date_part=${{dir%%T*}}
-                curr=$(date -d "$date_part" +%s 2>/dev/null)
-                if [[ -n "$curr" && "$target" -gt "$curr" ]]; then
-                    {hdfsPrefix} hdfs dfs -rm -r {path}/$dir
-                fi 
-            done
+        execution_date=$(date -d "{{{{ data_interval_end }}}}" +%Y-%m-%d)
+        raw_target=$(date -d "$execution_date - {rawDataExpiresIn} days" +%s)
+        trans_target=$(date -d "$execution_date - {transDataExpiresIn} days" +%s)
+
+        hdfs ls /{hdfsPath}*/* | while read -r path; do
+            if [[ $path == /* ]]; then
+                root_path="${{path::-1}}"
+            elif [[ $path == ????-??-??* ]]; then
+                date_parts="${{path:0:10}}"
+                date_ts=$(date -d "$date_parts" +%s 2>/dev/null) || continue
+
+                [[ $root_path == */RawVacancies/* ]] && target=$raw_target || target=$trans_target
+
+                if (( date_ts < target )); then
+                    hdfs rm -r $root_path$path
+                    echo "deleted $root_path$path"
+                fi
+            fi
+        done
     """
 
 
-def defineTragetsDates_task(**context):
-    execution_date = context['execution_date']
-    res = {}
-    for sc in siteConfs:
-        res.update({ f"{sc.tag}_raw" : (execution_date - timedelta(days=sc.rawDataDays)).strftime('%Y-%m-%d')})
-        res.update({ f"{sc.tag}_trans" : (execution_date - timedelta(days=sc.transDataDays)).strftime('%Y-%m-%d')})
-    return res
-
-
 with DAG(
-    dag_id="Delete_expiredDataTest",
-    default_args= {
-        "start_date": args["start_date"]
+    dag_id= "Delete_expiredData",
+    default_args = {
+        "start_date": conf.startDate
     },
     tags=["bash"],
-    schedule_interval = dag_params["schedule"] or None,
-    concurrency = dag_params["concurrency"]
+    schedule_interval = conf.getParamFromConfFile("Dags.DeleteData.schedule") or None
 ) as dag:
 
-    defineTask = PythonOperator(
-        task_id = "define_target_dates",
-        python_callable=defineTragetsDates_task,
-        provide_context=True,
-        do_xcom_push=True,
-        multiple_outputs=True
+    task = BashOperator(
+        task_id = "delete",
+        bash_command = deleteData_command()
     )
-
-    
-    for sc in siteConfs:
-        dirPath = f'/{hdfsPath}{sc.tag}/'
-        for dir_type, dirs in [("raw", sc.rawDirs), ("trans", sc.transDirs)]:
-            for dir in dirs:
-                bash_task = BashOperator(
-                    task_id=f'delete_{sc.tag}_{dir}',
-                    bash_command=deleteData_command(defineTask.task_id, f"{sc.tag}_{dir_type}", f"{dirPath}{dir}")
-                )
-                defineTask >> bash_task
