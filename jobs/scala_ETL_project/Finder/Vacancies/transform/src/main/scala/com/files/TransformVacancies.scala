@@ -20,7 +20,7 @@ object TransformVacancies extends App with SparkApp {
     StructField("salary_from", LongType),
     StructField("salary_to", LongType),
     StructField("currency_symbol", StringType),
-    StructField("created_at", StringType),
+    StructField("publication_at", StringType),
     StructField("experience", StringType),
     StructField("distant_work", BooleanType),
     StructField("company", StructType(Seq(
@@ -46,7 +46,7 @@ object TransformVacancies extends App with SparkApp {
   }
 
   private val transformedDF: DataFrame = rawDF
-    .withColumn("published_at", to_timestamp(col("created_at")))
+    .withColumn("published_at", to_timestamp(col("publication_at")))
     .withColumn("salary_currency_id", when(col("currency_symbol") === "RUB", lit("RUR")).otherwise(col("currency_symbol")))
     .withColumn("url", concat(lit("https://finder.work/vacancies/"), col("id")))
     .withColumn("employer", col("company.title"))

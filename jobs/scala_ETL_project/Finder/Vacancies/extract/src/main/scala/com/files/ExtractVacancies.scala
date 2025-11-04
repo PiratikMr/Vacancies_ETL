@@ -7,7 +7,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SaveMode, SparkSession}
 
 object ExtractVacancies extends SparkApp {
 
-  private def vacancyURL(id: Long): String = s"https://api.finder.work/api/v2/vacancies/$id"
+  private def vacancyURL(id: Long): String = s"https://api.finder.work/api/v1/vacancies/$id"
 
   def main(args: Array[String]): Unit = {
 

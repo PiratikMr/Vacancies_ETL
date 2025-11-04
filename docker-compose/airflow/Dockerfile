@@ -3,6 +3,7 @@ USER root
 
 RUN apt-get update -y;
 
+# openjdk-17-jre-headless
 RUN apt-get install -y \
 	hdfs-cli \
 	openjdk-17-jdk && \

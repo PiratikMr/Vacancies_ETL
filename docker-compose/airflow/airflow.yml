@@ -17,7 +17,7 @@ x-airflow-common:
 services:
   airflow-webserver:
     <<: *airflow-common
-    command: webserver
+    command: ["airflow", "webserver", "--debug", "--port", "8080"]  # without gunicorn
     container_name: airflow-webserver
     ports:
       - "11080:8080"
