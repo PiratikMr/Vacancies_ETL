@@ -36,6 +36,7 @@ services:
       - ../hadoop/other:/hadoop-conf
     ports:
       - "13002:8002" # JMX
+      - "12040:8081" # Spark-worker-1
     command: [ "/bin/bash", "/hadoop-conf/init-scripts/init-datanode.sh" ]
     depends_on:
       - namenode

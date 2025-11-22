@@ -1,7 +1,9 @@
 x-airflow-common:
   &airflow-common
   build: .
-  env_file: ./.env
+  env_file: 
+    - ./airflow.env.default
+    - ./.env
   volumes:
     - ../../airflow/dags:/opt/airflow/dags
     - ../../jobs/scala_ETL_project:/opt/airflow/scalaProject
@@ -10,7 +12,7 @@ x-airflow-common:
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
-    postgres:
+    airflow-postgres:
       condition: service_healthy
 
 
@@ -80,7 +82,7 @@ services:
       - -c
       - airflow
 
-  postgres:
+  airflow-postgres:
     image: postgres:15-alpine
     environment:
       POSTGRES_USER: airflow

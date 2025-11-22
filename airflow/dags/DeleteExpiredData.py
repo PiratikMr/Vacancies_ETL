@@ -36,7 +36,7 @@ def deleteData_command():
 
 @dag(
     dag_id="Delete_expiredData",
-    start_date=utils.DEFAULT_START_DATE,
+    default_args=utils.DEFAULT_ARGS,
     tags=["bash"],
     schedule=conf.getString("Dags.DeleteData.schedule") or None,
     catchup=False

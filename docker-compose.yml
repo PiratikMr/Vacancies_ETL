@@ -1,7 +1,7 @@
 include:
   - path: ./docker-compose/hadoop.yml
-  - path: ./docker-compose/airflow/airflow.yml
   - path: ./docker-compose/spark/spark.yml
+  - path: ./docker-compose/airflow/airflow.yml
   - path: ./docker-compose/prometheus/prometheus.yml
   - path: ./docker-compose/dashboard.yml
   - path: ./docker-compose/storage.yml

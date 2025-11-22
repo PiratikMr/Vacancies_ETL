@@ -1,5 +1,12 @@
-SECRET_KEY = 'nhgH0yelqENg+jgNw9I16VLdFF3P206ciSsOyyM3ng4sPG1m2UUxqrNi'
-MAPBOX_API_KEY = 'YOUR_API_KEY'
+import os
+import sys
+
+curr_dir = os.path.dirname(os.path.abspath(__file__))
+if curr_dir not in sys.path:
+    sys.path.append(curr_dir)
+
+SECRET_KEY = 'SECRET_KEY'
+MAPBOX_API_KEY = 'MAPBOX_API_KEY'
 
 ENABLE_JAVASCRIPT_CONTROLS = True
 HTML_SANITIZATION = False
@@ -10,3 +17,16 @@ FEATURE_FLAGS = {
     'DASHBOARD_NATIVE_FILTERS': True,
     'DASHBOARD_CROSS_FILTERS': True,
 }
+
+
+from macros import generate_db_function_sql
+
+JINJA_CONTEXT_ADDONS = {
+    'filter_macro': generate_db_function_sql
+}
+
+
+try:
+    from superset_config_local import *
+except ImportError:
+    pass

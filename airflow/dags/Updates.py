@@ -9,7 +9,7 @@ for source, module in utils.UPDATES:
     @dag(
         dag_id=f"{module}_Update",
         tags=["scala", "update", module],
-        start_date=utils.DEFAULT_START_DATE,
+        default_args=utils.DEFAULT_ARGS,
         schedule=conf.getString("Dags.Update.schedule"),
         catchup=False
     )

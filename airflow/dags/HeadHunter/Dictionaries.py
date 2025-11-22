@@ -15,7 +15,7 @@ for dict, args in dictionaries_config:
     @dag(
         dag_id=f"{hh[1]}_{dict}_EL",
         tags=["scala", "etl", hh[1], dict],
-        start_date=utils.DEFAULT_START_DATE,
+        default_args=utils.DEFAULT_ARGS,
         schedule=conf.getString(f"Dags.{dict}.schedule") or None,
         catchup=False
     )

@@ -9,6 +9,6 @@ superset fab create-admin \
 superset db upgrade
 superset init
 
-superset import-dashboards -p /superset-mount/dashboard-vacs.zip -u admin
+for dash in /superset-mount/dashboards/*.zip; do superset import-dashboards -p $dash -u admin; done
 
 /usr/bin/run-server.sh

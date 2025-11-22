@@ -42,16 +42,16 @@ object ExtractVacancies extends SparkApp {
     import spark.implicits._
 
 
-    val clusterFirstPageURLs: Dataset[Long] = HDFSHandler.load(spark, conf.fsConf.getPath(FolderName.Roles))
+    val fieldIds: Dataset[Long] = HDFSHandler.load(spark, conf.fsConf.getPath(FolderName.Roles))
       .where(col("parent_id").isin(ids: _*)).select("id").map(row => row.getLong(0))
 
-
-    val clusterURLs: Dataset[String] = clusterFirstPageURLs.mapPartitions(part => {
+    val clusterURLs: Dataset[String] = fieldIds.mapPartitions(part => {
 
       URLHandler.useClient[Long, String](part, (backend, role_id) => {
         val body: String = URLHandler.readOrDefault(urlConf, clusterURL(role_id, 0, 0), """{"found":0}""", Some(backend))
 
         val found: Int = """"found"\s*:\s*(\d+)""".r.findFirstMatchIn(body).get.group(1).toInt
+
         if (found == 0) Nil
         else (0 to math.min(pageLimit, found / vacsPP)).map(page => clusterURL(role_id, page, vacsPP))
       })
@@ -62,11 +62,9 @@ object ExtractVacancies extends SparkApp {
       URLHandler.useClient[String, String](part, (backend, url) => URLHandler.readOrNone(urlConf, url, Some(backend)))
     })
 
-
     val schema: StructType = StructType(Seq(StructField("items", ArrayType(StructType(Seq(StructField("id", StringType)))))))
     val vacURLs: Dataset[String] = spark.read.schema(schema)
       .json(clusterData).select(explode(col("items.id")).as("id")).dropDuplicates("id").map(row => vacancyURL(row.getString(0)))
-
 
     val finalData: Dataset[String] = vacURLs.repartition(urlConf.requestsPS).mapPartitions(part => {
       URLHandler.useClient[String, String](part, (backend, url) => URLHandler.readOrNone(urlConf, url, Some(backend)))

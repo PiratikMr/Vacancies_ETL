@@ -15,6 +15,7 @@ object TransformVacancies extends App with SparkApp {
   private val spark: SparkSession = defineSession(conf.sparkConf)
 
 
+  // 1. Определение схемы для чтения JSON
   private val scheme = StructType(Seq(
 
     StructField("address", StructType(Seq(
@@ -91,13 +92,15 @@ object TransformVacancies extends App with SparkApp {
       StructField("id", StringType)
     )))
   ))
+  // 2. Чтение сырого JSON из HDFS и применение схемы
   private val rawDF: DataFrame = {
     val ds: Dataset[String] = spark.read.textFile(conf.fsConf.getPath(FolderName.RawVacancies))
     spark.read.schema(scheme).json(ds)
   }
 
+  // 3. Преобразование полей
   private val transformedDF: DataFrame = rawDF
-    .withColumn("address_lat", col("address").getField("lat"))
+    .withColumn("address_lat", col("address").getField("lat")) // Извлечение вложенного поля
     .withColumn("address_lng", col("address").getField("lng"))
     .withColumn("address_has_metro", col("address").getField("metro_stations").isNotNull)
 
@@ -115,9 +118,9 @@ object TransformVacancies extends App with SparkApp {
 
     .withColumn("experience_id", col("experience").getField("id"))
 
-    .withColumn("id", col("id").cast(LongType))
+    .withColumn("id", col("id").cast(LongType)) // Приведение типов
 
-    .withColumn("title", col("name"))
+    .withColumn("title", col("name")) // Переименование
 
     .withColumn("are_night_shifts", col("night_shifts"))
 
@@ -135,9 +138,9 @@ object TransformVacancies extends App with SparkApp {
 
     .withColumn("schedule_id", col("schedule").getField("id"))
 
-    .dropDuplicates("id")
+    .dropDuplicates("id") // Избавление от дубликатов
 
-
+  // 5. Сохранение основной таблицы вакансий
   private val vacancies: DataFrame = transformedDF
     .select("address_lat", "address_lng", "address_has_metro", "url", "is_active", "area_id", "employer_id",
       "employment_id", "experience_id", "id", "title", "are_night_shifts", "role_id", "published_at",
@@ -145,6 +148,7 @@ object TransformVacancies extends App with SparkApp {
       "schedule_id").repartition(conf.transformPartitions)
   HDFSHandler.saveParquet(vacancies, conf.fsConf.getPath(FolderName.Vacancies))
 
+  // 4. Разворачивание массива навыков для создания отдельной таблицы
   private val skills: DataFrame = transformedDF
     .select(col("id"), explode(col("key_skills")).as("skills")).select(col("id"), col("skills.name").as("name"))
     .repartition(1)

@@ -17,20 +17,20 @@ _SOURCES = [
 UPDATES = list(filter(lambda x: x[0] != "hc", _SOURCES))
 
 
-DEFAULT_START_DATE = pendulum.datetime(2025, 10, 1, 0, 0, 0, tz="Asia/Krasnoyarsk")
+DEFAULT_ARGS = {
+    'start_date': pendulum.datetime(2025, 10, 1, 0, 0, 0, tz="Asia/Krasnoyarsk")
+}
+
 
 class Config:
     def __init__(self, fileConfName: str):
-        # config file
         self._platformTag: str = fileConfName
         self._configFilePath: str = f"{_confDir}/{fileConfName}.conf"
         self._config = ConfigFactory.parse_file(Path(self._configFilePath))
     
-
     def getString(self, path: str):
         return self._config.get_string(path)
     
-
     def spark_ETLTaskBuild(self, part: str, module: str, args = []):
         return SparkSubmitOperator(
             task_id=part,

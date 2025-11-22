@@ -7,6 +7,7 @@ prometheus/prometheus-data
 jobs/python_TelegramChannels/
 
 logs/
+99_seed_data/
 
 jobs/java_*
 
@@ -15,9 +16,11 @@ __pycache__/
 .idea
 test
 
-config.conf
 *.docx
 *.drawio
+.env
+superset_config_local.py
+local_*.conf
 
 **/target/**
 !**/target/scala-*
