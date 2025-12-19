@@ -15,7 +15,7 @@ create materialized view interactive_active.vacancies as
     left join core.employers as emplr on emplr.id = v.id
     left join core.employments as emplm on emplm.id = v.id
     left join core.experiences as ex on ex.id = v.id
-    where v.is_active is true;
+    where v.closed_at is null;
 
 create unique index on interactive_active.vacancies (id);
 create index on interactive_active.vacancies (source);
@@ -35,7 +35,7 @@ create materialized view interactive_active.languages as
         l.level as level
     from core.languages as l
     join core.vacancies as v on v.id = l.id
-    where v.is_active is true;
+    where v.closed_at is null;
 
 create index on interactive_active.languages (id, language, level);
 
@@ -49,7 +49,7 @@ create materialized view interactive_active.locations as
         l.lng as lng
     from core.locations as l
     join core.vacancies as v on v.id = l.id
-    where v.is_active is true;
+    where v.closed_at is null;
 
 create index on interactive_active.locations (id, region, country);
 
@@ -60,7 +60,7 @@ create materialized view interactive_active.fields as
         f.field as field
     from core.fields as f
     join core.vacancies as v on v.id = f.id
-    where v.is_active is true;
+    where v.closed_at is null;
 
 create index on interactive_active.fields (id, field);
 
@@ -71,7 +71,7 @@ create materialized view interactive_active.grades as
         g.grade as grade
     from core.grades as g
     join core.vacancies as v on v.id = g.id
-    where v.is_active is true;
+    where v.closed_at is null;
 
 create index on interactive_active.grades (id, grade);
 
@@ -82,7 +82,7 @@ create materialized view interactive_active.schedules as
         s.type as schedule
     from core.schedules as s
     join core.vacancies as v on v.id = s.id
-    where v.is_active is true;
+    where v.closed_at is null;
 
 create index on interactive_active.schedules (id, schedule);
 
@@ -92,6 +92,6 @@ create materialized view interactive_active.skills as
         s.skill as skill
     from core.vacancies as v
     join core.skills as s on s.id = v.id
-    where v.is_active is true;
+    where v.closed_at is null;
 
 create index on interactive_active.skills (id, skill);

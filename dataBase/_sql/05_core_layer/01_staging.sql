@@ -2,7 +2,7 @@ create or replace view staging.vacancies as
     with data as (
         select
             concat('fn_', id) as id,
-            is_active,
+            closed_at,
             'Finder' as source,
             published_at
         from fn_vacancies
@@ -11,7 +11,7 @@ create or replace view staging.vacancies as
 
         select
             concat('gj_', id) as id,
-            is_active,
+            closed_at,
             'GeekJob' as source,
             published_at
         from gj_vacancies
@@ -20,7 +20,7 @@ create or replace view staging.vacancies as
 
         select
             concat('gm_', id) as id,
-            is_active,
+            closed_at,
             'GetMatch' as source,
             published_at
         from gm_vacancies
@@ -29,7 +29,7 @@ create or replace view staging.vacancies as
 
         select
             concat('hc_', id) as id,
-            is_active,
+            closed_at,
             'HabrCareer' as source,
             published_at
         from hc_vacancies
@@ -38,18 +38,18 @@ create or replace view staging.vacancies as
 
         select
             concat('hh_', id) as id,
-            is_active,
+            closed_at,
             'HeadHunter' as source,
             published_at
         from hh_vacancies
     ) select
         id,
-        is_active,
+        closed_at,
         source,
         published_at
     from data;
 
--- < 5, 10 вакансий
+
 create or replace view staging.employers as
     with data as (
         select
@@ -100,7 +100,7 @@ create or replace view staging.employments as
                 when employment_type = 'internship' then 'Стажировка'
                 when employment_type = 'part_time' then 'Частичная занятость'
                 when employment_type = 'project' then 'Проектная работа'
-                when employment_type = 'non_standard' then '???????'
+                when employment_type = 'non_standard' then 'Волонтерство'
             end as employment
         from fn_vacancies
 
@@ -311,23 +311,23 @@ create or replace view staging.locations as
     with data as (
         select
             concat('fn_', v.id) as id,
-            l.country as region,
-            l.name as country,
+            l.name as region,
+            l.country as country,
             v.address_lat as lat,
             v.address_lng as lng
         from fn_vacancies as v
         join fn_locations as l on l.id = v.id
 
-        union all
+        -- union all
 
-        select
-            concat('gj_', v.id) as id,
-            concat('Типа город ',l.name) as region,
-            concat('Типа страна ',l.name) as contry,
-            null as lat,
-            null as lng
-        from gj_vacancies as v
-        join gj_locations as l on l.id = v.id
+        -- select
+        --     concat('gj_', v.id) as id,
+        --     concat('Типа город ',l.name) as region,
+        --     concat('Типа страна ',l.name) as contry,
+        --     null as lat,
+        --     null as lng
+        -- from gj_vacancies as v
+        -- join gj_locations as l on l.id = v.id
 
         union all
 
@@ -421,7 +421,7 @@ create or replace view staging.salaries as
             end as has_range,
             c.id as currency
         from data as v
-        join currency as c on c.id = salary_currency_id
+        join public.exchangerate_currency as c on c.id = salary_currency_id
         where v.salary_from is not null or v.salary_to is not null
     ) select 
         id,

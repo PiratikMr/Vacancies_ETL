@@ -31,16 +31,21 @@ class Config:
     def getString(self, path: str):
         return self._config.get_string(path)
     
-    def spark_ETLTaskBuild(self, part: str, module: str, args = []):
+    def spark_ETLTaskBuild(self,
+                           part: str,
+                           module: str,
+                           args = []
+                           ):
         return SparkSubmitOperator(
             task_id=part,
             conn_id="SPARK_CONN",
             application=(
                 f"{_scalaProjectDir}/{module}/"
-                f"{part}/target/scala-2.13/{part}.jar"
+                f"target/scala-2.13/{module}-etl.jar"
             ),
             application_args=[
-                "--filename", self.getString("Dags.ETL.fileName"),
-                "--conffile", self._configFilePath
+                "--savefolder", self.getString("Dags.ETL.fileName"),
+                "--conffile", self._configFilePath,
+                "--etlpart", part
             ] + args
         )

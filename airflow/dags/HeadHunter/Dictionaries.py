@@ -4,26 +4,22 @@ from airflow.decorators import dag
 hh = next((source for source in utils._SOURCES if source[0] == "hh") ,None)
 conf = utils.Config(hh[0])
 
-
-dictionaries_config = [
-    ("Dictionaries", []),
-    ("Currency", ["--dictionaries", "dict:curr"])
-]
+module = f"{hh[1]}Dictionaries"
 
 
-for dict, args in dictionaries_config:
-    @dag(
-        dag_id=f"{hh[1]}_{dict}_EL",
-        tags=["scala", "etl", hh[1], dict],
-        default_args=utils.DEFAULT_ARGS,
-        schedule=conf.getString(f"Dags.{dict}.schedule") or None,
-        catchup=False
-    )
-    def create_dag():
+@dag(
+    dag_id=f"{module}_ETL",
+    tags=["scala", "etl", hh[1]],
+    default_args=utils.DEFAULT_ARGS,
+    schedule=conf.getString(f"Dags.Dictionaries.schedule") or None,
+    catchup=False
+)
+def create_dag():
+    prev = None
 
-        extract = conf.spark_ETLTaskBuild("extract", f"{hh[1]}/Dictionaries", args)
-        load = conf.spark_ETLTaskBuild("load", f"{hh[1]}/Dictionaries", args)
+    for part in ["extract", "transform", "load"]:
+        task = conf.spark_ETLTaskBuild(part, module)
+        if prev: prev >> task
+        prev = task
 
-        extract >> load
-
-    create_dag()
+create_dag()
