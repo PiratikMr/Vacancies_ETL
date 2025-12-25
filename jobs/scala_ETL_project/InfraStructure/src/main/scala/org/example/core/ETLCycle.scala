@@ -1,6 +1,5 @@
 package org.example.core
 
-import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.example.config.FolderName.FolderName
 import org.example.config.TableConfig._
@@ -14,7 +13,7 @@ class ETLCycle(
                       dbService: DataBaseService,
                       fsService: StorageService,
                       webService: WebService
-                    ) extends StrictLogging {
+                    ) {
 
   private def extract(extractor: Extractor, writeTo: FolderName): Unit = {
     val rawDS = extractor.extract(spark, webService)
@@ -67,31 +66,32 @@ class ETLCycle(
            rawFolder: FolderName = FolderName.RawVacancies
          ): Unit = {
 
-    logger.info(s"Launch ETL process: $etlPart")
-
     ETLParts.parseString(etlPart) match {
       case EXTRACT =>
         extractor match {
           case Some(ext) => extract(ext, rawFolder)
-          case None => throw new UnsupportedOperationException("Module does not support EXTRACT operation.")
+          case None => unsupportedOperationException("EXTRACT")
         }
       case TRANSFORM =>
         transformer match {
           case Some(tr) => transform(tr, rawFolder)
-          case None => throw new UnsupportedOperationException("Module does not support TRANSFORM operation.")
+          case None => unsupportedOperationException("TRANSFORM")
         }
       case LOAD =>
         loader match {
           case Some(ld) => load(ld)
-          case None => throw new UnsupportedOperationException("Module does not support LOAD operation.")
+          case None => unsupportedOperationException("LOAD")
         }
       case UPDATE =>
         (extractor, updater) match {
           case (Some(ext), Some(upd)) => update(ext, upd)
-          case _ => throw new UnsupportedOperationException("Module does not support UPDATE operation.")
+          case _ => unsupportedOperationException("UPDATE")
         }
       case UNRECOGNIZED =>
-        throw new UnsupportedOperationException(s"Unknown ETL part: $etlPart")
+        unsupportedOperationException(etlPart)
     }
   }
+
+  private def unsupportedOperationException(part: String): Unit =
+    throw new UnsupportedOperationException(s"Module does not support $part operation.")
 }

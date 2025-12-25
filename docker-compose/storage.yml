@@ -4,18 +4,30 @@ services:
       container_name: app-postgres
       volumes:
         - app-postgres-db-volume:/var/lib/postgresql/data
-        - ../dataBase:/docker-entrypoint-initdb.d
       ports:
         - "14432:5432"
       environment:
         POSTGRES_USER: postgres
         POSTGRES_PASSWORD: 1234
-        POSTGRES_DB: postgres
+        POSTGRES_DB: vacstorage
       healthcheck:
-        test: ["CMD", "pg_isready", "-U", "postgres"]
+        test: ["CMD", "pg_isready", "-U", "postgres", "-d", "vacstorage"]
         interval: 10s
         retries: 5
         start_period: 5s
+
+  flyway:
+    image: flyway/flyway
+    command: -connectRetries=60 migrate
+    environment:
+      FLYWAY_URL: jdbc:postgresql://app-postgres:5432/vacstorage
+      FLYWAY_USER: postgres
+      FLYWAY_PASSWORD: 1234
+    volumes:
+      - ../dataBase/_sql:/flyway/sql
+    depends_on:
+      app-postgres:
+        condition: service_healthy
 
   postgres-exporter:
     image: bitnamilegacy/postgres-exporter:latest

@@ -13,7 +13,7 @@ create table public.hc_vacancies (
     url text
 );
 
-create index idx_vacancies_published_closed_null
+create index idx_hc_vacancies_published_closed_null
     on public.hc_vacancies (published_at)
     where closed_at is null;
 

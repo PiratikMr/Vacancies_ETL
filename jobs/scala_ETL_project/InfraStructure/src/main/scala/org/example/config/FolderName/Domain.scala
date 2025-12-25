@@ -1,6 +1,6 @@
 package org.example.config.FolderName
 
-sealed trait Domain {
+trait Domain {
   def name: String
 }
 

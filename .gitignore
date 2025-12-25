@@ -7,14 +7,13 @@ prometheus/prometheus-data
 jobs/python_TelegramChannels/
 
 logs/
-99_seed_data/
+dataBase/_sql/seed_data/
 
 jobs/java_*
 
 __pycache__/
 
 .idea
-test
 
 *.docx
 *.drawio

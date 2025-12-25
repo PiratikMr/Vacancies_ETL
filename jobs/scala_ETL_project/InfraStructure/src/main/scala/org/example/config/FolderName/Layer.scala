@@ -1,6 +1,6 @@
 package org.example.config.FolderName
 
-sealed trait Layer {
+trait Layer {
   def name: String
 }
 

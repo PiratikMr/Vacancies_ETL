@@ -14,7 +14,8 @@ ThisBuild / libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.2.18" % Test,
   "org.mockito" % "mockito-core" % "5.11.0" % Test,
   "org.scalatestplus" %% "mockito-5-10" % "3.2.18.0" % Test,
-  "org.testcontainers" % "postgresql" % "1.21.3" % Test
+  "com.dimafeng" %% "testcontainers-scala-scalatest" % "0.40.12" % Test,
+  "com.dimafeng" %% "testcontainers-scala-postgresql" % "0.40.12" % Test
 )
 
 lazy val assemblySettings = Seq(
@@ -32,10 +33,7 @@ lazy val infra_structure = (project in file("InfraStructure"))
       "com.typesafe" % "config" % "1.4.3",
       "org.rogach" %% "scallop" % "5.2.0",
       "com.softwaremill.sttp.client4" %% "core" % "4.0.10",
-      "org.postgresql" % "postgresql" % "42.7.7",
-
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5",
-      "ch.qos.logback" % "logback-classic" % "1.5.13"
+      "org.postgresql" % "postgresql" % "42.7.7"
     )
   )
 
@@ -94,5 +92,13 @@ lazy val HabrCareer = (project in file("HabrCareer"))
     assemblySettings,
     assembly / mainClass := Some("org.example.habrcareer.HabrCareerMain"),
     assembly / assemblyJarName := "HabrCareer-etl.jar"
+  )
+  .dependsOn(infra_structure)
+
+lazy val Adzuna = (project in file("Adzuna"))
+  .settings(
+    assemblySettings,
+    assembly / mainClass := Some("org.example.adzuna.AdzunaMain"),
+    assembly / assemblyJarName := "Adzuna-etl.jar"
   )
   .dependsOn(infra_structure)

@@ -15,7 +15,7 @@ create table public.fn_vacancies (
     address_lng double precision
 );
 
-create index idx_vacancies_published_closed_null
+create index idx_fn_vacancies_published_closed_null
     on public.fn_vacancies (published_at)
     where closed_at is null;
     

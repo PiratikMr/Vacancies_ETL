@@ -15,7 +15,7 @@ create table public.gm_vacancies (
     experience_years integer
 );
 
-create index idx_vacancies_published_closed_null
+create index idx_gm_vacancies_published_closed_null
     on public.gm_vacancies (published_at)
     where closed_at is null;
 

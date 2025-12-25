@@ -56,7 +56,7 @@ create table public.hh_vacancies (
     schedule_id text references public.hh_schedule(id)
 );
 
-create index idx_vacancies_published_closed_null
+create index idx_hh_vacancies_published_closed_null
     on public.hh_vacancies (published_at)
     where closed_at is null;
 

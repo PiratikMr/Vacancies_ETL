@@ -1,0 +1,37 @@
+name: Scala ETL CI
+
+on:
+  push:
+    bracnhes: ["master"]
+    paths:
+      - './jobs/scala_ETL_project/**'
+      - '.github/workflows/scala-ci.yml'
+    
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./jobs/scala_ETL_project
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: 'sbt'
+        cache-dependency-path: ./jobs/scala_ETL_project/build.sbt
+
+    - name: Check structure
+      run: |
+        pwd
+        ls -la
+        ls -R src/test/resources || echo "Resources folder might be inside a submodule"
+
+    - name: Run Tests
+      run: sbt test

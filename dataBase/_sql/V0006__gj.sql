@@ -11,7 +11,7 @@ create table public.gj_vacancies (
     closed_at timestamp without time zone
 );
 
-create index idx_vacancies_published_closed_null
+create index idx_gj_vacancies_published_closed_null
     on public.gj_vacancies (published_at)
     where closed_at is null;
 

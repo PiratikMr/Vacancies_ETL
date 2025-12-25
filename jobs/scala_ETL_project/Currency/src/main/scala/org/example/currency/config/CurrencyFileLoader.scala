@@ -11,6 +11,4 @@ class CurrencyFileLoader(confPath: String, currDate: String)
   override val saveFolder: String = currDate
 
   lazy val apiKey: String = rootConfig.getString("Arguments.apiKey")
-
-  lazy val apiBaseUrl: String = rootConfig.getString("Arguments.apiBaseUrl")
 }
