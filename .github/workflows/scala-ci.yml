@@ -27,6 +27,9 @@ jobs:
         cache: 'sbt'
         cache-dependency-path: ./jobs/scala_ETL_project/build.sbt
 
+    - name: Install sbt
+      uses: sbt/setup-sbt@v1
+
     - name: Check structure
       run: |
         pwd
