@@ -2,7 +2,7 @@ name: Scala ETL CI
 
 on:
   push:
-    bracnhes: ["master"]
+    branches: ["master"]
     paths:
       - './jobs/scala_ETL_project/**'
       - '.github/workflows/scala-ci.yml'
@@ -26,6 +26,9 @@ jobs:
         distribution: 'temurin'
         cache: 'sbt'
         cache-dependency-path: ./jobs/scala_ETL_project/build.sbt
+
+    - name: Install sbt
+      uses: sbt/setup-sbt@v1
 
     - name: Check structure
       run: |
