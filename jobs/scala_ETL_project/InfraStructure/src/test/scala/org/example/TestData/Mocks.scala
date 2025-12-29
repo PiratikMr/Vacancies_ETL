@@ -10,14 +10,6 @@ trait Mocks extends MockitoSugar {
 
   val mockSpark: SparkSession = mock[SparkSession]
 
-//  implicit lazy val localSpark: SparkSession = SparkSession.builder()
-//    .master("local[*]")
-//    .appName("TestName")
-//    .config("spark.driver.bindAddress", "127.0.0.1")
-//    .config("spark.driver.host", "127.0.0.1")
-//    .config("spark.ui.enabled", "false")
-//    .getOrCreate()
-
   val mockDataFrame: DataFrame = mock[DataFrame]
   val mockDatasetString: Dataset[String] = mock[Dataset[String]]
 

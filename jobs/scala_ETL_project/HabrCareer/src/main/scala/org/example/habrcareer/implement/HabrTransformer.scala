@@ -26,12 +26,10 @@ class HabrTransformer(
         .withColumn("salary_to", col("salary.to"))
         .withColumn("salary_currency_id", upper(col("salary.currency")))
         .withColumn("url", concat(lit("https://career.habr.com/vacancies/"), col("id")))
-
-
-        .withColumn("is_active", not(col("archived")))
+        .withColumn("closed_at", lit(null).cast(TimestampType))
 
       val vacanciesDF: DataFrame = transformedDF.select("id", "title", "remote_work", "grade", "published_at",
-          "employer", "employment_type", "salary_from", "salary_to", "salary_currency_id", "url", "is_active")
+          "employer", "employment_type", "salary_from", "salary_to", "salary_currency_id", "url", "closed_at")
         .repartition(transformPartition)
 
       val fieldsDF: DataFrame = transformedDF
@@ -87,7 +85,6 @@ object HabrTransformer {
     )))),
     StructField("locations", ArrayType(StructType(Seq(
       StructField("title", StringType)
-    )))),
-    StructField("archived", BooleanType)
+    ))))
   ))
 }

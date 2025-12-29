@@ -24,7 +24,7 @@ class HHTransformer(
 
         .withColumn("url", col("alternate_url"))
 
-        .withColumn("is_active", not(col("archived")))
+        .withColumn("closed_at", lit(null).cast(TimestampType))
 
         .withColumn("area_id", col("area").getField("id").cast(LongType))
 
@@ -46,8 +46,11 @@ class HHTransformer(
         .withColumn("role_id", col("roles").getField("id").cast(LongType))
 
         .withColumn("published_at", to_timestamp(col("published_at"), "yyyy-MM-dd'T'HH:mm:ss+0300"))
-
-        .withColumn("salary_currency_id", col("salary_range").getField("currency"))
+        .withColumn("salary_currency_id",
+          when(col("salary_range.currency") === "RUR", lit("RUB"))
+            .when(col("salary_range.currency") === "BYR", lit("BYN"))
+            .otherwise(col("salary_range.currency"))
+        )
         .withColumn("salary_frequency", col("salary_range").getField("frequency").getField("name"))
         .withColumn("salary_from", col("salary_range").getField("from"))
         .withColumn("salary_could_gross", col("salary_range").getField("gross"))
@@ -59,7 +62,7 @@ class HHTransformer(
         .dropDuplicates("id")
 
       val vacanciesDF: DataFrame = transformedDF
-        .select("address_lat", "address_lng", "address_has_metro", "url", "is_active", "area_id", "employer_id",
+        .select("address_lat", "address_lng", "address_has_metro", "url", "closed_at", "area_id", "employer_id",
           "employment_id", "experience_id", "id", "title", "are_night_shifts", "role_id", "published_at",
           "salary_currency_id", "salary_frequency", "salary_from", "salary_could_gross", "salary_mode", "salary_to",
           "schedule_id")
@@ -102,7 +105,7 @@ object HHTransformer {
 
     StructField("alternate_url", StringType),
 
-    StructField("archived", BooleanType),
+//    StructField("archived", BooleanType),
 
     StructField("area", StructType(Seq(
       StructField("id", StringType)

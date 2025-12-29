@@ -1,0 +1,30 @@
+name: 'datawarehouse_project'
+
+profile: 'datawarehouse'
+
+model-paths: ["models"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt-project"
+
+models:
+  datawarehouse_project:
+    +materialized: materialized_view
+
+    staging:
+      +schema: staging
+
+    marts:
+      interactive:
+        +schema: interactive
+
+        interactive_active:
+          +schema: interactive_active
+
+      historical:
+        +schema: historical
+
+on-run-end:
+  - "{{ create_interactive_filter_function() }}"

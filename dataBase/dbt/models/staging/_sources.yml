@@ -1,0 +1,30 @@
+sources:
+  - name: raw_data
+    database: vacstorage
+    schema: public
+    tables:
+      - name: exchangerate_currency
+      - name: fn_fields
+      - name: fn_locations
+      - name: fn_vacancies
+      - name: gj_fields
+      - name: gj_grades
+      - name: gj_jobformats
+      - name: gj_locations
+      - name: gj_skills
+      - name: gj_vacancies
+      - name: gm_skills
+      - name: gm_vacancies
+      - name: hc_fields
+      - name: hc_locations
+      - name: hc_skills
+      - name: hc_vacancies
+      - name: hh_areas
+      - name: hh_employers
+      - name: hh_employment
+      - name: hh_experience
+      - name: hh_languages
+      - name: hh_professionalroles
+      - name: hh_schedule
+      - name: hh_skills
+      - name: hh_vacancies

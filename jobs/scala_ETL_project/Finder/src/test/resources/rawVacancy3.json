@@ -1,0 +1,51 @@
+{
+  "id": 3,
+  "title": "title_3",
+  "employment_type": "employment_type_3",
+  "salary_from": 30,
+  "salary_to": 300,
+  "currency_symbol": "salary_currency_id_3",
+  "experience": "experience_3",
+  "publication_at": "2025-01-01T00:00:00.000000Z",
+  "distant_work": true,
+  "archived_at": null,
+  "status": "active",
+  "professions": [
+    {
+      "title": "field_1"
+    },
+    {
+      "title": "field_2"
+    },
+    {
+      "title": "field_3"
+    }
+  ],
+  "locations": [
+    {
+      "name": "name_1",
+      "country": {
+        "name": "country_1"
+      }
+    },
+    {
+      "name": "name_2",
+      "country": {
+        "name": "country_2"
+      }
+    },
+    {
+      "name": "name_3",
+      "country": {
+        "name": "country_3"
+      }
+    }
+  ],
+  "place": {
+    "lat": "0.0005",
+    "lon": "0.0005"
+  },
+  "company": {
+    "title": "employer_3"
+  }
+}

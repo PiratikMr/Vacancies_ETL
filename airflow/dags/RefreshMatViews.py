@@ -1,9 +1,9 @@
-import utils
+from config_ETL import DEFAULT_ARGS
 from airflow.decorators import dag, task, task_group
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 schemas = [
-    "core",
+    "staging",
     "historical",
     "interactive_active",
     "interactive"
@@ -11,7 +11,7 @@ schemas = [
 
 @dag(
     dag_id="Refresh_Materialized_views",
-    default_args=utils.DEFAULT_ARGS,
+    default_args=DEFAULT_ARGS,
     tags=["python, postgresql"],
     schedule=None,
     catchup=False

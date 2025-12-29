@@ -1,0 +1,12 @@
+datawarehouse:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DBT_HOST', 'app-postgres') }}"
+      user: "{{ env_var('DBT_USER', 'postgres') }}"
+      password: "{{ env_var('DBT_PASSWORD', '1234') }}"
+      port: 5432
+      dbname: "{{ env_var('DBT_DBNAME', 'vacstorage') }}"
+      schema: public
+      threads: 4

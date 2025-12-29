@@ -2,7 +2,7 @@ x-airflow-common:
   &airflow-common
   build: .
   env_file: 
-    - ./airflow.env.default
+    - ./airflow.env
     - ./.env
   volumes:
     - ../../airflow/dags:/opt/airflow/dags

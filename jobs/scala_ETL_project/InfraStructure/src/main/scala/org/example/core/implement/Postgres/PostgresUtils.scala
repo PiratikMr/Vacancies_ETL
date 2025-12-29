@@ -93,8 +93,6 @@ object PostgresUtils {
       saveOverwrite(conf, df, stagingTable)
 
       val sql = sqlBuilder(stagingTable)
-      println(sql)
-
       executeSql(conf, sql)
     } finally {
       executeSql(conf, s"DROP TABLE IF EXISTS $stagingTable")

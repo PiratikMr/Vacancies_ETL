@@ -1,31 +1,32 @@
-import utils
+from utils import get_config
+from config_ETL import CONFIG_DIR_PATH, DEFAULT_ARGS
 from airflow.decorators import dag
 from airflow.operators.bash import BashOperator
 
-conf = utils.Config("common")
+confTree = get_config(f"{CONFIG_DIR_PATH}/common.conf")
 
-hdfsPath = conf.getString("FS.path")
+hdfsPath = confTree.get_string("FS.path")
 
-rawDataExpiresIn = conf.getString("Dags.DeleteData.rawData")
-transDataExpiresIn = conf.getString("Dags.DeleteData.transformedData")
+rawDataExpiresIn = confTree.get_string("Dags.DeleteData.rawData")
+transDataExpiresIn = confTree.get_string("Dags.DeleteData.transformedData")
 
 
 def deleteData_command():
     return f"""
-        execution_date=$(date -d "{{{{ data_interval_end }}}}" +%Y-%m-%d)
+        execution_date=$(date -d "{{{{ logical_date }}}}" +%Y-%m-%d)
         raw_target=$(date -d "$execution_date - {rawDataExpiresIn} days" +%s)
         trans_target=$(date -d "$execution_date - {transDataExpiresIn} days" +%s)
 
-        hdfs ls /{hdfsPath}*/* | while read -r path; do
+        hdfs ls /{hdfsPath}/*/*/*/ | while read -r path; do
             if [[ $path == /* ]]; then
                 root_path="${{path::-1}}"
             elif [[ $path == ????-??-??* ]]; then
                 date_parts="${{path:0:10}}"
-                date_ts=$(date -d "$date_parts" +%s 2>/dev/null) || continue
+                folder_ts=$(date -d "$date_parts" +%s 2>/dev/null) || continue
 
-                [[ $root_path == */RawVacancies/* ]] && target=$raw_target || target=$trans_target
+                [[ $root_path == */Raw/* ]] && target=$raw_target || target=$trans_target
 
-                if (( date_ts < target )); then
+                if (( folder_ts < target )); then
                     hdfs rm -r $root_path$path
                     echo "deleted $root_path$path"
                 fi
@@ -33,12 +34,11 @@ def deleteData_command():
         done
     """
 
-
 @dag(
     dag_id="Delete_expiredData",
-    default_args=utils.DEFAULT_ARGS,
+    default_args=DEFAULT_ARGS,
     tags=["bash"],
-    schedule=conf.getString("Dags.DeleteData.schedule") or None,
+    schedule=confTree.get_string("Dags.DeleteData.schedule") or None,
     catchup=False
 )
 def create_dag():

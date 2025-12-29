@@ -12,7 +12,6 @@ class GetMatchTransformer(
 
   private val schema: StructType = StructType(Seq(
     StructField("published_at", StringType),
-    StructField("is_active", BooleanType),
     StructField("position", StringType),
     StructField("id", LongType),
     StructField("salary_display_from", LongType),
@@ -54,10 +53,11 @@ class GetMatchTransformer(
         .withColumn("employer", col("company.name"))
         .withColumn("level", col("position_level"))
         .withColumn("experience_years", col("required_years_of_experience"))
+        .withColumn("closed_at", lit(null).cast(TimestampType))
 
         .dropDuplicates("id")
 
-      val vacanciesDF: DataFrame = transformedDF.select("published_at", "is_active", "title", "id", "salary_from",
+      val vacanciesDF: DataFrame = transformedDF.select("published_at", "closed_at", "title", "id", "salary_from",
           "salary_to", "salary_currency_id", "url", "english_level", "remote_options", "office_options", "employer",
           "level", "experience_years")
         .repartition(transformPartition)

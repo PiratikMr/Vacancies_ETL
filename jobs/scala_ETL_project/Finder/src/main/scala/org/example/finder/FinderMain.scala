@@ -5,7 +5,7 @@ import org.example.core.implement.HDFS.HDFSService
 import org.example.core.implement.Network.{STTPBackendContext, STTPBackends, STTPService}
 import org.example.core.implement.Postgres.PostgresService
 import org.example.core.{ETLCycle, SparkApp}
-import org.example.finder.ETL.{FinderExtractor, FinderTransformer}
+import org.example.finder.implement.{FinderExtractor, FinderTransformer}
 import org.example.finder.config.{FinderArgsLoader, FinderFileLoader}
 
 object FinderMain extends App {

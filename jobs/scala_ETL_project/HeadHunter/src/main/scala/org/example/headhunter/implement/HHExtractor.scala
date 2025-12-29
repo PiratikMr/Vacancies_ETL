@@ -72,7 +72,7 @@ class HHExtractor(
         case Left(error) if error.contains("Status: 404") => Some(id)
         case _ => None
       }
-    })).toDF()
+    })).toDF("id")
   }
 }
 

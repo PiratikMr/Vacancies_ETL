@@ -3,7 +3,7 @@ package org.example.core.implement.Postgres
 import com.dimafeng.testcontainers.{ForAllTestContainer, PostgreSQLContainer}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
-import org.example.TestData.TestObjects
+import org.example.TestObjects
 import org.example.config.Cases.Structures.DBConf
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper

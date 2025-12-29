@@ -1,12 +1,14 @@
 package org.example.currency
 
-import org.example.config.FolderName.{FolderName, Raw}
+import org.example.config.FolderName.{FolderName, Raw, Stage}
+import org.example.config.TableConfig.{TableConfig, UpdateAllExceptKeys}
 import org.example.core.implement.HDFS.HDFSService
 import org.example.core.implement.Network.{STTPBackendContext, STTPBackends, STTPService}
 import org.example.core.implement.Postgres.PostgresService
+import org.example.core.objects.LoadDefinition
 import org.example.core.{ETLCycle, SparkApp}
 import org.example.currency.config.{CurrencyArgsLoader, CurrencyFileLoader}
-import org.example.currency.implement.{CurrencyExtractor, CurrencyLoader, CurrencyTransformer}
+import org.example.currency.implement.{CurrencyExtractor, CurrencyTransformer}
 
 object CurrencyMain extends App {
 
@@ -26,7 +28,12 @@ object CurrencyMain extends App {
     argsConfig.common.etlPart,
     extractor = Some(new CurrencyExtractor(fileConfig.common.apiBaseUrl, fileConfig.apiKey)),
     transformer = Some(CurrencyTransformer),
-    loader = Some(CurrencyLoader),
+    loader = Some(() => Seq(
+      LoadDefinition(
+        FolderName(Stage, "Currency"),
+        TableConfig(Seq("id"), UpdateAllExceptKeys)
+      )
+    )),
     rawFolder = FolderName(Raw, "Currency")
   )
 

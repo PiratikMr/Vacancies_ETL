@@ -1,0 +1,8 @@
+.bsp/
+.idea/
+artifacts/
+
+**/target/**
+!**/target/scala-*
+**/target/scala-*/**/
+!**/target/scala-*/*.jar

@@ -5,7 +5,6 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.example.config.FolderName.FolderName
 import org.example.core.Interfaces.ETL.Transformer
-import org.example.core.Interfaces.Services.DataBaseService
 import org.jsoup.Jsoup
 import org.jsoup.nodes.{Document, Element}
 import org.jsoup.select.Elements
@@ -32,7 +31,7 @@ class GeekJobTransformer(
         .withColumn("salary_currency_id", col("currency"))
         .withColumn("url", concat(lit("https://geekjob.ru/vacancy/"), col("id")))
         .withColumn("published_at", col("publish_date"))
-        .withColumn("is_active", lit(true))
+        .withColumn("closed_at", lit(null).cast(TimestampType))
         .repartition(transformPartition)
     }
 
@@ -40,7 +39,7 @@ class GeekJobTransformer(
     {
 
       val vacancies = rawDF.select("id", "title", "employer", "experience", "salary_from", "salary_to", "salary_currency_id",
-        "url", "published_at", "is_active").dropDuplicates("id")
+        "url", "published_at", "closed_at").dropDuplicates("id")
 
       Map(
         FolderName.Vacancies -> vacancies,

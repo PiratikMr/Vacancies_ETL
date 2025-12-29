@@ -1,0 +1,17 @@
+{
+  "result": "success",
+  "documentation": "https://www.exchangerate-api.com/docs",
+  "terms_of_use": "https://www.exchangerate-api.com/terms",
+  "time_last_update_unix": 1766880001,
+  "time_last_update_utc": "Sun, 28 Dec 2025 00:00:01 +0000",
+  "time_next_update_unix": 1766966401,
+  "time_next_update_utc": "Mon, 29 Dec 2025 00:00:01 +0000",
+  "base_code": "RUB",
+  "conversion_rates": {
+    "RUB": 1,
+    "AED": 0.04704,
+    "AFN": 0.8409,
+    "ALL": 1.0444,
+    "AMD": 4.8734
+  }
+}

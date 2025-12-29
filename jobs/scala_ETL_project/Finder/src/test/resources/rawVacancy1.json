@@ -1,0 +1,33 @@
+{
+  "id": 1,
+  "title": "title_1",
+  "employment_type": "employment_type_1",
+  "salary_from":10,
+  "salary_to": 100,
+  "currency_symbol": "salary_currency_id_1",
+  "experience": "experience_1",
+  "publication_at": "2025-01-01T00:00:00.000000Z",
+  "distant_work": true,
+  "archived_at": null,
+  "status": "active",
+  "professions": [
+    {
+      "title": "field_1"
+    }
+  ],
+  "locations": [
+    {
+      "name": "name_1",
+      "country": {
+        "name": "country_1"
+      }
+    }
+  ],
+  "place": {
+    "lat": "0.0005",
+    "lon": "0.0005"
+  },
+  "company": {
+    "title": "employer_1"
+  }
+}

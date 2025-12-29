@@ -12,11 +12,14 @@ class AdzunaFileLoader(confPath: String, currDate: String)
 
   private val args = rootConfig.getConfig("Arguments")
 
-  lazy val appId = args.getString("appId")
+  lazy val apiParams = AdzunaApiParams(
+    args.getString("locationTag"),
+    args.getInt("maxDaysOld"),
+    args.getInt("vacsPerPage"),
+    args.getString("appId"),
+    args.getString("appKey"),
+    args.getString("categoryTag")
+  )
 
-  lazy val appKey = args.getString("appKey")
-
-  lazy val categoryTag = args.getString("categoryTag")
-
-  lazy val maxDaysOld = args.getInt("maxDaysOld")
+  lazy val pageLimit = args.getInt("pageLimit")
 }

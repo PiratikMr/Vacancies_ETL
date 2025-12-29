@@ -2,12 +2,16 @@ package org.example.core
 
 import org.example.TestData.Mocks
 import org.example.config.FolderName.FolderName
-import org.example.config.TableConfig.TableRegistry
+import org.example.config.TableConfig._
 import org.example.core.Interfaces.ETL.{Extractor, Loader, Transformer, Updater}
+import org.example.core.objects.LoadDefinition
 import org.mockito.ArgumentMatchers.{any, eq => eqTo}
+import org.mockito.Mockito
 import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks.forAll
+import org.scalatest.prop.Tables.Table
 
 class ETLCycleTest extends AnyFlatSpec with Matchers with Mocks {
 
@@ -75,6 +79,38 @@ class ETLCycleTest extends AnyFlatSpec with Matchers with Mocks {
     })
   }
 
+  "ETLCycle" should "handle ExplicitUpdates strategy correctly during LOAD" in {
+    val mockLoader = mock[Loader]
+
+    val columns = Array("c0", "c1", "c2", "c3")
+    val conflicts = Seq("c0")
+    when(mockDataFrame.columns).thenReturn(columns)
+    when(mockStorageService.read(any(), any())).thenReturn(mockDataFrame)
+
+    val strategies = Table(
+      ("strategy", "expectedUpdateCols"),
+      (DoNothing, None),
+      (ExplicitUpdates(Seq("c1")), Some(Seq("c1"))),
+      (UpdateAllExceptKeys, Some(Seq("c1", "c2", "c3")))
+    )
+
+    forAll(strategies) { (strategy, expectedUpdateCols) =>
+      Mockito.reset(mockDBService)
+
+      val loadDef = LoadDefinition(rawFolder, TableConfig(conflicts, strategy))
+      when(mockLoader.tablesToLoad()).thenReturn(Seq(loadDef))
+
+      etl.run("load", loader = Some(mockLoader))
+
+      verify(mockDBService).save(
+        eqTo(mockDataFrame),
+        eqTo(rawFolder),
+        eqTo(conflicts),
+        eqTo(expectedUpdateCols)
+      )
+    }
+  }
+
   "ETLCycle" should "run UPDATE correctly" in {
     val mockExtractor = mock[Extractor]
     val mockUpdater = mock[Updater]
@@ -101,8 +137,10 @@ class ETLCycleTest extends AnyFlatSpec with Matchers with Mocks {
   }
 
   "ETLCycle" should "throw exception if required module is missing" in {
-    assertThrows[UnsupportedOperationException] {
-      etl.run(etlPart = "extract")
-    }
+    Seq("extract", "transform", "load", "update").foreach(part =>
+      assertThrows[UnsupportedOperationException] {
+        etl.run(etlPart = part)
+      }
+    )
   }
 }
