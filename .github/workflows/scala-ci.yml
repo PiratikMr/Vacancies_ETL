@@ -4,7 +4,7 @@ on:
   push:
     branches: ["master"]
     paths:
-      - './jobs/scala_ETL_project/**'
+      - 'jobs/scala_ETL_project/**'
       - '.github/workflows/scala-ci.yml'
     
 jobs:
