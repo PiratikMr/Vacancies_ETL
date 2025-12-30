@@ -41,6 +41,16 @@ with data as (
     from {{ source('raw_data', 'hh_vacancies') }} as v
     join {{ source('raw_data', 'hh_areas') }} as ar on ar.id = v.area_id
     join {{ source('raw_data', 'hh_areas') }} as ac on ac.id = ar.parent_id
+
+    union all
+
+    select
+        concat('az_', id) as id,
+        region as region,
+        country as country,
+        address_lat as lat,
+        address_lng as lng
+    from {{ source('raw_data', 'az_vacancies') }}
 )
 
 select

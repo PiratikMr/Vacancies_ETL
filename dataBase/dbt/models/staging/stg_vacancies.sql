@@ -41,6 +41,15 @@ with data as (
         'HeadHunter' as source,
         published_at
     from {{ source('raw_data', 'hh_vacancies') }}
+
+    union all
+
+    select
+        concat('az_', id) as id,
+        closed_at,
+        'Adzuna' as source,
+        published_at
+    from {{ source('raw_data', 'az_vacancies') }}
 ) 
 
 select

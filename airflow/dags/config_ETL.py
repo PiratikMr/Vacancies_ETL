@@ -32,4 +32,5 @@ PLATFORMS = [
     Platform("hc", "HabrCareer", u = False),
     Platform("hh", "HeadHunterDictionaries", u = False),
     Platform("hh", "HeadHunter", args = [("datefrom", "Dags.ETL.dateFrom", False)])
+    # Platform("az", "Adzuna", u = False)
 ]

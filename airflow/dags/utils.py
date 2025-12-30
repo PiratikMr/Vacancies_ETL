@@ -22,9 +22,9 @@ def parse_args(config: ConfigTree, args: list[tuple[str, str, bool]]) -> list[st
         
     return cli_args
 
-def spark_ETLTaskBuild(part: str, moduleName: str, args: list[str]):
+def spark_ETLTaskBuild(part: str, moduleName: str, args: list[str], task_name: str = None):
     return SparkSubmitOperator(
-        task_id=part,
+        task_id=task_name or part,
         conn_id="SPARK_CONN",
         application=(
             f'/opt/airflow/scalaProject/{moduleName}/'
