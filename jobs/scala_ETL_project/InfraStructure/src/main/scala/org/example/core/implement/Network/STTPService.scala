@@ -24,7 +24,10 @@ class STTPService(
 
       response.body match {
         case Right(body) => Right(body)
-        case Left(error) => Left(s"HTTP Error: $error, Status: ${response.code}")
+        case Left(error) =>
+          val er = s"HTTP Error: $error, Status: ${response.code}"
+          println(er)
+          Left(er)
       }
 
     } catch {

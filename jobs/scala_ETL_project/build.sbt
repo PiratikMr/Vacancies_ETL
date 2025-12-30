@@ -102,13 +102,13 @@ lazy val HabrCareer = (project in file("HabrCareer"))
   )
   .dependsOn(infra_structure)
 
-//lazy val Adzuna = (project in file("Adzuna"))
-//  .settings(
-//    assemblySettings,
-//    assembly / mainClass := Some("org.example.adzuna.AdzunaMain"),
-//    assembly / assemblyJarName := "Adzuna-etl.jar"
-//  )
-//  .dependsOn(infra_structure)
+lazy val Adzuna = (project in file("Adzuna"))
+  .settings(
+    assemblySettings,
+    assembly / mainClass := Some("org.example.adzuna.AdzunaMain"),
+    assembly / assemblyJarName := "Adzuna-etl.jar"
+  )
+  .dependsOn(infra_structure)
 
 addCommandAlias("buildAllPlatforms",
   "; clean" +
@@ -118,5 +118,6 @@ addCommandAlias("buildAllPlatforms",
     "; GetMatch/assembly" +
     "; HeadHunter/assembly" +
     "; HeadHunterDictionaries/assembly" +
-    "; HabrCareer/assembly"
+    "; HabrCareer/assembly" +
+    "; Adzuna/assembly"
 )

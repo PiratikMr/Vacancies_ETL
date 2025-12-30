@@ -41,6 +41,15 @@ with data as (
         salary_to,
         salary_currency_id
     from {{ source('raw_data', 'hh_vacancies') }}
+
+    union all
+
+    select
+        concat('az_', id) as id,
+        salary_from,
+        salary_to,
+        salary_currency_id
+    from {{ source('raw_data', 'az_vacancies') }}
 ), logic as (
     select
         v.id,

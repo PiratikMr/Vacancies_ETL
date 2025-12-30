@@ -32,6 +32,13 @@ with data as (
         e.name as employer
     from {{ source('raw_data', 'hh_vacancies') }} as v
     join {{ source('raw_data', 'hh_employers') }} as e on e.id = v.employer_id
+
+    union all
+
+    select
+        concat('az_', v.id) as id,
+        v.employer as employer
+    from {{ source('raw_data', 'az_vacancies') }} as v
 ) 
 
 select

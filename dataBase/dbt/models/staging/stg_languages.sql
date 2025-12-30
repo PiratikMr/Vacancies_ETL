@@ -21,6 +21,14 @@ with data as (
         l.level as level
     from {{ source('raw_data', 'hh_vacancies') }} as v
     join {{ source('raw_data', 'hh_languages') }} as l on l.id = v.id
+
+    union all
+
+    select
+        concat('az_', id) as id,
+        'Английский' as language,
+        'C1 — Продвинутый' as level
+    from {{ source('raw_data', 'az_vacancies') }}
 )
 
 select

@@ -4,10 +4,10 @@ profile: 'datawarehouse'
 
 model-paths: ["models"]
 
-target-path: "target"
-clean-targets:
-  - "target"
-  - "dbt-project"
+# target-path: "target"
+# clean-targets:
+#   - "target"
+#   - "dbt-project"
 
 models:
   datawarehouse_project:

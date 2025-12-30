@@ -28,6 +28,17 @@ with data as (
         e.name as employment
     from {{ source('raw_data', 'hh_vacancies') }} as v
     join {{ source('raw_data', 'hh_employment') }} as e on e.id = v.employment_id
+
+    union all
+
+    select
+        concat('az_', id) as id,
+        case
+            when employment_type = 'full_time' then 'Полная занятость'
+            when employment_type = 'part_time' then 'Частичная занятость'
+        end as employment
+    from {{ source('raw_data', 'az_vacancies') }}
+    where employment_type is not null
 )
 
 select

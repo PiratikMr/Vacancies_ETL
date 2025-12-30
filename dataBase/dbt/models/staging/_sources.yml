@@ -28,3 +28,4 @@ sources:
       - name: hh_schedule
       - name: hh_skills
       - name: hh_vacancies
+      - name: az_vacancies
