@@ -20,10 +20,14 @@ services:
     ports:
       - "16000:3000"
     volumes:
+      - ../grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ../grafana/provisioning/dashboards/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
+      - ../grafana/dashboards-json:/var/lib/grafana/dashboards
       - grafana-volume:/var/lib/grafana
-      - ../grafana/config/grafana.ini:/etc/grafana/grafana.ini
     environment:
       GF_SECURITY_ADMIN_PASSWORD: admin
+    depends_on:
+      - prometheus
 
 volumes:
   superset-volume:
