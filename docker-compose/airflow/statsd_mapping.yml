@@ -1,0 +1,62 @@
+mappings:
+  - match: airflow.dag.(.*)\.(.*)\.duration
+    match_type: regex
+    name: "airflow_task_duration"
+    labels:
+      dag_id: "$1"
+      task_id: "$2"
+
+  - match: airflow.dagrun.duration.(success|failed)\.(.*)
+    match_type: regex
+    name: "airflow_dagrun_duration"
+    labels:
+      state: "$1"
+      dag_id: "$2"
+
+  - match: airflow.task.cpu.usage.(.*)\.(.*)
+    match_type: regex
+    name: "airflow_task_cpu_usage"
+    labels:
+      dag_id: "$1"
+      task_id: "$2"
+
+  - match: airflow.task.mem.usage.(.*)\.(.*)
+    match_type: regex
+    name: "airflow_task_mem_usage"
+    labels:
+      dag_id: "$1"
+      task_id: "$2"
+
+  - match: airflow.ti.finish.(.*)\.(.*)\.(.*)
+    match_type: regex
+    name: "airflow_task_status"
+    labels:
+      dag_id: "$1"
+      task_id: "$2"
+      state: "$3"
+
+  - match: "airflow.ti.(.*)"
+    match_type: regex
+    name: "airflow_ti_status"
+    labels:
+      state: "$1"
+
+  - match: airflow.dag_processing.*
+    match_type: regex
+    action: drop
+    name: "dropped"
+  
+  - match: airflow.executor.*
+    match_type: regex
+    action: drop
+    name: "dropped"
+
+  - match: airflow.scheduler.*
+    match_type: regex
+    action: drop
+    name: "dropped"
+
+  - match: .
+    match_type: regex
+    action: drop
+    name: "airflow_unmapped_metric"

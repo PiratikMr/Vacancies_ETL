@@ -57,11 +57,12 @@ services:
   postgres-exporter:
     image: bitnamilegacy/postgres-exporter:latest
     environment:
-      DATA_SOURCE_NAME: "postgresql://${PG_USER}:${PG_PASS}@app-postgres:5432/${PG_DB}"
+      DATA_SOURCE_NAME: "postgresql://${PG_USER}:${PG_PASS}@app-postgres:5432/${PG_DB}?sslmode=disable"
     ports:
       - "${PG_EXPORTER_PORT}:9187"
     depends_on:
-      - app-postgres
+      app-postgres:
+        condition: service_healthy
 
 volumes:
   app-postgres-db-volume:

@@ -24,9 +24,14 @@ class HabrTransformer(
         .withColumn("employment_type", col("employment"))
         .withColumn("salary_from", col("salary.from"))
         .withColumn("salary_to", col("salary.to"))
-        .withColumn("salary_currency_id", upper(col("salary.currency")))
+        .withColumn("salary_currency_id",
+          when(upper(col("salary.currency")) === "RUR", lit("RUB"))
+            .when(upper(col("salary.currency")) === "BYR", lit("BYN"))
+            .otherwise(upper(col("salary.currency")))
+        )
         .withColumn("url", concat(lit("https://career.habr.com/vacancies/"), col("id")))
         .withColumn("closed_at", lit(null).cast(TimestampType))
+        .dropDuplicates("id")
 
       val vacanciesDF: DataFrame = transformedDF.select("id", "title", "remote_work", "grade", "published_at",
           "employer", "employment_type", "salary_from", "salary_to", "salary_currency_id", "url", "closed_at")

@@ -19,16 +19,18 @@ class GetMatchExtractor(
 
     import spark.implicits._
 
+    val _apiBaseUrl = apiBaseUrl
+
     val totalUrls: Int = math.min({
       val body: String = webService.readOrDefault(
-        GetMatchExtractor.clusterURL(conf, apiBaseUrl, perPage = 1), """{"total":0}"""
+        GetMatchExtractor.clusterURL(conf, _apiBaseUrl, perPage = 1), """{"total":0}"""
       )
       """"total"\s*:\s*(\d+)""".r.findFirstMatchIn(body).get.group(1).toInt
     }, conf.vacsLimit) / conf.vacsPerPage
 
 
     val clusterURLs: Dataset[String] = (0 to totalUrls)
-      .map(page => GetMatchExtractor.clusterURL(conf, apiBaseUrl, page = page))
+      .map(page => GetMatchExtractor.clusterURL(conf, _apiBaseUrl, page = page))
       .toDS().repartition(netPartition)
 
     val clustersDS: Dataset[String] = clusterURLs
@@ -44,7 +46,7 @@ class GetMatchExtractor(
 
 
     vacancyIdsDF.mapPartitions(part => part.flatMap(row => {
-      webService.readOrNone(GetMatchExtractor.vacancyURL(apiBaseUrl, row.getLong(0)))
+      webService.readOrNone(GetMatchExtractor.vacancyURL(_apiBaseUrl, row.getLong(0)))
     })).repartition(rawPartition)
   }
 
@@ -53,15 +55,17 @@ class GetMatchExtractor(
 
       import spark.implicits._
 
+      val _apiBaseUrl = apiBaseUrl
+
       idsDF.mapPartitions(part => part.flatMap(row => {
         val body: String = webService.readOrDefault(
-          GetMatchExtractor.vacancyURL(apiBaseUrl, row.getLong(0)), """"is_active":true"""
+          GetMatchExtractor.vacancyURL(_apiBaseUrl, row.getLong(0)), """"is_active":true"""
         )
         """\s*"is_active":\s*false\s*""".r.findFirstMatchIn(body) match {
           case Some(_) => Some(row.getLong(0))
           case _ => None
         }
-      })).toDF()
+      })).toDF("id")
     }
 }
 
