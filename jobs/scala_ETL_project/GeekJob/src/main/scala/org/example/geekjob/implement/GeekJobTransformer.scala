@@ -3,8 +3,9 @@ package org.example.geekjob.implement
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
-import org.example.config.FolderName.FolderName
+import org.example.config.FolderName.{FolderName, Stage}
 import org.example.core.Interfaces.ETL.Transformer
+import org.example.geekjob.config.GeekJobFolderNames
 import org.jsoup.Jsoup
 import org.jsoup.nodes.{Document, Element}
 import org.jsoup.select.Elements
@@ -44,10 +45,10 @@ class GeekJobTransformer(
       Map(
         FolderName.Vacancies -> vacancies,
         FolderName.Locations -> explodeList(rawDF, "locations"),
-        FolderName.stage("JobFormats") -> explodeList(rawDF, "job_format"),
+        GeekJobFolderNames.jobFormats -> explodeList(rawDF, "job_format"),
         FolderName.Skills -> explodeList(rawDF, "specs"),
         FolderName.Fields -> explodeList(rawDF, "fields"),
-        FolderName.stage("Grades") -> explodeList(rawDF, "level")
+        GeekJobFolderNames.grades -> explodeList(rawDF, "level")
       )
 
     }

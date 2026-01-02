@@ -5,25 +5,22 @@ case class FolderName private (fullPath: String, folderName: String)
 
 object FolderName extends FolderNames {
   def apply(layer: Layer, domain: Domain, folderName: String): FolderName = {
-    construct(folderName, layer, Some(domain))
-  }
-  def apply(layer: Layer, folderName: String): FolderName = {
-    construct(folderName, layer, None)
+    construct(layer, domain, folderName)
   }
 
-  def stage(folderName: String): FolderName = {
-    construct(folderName, Stage, None)
+  def apply(layer: Layer, folderName: String): FolderName = {
+    construct(layer, Empty, folderName)
   }
 
   private def construct(
-                         folderName: String,
                          layer: Layer,
-                         domain: Option[Domain],
+                         domain: Domain,
+                         folderName: String
                        ): FolderName = {
     val parts = Seq(
-      Some(layer.name),
-      domain.map(_.name),
-      Some(folderName)
+      layer.name,
+      domain.name,
+      folderName
     )
 
     new FolderName(parts.flatten.mkString("", "/", ""), folderName)

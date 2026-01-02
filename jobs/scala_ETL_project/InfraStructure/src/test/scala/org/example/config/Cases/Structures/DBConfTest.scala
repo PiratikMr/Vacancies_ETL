@@ -20,7 +20,7 @@ class DBConfTest extends AnyFlatSpec {
   }
 
   "DBConf" should "generate correct table name" in {
-    testDbConf.getDBTableName(FolderName.stage("Vacancies")) shouldBe "testPlatform_vacancies"
+    testDbConf.getDBTableName(FolderName.Vacancies) shouldBe "testPlatform_vacancies"
   }
 
 }

@@ -1,13 +1,13 @@
 package org.example.geekjob
 
-import org.example.config.FolderName.FolderName
+import org.example.config.FolderName.{FolderName, Stage}
 import org.example.config.TableConfig.{TableConfig, TableRegistry}
 import org.example.core.implement.HDFS.HDFSService
 import org.example.core.implement.Network.{STTPBackendContext, STTPBackends, STTPService}
 import org.example.core.implement.Postgres.PostgresService
 import org.example.core.objects.LoadDefinition
 import org.example.core.{ETLCycle, SparkApp}
-import org.example.geekjob.config.{GeekJobArgsLoader, GeekJobFileLoader}
+import org.example.geekjob.config.{GeekJobArgsLoader, GeekJobFileLoader, GeekJobFolderNames}
 import org.example.geekjob.implement.{GeekJobExtractor, GeekJobTransformer}
 
 object GeekJobMain extends App {
@@ -44,8 +44,8 @@ object GeekJobMain extends App {
     loader = Some(() => Seq(
       TableRegistry.Vacancies,
       TableRegistry.Fields,
-      LoadDefinition(FolderName.stage("JobFormats"), TableConfig.list()),
-      LoadDefinition(FolderName.stage("Grades"), TableConfig.list()),
+      LoadDefinition(GeekJobFolderNames.jobFormats, TableConfig.list()),
+      LoadDefinition(GeekJobFolderNames.grades, TableConfig.list()),
       TableRegistry.Locations,
       TableRegistry.Skills
     )),

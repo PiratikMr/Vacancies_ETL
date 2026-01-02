@@ -5,10 +5,10 @@ import org.example.config.TableConfig.{ExplicitUpdates, TableConfig}
 import org.example.core.objects.LoadDefinition
 
 case class HHFolderName(
-                        raw: FolderName,
-                        stage: FolderName,
-                        loadDefinition: LoadDefinition
-                        )
+                         raw: FolderName,
+                         stage: FolderName,
+                         loadDefinition: LoadDefinition
+                       )
 
 object HHFolderNames {
 
