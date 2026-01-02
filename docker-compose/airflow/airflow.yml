@@ -99,10 +99,11 @@ services:
 
   statsd-exporter:
     image: prom/statsd-exporter:v0.28.0
-    entrypoint: ["/bin/sh", "-c", "--"]
-    command: ["statsd_exporter --log.level debug"]
+    command: "--statsd.mapping-config=/tmp/statsd_mapping.yml"
     ports:
       - "11102:9102"
+    volumes:
+      - ./statsd_mapping.yml:/tmp/statsd_mapping.yml
 
 volumes:
   airflow-db-volume:
