@@ -23,7 +23,7 @@ object FolderName extends FolderNames {
       folderName
     )
 
-    new FolderName(parts.flatten.mkString("", "/", ""), folderName)
+    new FolderName(parts.mkString("", "/", ""), folderName)
   }
 }
 
