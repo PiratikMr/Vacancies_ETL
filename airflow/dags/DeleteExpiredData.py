@@ -13,11 +13,11 @@ transDataExpiresIn = confTree.get_string("Dags.DeleteData.transformedData")
 
 def deleteData_command():
     return f"""
-        execution_date=$(date -d "{{{{ logical_date }}}}" +%Y-%m-%d)
+        execution_date=$(date -d "{{{{ ds }}}}" +%Y-%m-%d)
         raw_target=$(date -d "$execution_date - {rawDataExpiresIn} days" +%s)
         trans_target=$(date -d "$execution_date - {transDataExpiresIn} days" +%s)
 
-        hdfs ls /{hdfsPath}/*/*/*/ | while read -r path; do
+        hdfs ls /{hdfsPath}/*/*/*/*/ | while read -r path; do
             if [[ $path == /* ]]; then
                 root_path="${{path::-1}}"
             elif [[ $path == ????-??-??* ]]; then
