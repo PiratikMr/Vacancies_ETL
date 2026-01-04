@@ -59,7 +59,7 @@ class FinderExtractor(
 
       import spark.implicits._
 
-      idsDF.mapPartitions(part => part.flatMap(row => {
+      idsDF.repartition(netRepartition).mapPartitions(part => part.flatMap(row => {
         val id: Long = row.getLong(0)
         val body = webService.readOrDefault(FinderExtractor.vacancyURL(_apiBaseUrl, id), """{"status": "pupu"}""")
         """\s*"status": "active"\s*""".r.findFirstMatchIn(body) match {

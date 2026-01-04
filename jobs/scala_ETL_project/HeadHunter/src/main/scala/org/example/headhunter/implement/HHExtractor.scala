@@ -64,7 +64,7 @@ class HHExtractor(
 
     val _apiBaseUrl = apiBaseUrl
 
-    idsDF.mapPartitions(part => part.flatMap(row => {
+    idsDF.repartition(netPartition).mapPartitions(part => part.flatMap(row => {
       val id: Long = row.getLong(0)
 
       webService.read(HHExtractor.vacancyURL(_apiBaseUrl, s"$id")) match {

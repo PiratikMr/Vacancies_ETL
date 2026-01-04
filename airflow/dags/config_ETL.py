@@ -28,7 +28,7 @@ PLATFORMS = [
     Platform("exchangerate", "Currency", u = False),
     Platform("fn", "Finder"),
     Platform("gm", "GetMatch"),
-    Platform("gj", "GeekJOB"),
+    Platform("gj", "GeekJob"),
     Platform("hc", "HabrCareer"),
     Platform("hh", "HeadHunterDictionaries", u = False),
     Platform("hh", "HeadHunter", args = [("datefrom", "Dags.ETL.dateFrom", False)])

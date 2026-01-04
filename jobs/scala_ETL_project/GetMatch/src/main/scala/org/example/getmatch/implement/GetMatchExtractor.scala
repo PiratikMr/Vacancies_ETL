@@ -57,7 +57,7 @@ class GetMatchExtractor(
 
       val _apiBaseUrl = apiBaseUrl
 
-      idsDF.mapPartitions(part => part.flatMap(row => {
+      idsDF.repartition(netPartition).mapPartitions(part => part.flatMap(row => {
         val body: String = webService.readOrDefault(
           GetMatchExtractor.vacancyURL(_apiBaseUrl, row.getLong(0)), """"is_active":true"""
         )
