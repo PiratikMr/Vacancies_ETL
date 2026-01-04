@@ -9,6 +9,7 @@ target-path: "target"
 models:
   datawarehouse_project:
     +materialized: materialized_view
+    +on_configuration_change: apply
 
     staging:
       +schema: staging

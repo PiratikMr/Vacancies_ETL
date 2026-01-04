@@ -34,11 +34,7 @@ services:
     working_dir: /usr/app
     entrypoint: ["/bin/bash", "-c"]
     command: >
-      "if [ -f target/manifest.json ]; then
-        dbt run --models state:modified+ --state target;
-      else
-        dbt run;
-      fi"
+      "dbt run --full-refresh"
     environment:
       DBT_HOST: app-postgres
       DBT_USER: ${PG_USER}

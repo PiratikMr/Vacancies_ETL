@@ -3,7 +3,9 @@ with data as (
         concat('fn_', id) as id,
         closed_at,
         'Finder' as source,
-        published_at
+        published_at,
+        url,
+        title
     from {{ source('raw_data', 'fn_vacancies') }}
 
     union all
@@ -12,7 +14,9 @@ with data as (
         concat('gj_', id) as id,
         closed_at,
         'GeekJob' as source,
-        published_at
+        published_at,
+        url,
+        title
     from {{ source('raw_data', 'gj_vacancies') }}
 
     union all
@@ -21,7 +25,9 @@ with data as (
         concat('gm_', id) as id,
         closed_at,
         'GetMatch' as source,
-        published_at
+        published_at,
+        url,
+        title
     from {{ source('raw_data', 'gm_vacancies') }}s
 
     union all
@@ -30,7 +36,9 @@ with data as (
         concat('hc_', id) as id,
         closed_at,
         'HabrCareer' as source,
-        published_at
+        published_at,
+        url,
+        title
     from {{ source('raw_data', 'hc_vacancies') }}
 
     union all
@@ -39,7 +47,9 @@ with data as (
         concat('hh_', id) as id,
         closed_at,
         'HeadHunter' as source,
-        published_at
+        published_at,
+        url,
+        title
     from {{ source('raw_data', 'hh_vacancies') }}
 
     union all
@@ -48,7 +58,9 @@ with data as (
         concat('az_', id) as id,
         closed_at,
         'Adzuna' as source,
-        published_at
+        published_at,
+        url,
+        title
     from {{ source('raw_data', 'az_vacancies') }}
 ) 
 
@@ -56,5 +68,7 @@ select
     id,
     closed_at,
     source,
-    published_at
+    published_at,
+    url,
+    title
 from data

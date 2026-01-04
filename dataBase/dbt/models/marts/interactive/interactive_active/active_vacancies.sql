@@ -15,6 +15,8 @@
 select
     v.id as id,
     v.source as source,
+    v.url as url,
+    v.title as title,
     v.published_at as published_at,
     s.salary as salary,
     s.has_range as has_range,

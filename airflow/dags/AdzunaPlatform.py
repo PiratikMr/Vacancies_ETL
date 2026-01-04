@@ -32,7 +32,7 @@ def create_dag():
         if i < total_idxs - 1:
             wait_task = BashOperator(
                 task_id=f"wait_after_idx_{idx}",
-                bash_command="sleep 70"
+                bash_command="sleep 45"
             )
             
             prevTask >> wait_task
