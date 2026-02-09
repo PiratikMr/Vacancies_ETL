@@ -45,3 +45,4 @@ select
     id,
     employment
 from data
+where employment is not null

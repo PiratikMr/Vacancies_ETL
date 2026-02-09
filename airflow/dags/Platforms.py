@@ -18,7 +18,7 @@ for config in PLATFORMS:
         
         prevTask = None
         for part in config.parts:
-            currTask = spark_ETLTaskBuild(part, config.moduleName, args)
+            currTask = spark_ETLTaskBuild(part, config.moduleName, config.moduleName, args)
             if prevTask:
                 prevTask >> currTask
             prevTask = currTask

@@ -20,8 +20,9 @@ class Platform:
             ("savefolder", "Dags.ETL.fileName", False),
             ("conffile", self.fileName, True)
         ] + args 
-        self.parts = ["update"] if u else []
-        self.parts.extend(["extract", "transform", "load"])
+        # self.parts = ["update"] if u else []
+        # self.parts.extend(["extract", "transform", "load"])
+        self.parts = ["e", "tl"]
         
 
 PLATFORMS = [

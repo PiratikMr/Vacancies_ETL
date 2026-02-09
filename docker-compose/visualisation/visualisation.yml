@@ -1,0 +1,34 @@
+services:  
+  superset:
+    build: .
+    container_name: superset
+    ports:
+      - "16088:8088"
+    volumes:
+      - superset-volume:/app/superset_data
+      - ../../superset:/superset-mount
+    environment:
+      - SUPERSET_CONFIG_PATH=/superset-mount/conf/superset_config.py
+    command: [ "/bin/bash", "/superset-mount/conf/start-superset.sh" ]
+    depends_on:
+      app-postgres:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana-enterprise:11.6.1
+    container_name: grafana
+    ports:
+      - "16000:3000"
+    volumes:
+      - ../../grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ../../grafana/provisioning/dashboards/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
+      - ../../grafana/dashboards-json:/var/lib/grafana/dashboards
+      - grafana-volume:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    depends_on:
+      - prometheus
+
+volumes:
+  superset-volume:
+  grafana-volume:

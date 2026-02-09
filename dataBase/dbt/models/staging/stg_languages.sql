@@ -12,6 +12,7 @@ with data as (
             'Любой'
         end as level
     from {{ source('raw_data', 'gm_vacancies') }}
+    where english_level is not null
 
     union all
 
@@ -36,3 +37,4 @@ select
     language,
     level
 from data
+where language is not null

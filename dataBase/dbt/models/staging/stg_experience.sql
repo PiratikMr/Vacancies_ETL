@@ -47,3 +47,4 @@ select
     id,
     experience
 from data
+where experience is not null
