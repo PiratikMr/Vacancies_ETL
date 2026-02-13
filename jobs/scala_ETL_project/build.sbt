@@ -38,7 +38,8 @@ lazy val Core = (project in file("Core"))
       "org.rogach" %% "scallop" % "5.2.0",
       "com.github.rholder" % "snowball-stemmer" % "1.3.0.581.1",
       "com.softwaremill.sttp.client4" %% "core" % "4.0.10",
-      "org.postgresql" % "postgresql" % "42.7.7"
+      "org.postgresql" % "postgresql" % "42.7.7",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
     )
   ).dependsOn(TestUtils % Test)
 
@@ -55,15 +56,15 @@ val platformFolder = "platforms/"
 //  .dependsOn(infra_structure)
 //  .dependsOn(TestUtils % Test)
 //
-//lazy val Finder = (project in file("Finder"))
-//  .settings(
-//    assemblySettings,
-//    assembly / mainClass := Some("org.example.finder.FinderMain"),
-//    assembly / assemblyJarName := "Finder-etl.jar"
-//  )
-//  .dependsOn(infra_structure)
-//  .dependsOn(TestUtils % Test)
-//
+lazy val Finder = (project in file(s"${platformFolder}Finder"))
+  .settings(
+    assemblySettings,
+    assembly / mainClass := Some("org.example.finder.FinderMain"),
+    assembly / assemblyJarName := "Finder-etl.jar"
+  )
+  .dependsOn(Core)
+  .dependsOn(TestUtils % Test)
+
 lazy val GeekJob = (project in file(s"${platformFolder}GeekJob"))
   .settings(
     assemblySettings,
@@ -72,14 +73,14 @@ lazy val GeekJob = (project in file(s"${platformFolder}GeekJob"))
     assembly / assemblyJarName := "GeekJob-etl.jar"
   )
   .dependsOn(Core)
-//
-//lazy val GetMatch = (project in file("GetMatch"))
-//  .settings(
-//    assemblySettings,
-//    assembly / mainClass := Some("org.example.getmatch.GetMatchMain"),
-//    assembly / assemblyJarName := "GetMatch-etl.jar"
-//  )
-//  .dependsOn(infra_structure)
+
+lazy val GetMatch = (project in file(s"${platformFolder}GetMatch"))
+  .settings(
+    assemblySettings,
+    assembly / mainClass := Some("org.example.getmatch.GetMatchMain"),
+    assembly / assemblyJarName := "GetMatch-etl.jar"
+  )
+  .dependsOn(Core)
 
 
 lazy val HeadHunter = (project in file(s"${platformFolder}HeadHunter"))

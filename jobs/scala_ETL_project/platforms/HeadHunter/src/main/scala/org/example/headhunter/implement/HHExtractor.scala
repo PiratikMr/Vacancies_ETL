@@ -4,6 +4,7 @@ import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.types.{ArrayType, StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.example.core.adapter.web.WebAdapter
+import org.example.core.adapter.web.impl.sttp.model.HttpError
 import org.example.core.etl.Extractor
 
 class HHExtractor(
@@ -27,9 +28,9 @@ class HHExtractor(
 
 
     val clusterURLs: Dataset[String] = profRolesIds.mapPartitions(part => part.flatMap(role_id => {
-      val body: String = webService.readOrDefault(
-        HHExtractor.clusterURL(_apiBaseUrl, _dateFrom, role_id, 0, 0), """{"found":0}"""
-      )
+      val body: String = webService.readBody(
+        HHExtractor.clusterURL(_apiBaseUrl, _dateFrom, role_id, 0, 0)
+      ).getOrElse("""{"found":0}""")
 
       val found: Int = """"found"\s*:\s*(\d+)""".r.findFirstMatchIn(body).get.group(1).toInt
 
@@ -39,7 +40,7 @@ class HHExtractor(
     }))
 
     val clusterData: Dataset[String] = clusterURLs.mapPartitions(part => part.flatMap(url =>
-      webService.readOrNone(url)
+      webService.readBodyOrNone(url)
     ))
 
     val schema: StructType = StructType(Seq(StructField("items", ArrayType(StructType(Seq(StructField("id", StringType)))))))
@@ -49,7 +50,7 @@ class HHExtractor(
       .map(row => HHExtractor.vacancyURL(_apiBaseUrl, row.getString(0)))
 
     vacURLs.repartition(netPartition).mapPartitions(part => part.flatMap(url =>
-      webService.readOrNone(url)
+      webService.readBodyOrNone(url)
     )).repartition(rawPartition)
   }
 
@@ -62,9 +63,9 @@ class HHExtractor(
     idsDF.repartition(netPartition).mapPartitions(part => part.flatMap(row => {
       val id: Long = row.getLong(0)
 
-      webService.read(HHExtractor.vacancyURL(_apiBaseUrl, s"$id")) match {
-        case Right(body) if body.contains(""""archived":true""") => Some(id)
-        case Left(error) if error.contains("Status: 404") => Some(id)
+      webService.execute(HHExtractor.vacancyURL(_apiBaseUrl, s"$id")) match {
+        case Right(response) if response.body.contains(""""archived":true""") => Some(id)
+        case Left(HttpError(404, _)) => Some(id)
         case _ => None
       }
     })).toDF("id")

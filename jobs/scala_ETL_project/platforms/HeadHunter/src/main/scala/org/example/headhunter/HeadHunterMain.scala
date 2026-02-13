@@ -3,7 +3,7 @@ package org.example.headhunter
 import org.apache.spark.sql.functions.col
 import org.example.core.adapter.database.impl.postgres.PostgresAdapter
 import org.example.core.adapter.storage.impl.hdfs.HDFSAdapter
-import org.example.core.adapter.web.impl.sttp.{STTPAdapter, STTPBackendContext, STTPBackends}
+import org.example.core.adapter.web.impl.sttp.STTPAdapter
 import org.example.core.etl.ETLUService
 import org.example.core.util.SparkApp
 import org.example.headhunter.config.{FolderNames, HHArgsLoader, HHFileLoader}
@@ -31,7 +31,7 @@ object HeadHunterMain extends App {
     spark,
     dbService,
     hdfsAdapter,
-    new STTPAdapter(fileConfig.structures.netConf, () => STTPBackendContext.getBackend(STTPBackends.DEFAULT))
+    STTPAdapter(fileConfig.structures.netConf)
   )
 
   private val extractor = new HHExtractor(

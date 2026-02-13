@@ -17,14 +17,15 @@ object StructuresFileParsing {
       )
     }
 
-  def parseDBConf(config: Config, platform: String): DBConf = {
+  def parseDBConf(config: Config): DBConf = {
       DBConf(
         name = config.getString("userName"),
         pass = config.getString("userPassword"),
         host = config.getString("host"),
         port = config.getString("port"),
         base = config.getString("baseName"),
-        platform = platform
+        maxPartitions = config.getInt("maxPartitions"),
+        batchSize = config.getInt("batchSize")
       )
     }
 

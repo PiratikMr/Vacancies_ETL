@@ -6,7 +6,9 @@ case class DBConf(
                  host: String,
                  port: String,
                  base: String,
-                 platform: String
+
+                 maxPartitions: Integer,
+                 batchSize: Integer
                  ) {
   def url: String = s"jdbc:postgresql://$host:$port/$base"
 }

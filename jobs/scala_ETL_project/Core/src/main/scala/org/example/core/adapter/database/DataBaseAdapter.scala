@@ -5,9 +5,9 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 trait DataBaseAdapter {
 
   def loadTable(
-            spark: SparkSession,
-            targetTable: String
-          ): DataFrame
+                 spark: SparkSession,
+                 targetTable: String
+               ): DataFrame
 
   def loadQuery(
                  spark: SparkSession,

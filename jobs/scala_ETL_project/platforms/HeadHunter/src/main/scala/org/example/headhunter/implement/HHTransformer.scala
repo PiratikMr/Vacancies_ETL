@@ -9,8 +9,9 @@ import org.example.core.config.schema.SchemaRegistry.DataBase.Entities
 import org.example.core.config.schema.SchemaRegistry.Internal.RawVacancy
 import org.example.core.etl.Transformer
 import org.example.core.normalization.factory.NormalizerFactory
-import org.example.core.normalization.model.NormalizerHelper
 import org.example.core.objects.NormalizersEnum._
+import org.example.core.normalization.api.NormalizationTask.{Exact, ExtractTags}
+import org.example.core.normalization.service.NormalizationOrchestrator
 
 class HHTransformer(
                      areas: DataFrame,
@@ -76,7 +77,7 @@ class HHTransformer(
 
   override def normalize(spark: SparkSession, transformedData: DataFrame): DataFrame = {
 
-    val base = new NormalizerHelper(spark, dbAdapter, fuzzyConf)
+    new NormalizationOrchestrator(spark, dbAdapter, fuzzyConf)
       .normalize(Seq(
         CURRENCY,
         EMPLOYER,
@@ -87,15 +88,9 @@ class HHTransformer(
         PLATFORM,
         SCHEDULES,
         SKILLS,
-        LANGUAGES
+        LANGUAGES,
+        ExtractTags(GRADES, RawVacancy.description.name)
       ), transformedData)
-
-
-    val gradesResult = NormalizerFactory.getGradesNormalizer(spark, dbAdapter, fuzzyConf.get(GRADES))
-      .extractTags(transformedData, RawVacancy.description.name)
-
-    base.join(gradesResult.mappedDf, Seq(RawVacancy.externalId.name), "left")
-      .withColumnRenamed(gradesResult.mappedIdCol, Entities.Grades.bridge.entityId.name)
   }
 }
 

@@ -1,10 +1,10 @@
 package org.example.getmatch
 
-import org.example.config.TableConfig.TableRegistry
-import org.example.core.implement.HDFS.HDFSService
-import org.example.core.implement.Network.{STTPBackendContext, STTPBackends, STTPService}
-import org.example.core.implement.Postgres.PostgresService
-import org.example.core.{ETLCycle, SparkApp}
+import org.example.core.adapter.database.impl.postgres.PostgresAdapter
+import org.example.core.adapter.storage.impl.hdfs.HDFSAdapter
+import org.example.core.adapter.web.impl.sttp.{STTPAdapter, STTPBackendFactory, STTPBackends}
+import org.example.core.etl.ETLUService
+import org.example.core.util.SparkApp
 import org.example.getmatch.config.{GetMatchArgsLoader, GetMatchFileLoader}
 import org.example.getmatch.implement.{GetMatchExtractor, GetMatchTransformer}
 
@@ -16,11 +16,14 @@ object GetMatchMain extends App {
   private val spark = SparkApp.defineSession(fileConfig.structures.sparkConf, argsConfig.common.etlPart)
 
 
-  private val ec = new ETLCycle(
+  private val dbAdapter = new PostgresAdapter(fileConfig.structures.dbConf)
+
+
+  private val ec = new ETLUService(
     spark,
-    new PostgresService(fileConfig.structures.dbConf),
-    new HDFSService(fileConfig.structures.fsConf),
-    new STTPService(fileConfig.structures.netConf, () => STTPBackendContext.getBackend(STTPBackends.DEFAULT))
+    dbAdapter,
+    new HDFSAdapter(fileConfig.structures.fsConf),
+    new STTPAdapter(fileConfig.structures.netConf, () => STTPBackendFactory.getBackend(STTPBackends.DEFAULT))
   )
 
 
@@ -32,6 +35,8 @@ object GetMatchMain extends App {
   )
 
   private val transformer = new GetMatchTransformer(
+    dbAdapter,
+    fileConfig.structures.fuzzyMatcherConf,
     fileConfig.common.transformPartitions
   )
 
@@ -39,10 +44,6 @@ object GetMatchMain extends App {
     argsConfig.common.etlPart,
     extractor = Some(extractor),
     transformer = Some(transformer),
-    loader = Some(() => Seq(
-      TableRegistry.Vacancies,
-      TableRegistry.Skills
-    )),
     updater = Some(() => fileConfig.common.updateLimit)
   )
 

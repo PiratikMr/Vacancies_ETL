@@ -3,7 +3,7 @@ package org.example.headhunter.dictionaries
 import org.apache.spark.sql.{Dataset, SparkSession}
 import org.example.core.adapter.storage.impl.hdfs.HDFSAdapter
 import org.example.core.adapter.web.WebAdapter
-import org.example.core.adapter.web.impl.sttp.{STTPAdapter, STTPBackendContext, STTPBackends}
+import org.example.core.adapter.web.impl.sttp.STTPAdapter
 import org.example.core.util.SparkApp
 import org.example.headhunter.config.FolderNames
 import org.example.headhunter.dictionaries.config.{HHArgsLoader, HHFileLoader}
@@ -19,9 +19,7 @@ object DictionariesMain {
     val spark = SparkApp.defineSession(fileConfig.structures.sparkConf, "dictionaries")
 
     val hdfsService = new HDFSAdapter(fileConfig.structures.fsConf)
-    val sttpService = new STTPAdapter(fileConfig.structures.netConf,
-      () => STTPBackendContext.getBackend(STTPBackends.DEFAULT)
-    )
+    val sttpService = STTPAdapter(fileConfig.structures.netConf)
 
     val rawAreas = extract(spark, sttpService, getUrl(fileConfig.common.apiBaseUrl, "/areas"))
     val areas = AreasTransformer.transform(spark, rawAreas)
@@ -36,11 +34,10 @@ object DictionariesMain {
   }
 
 
-
   private def extract(spark: SparkSession, webService: WebAdapter, url: String): Dataset[String] = {
     import spark.implicits._
 
-    val body = webService.readOrDefault(url, "")
+    val body = webService.readBody(url).getOrElse("")
     Seq(body).toDS
   }
 

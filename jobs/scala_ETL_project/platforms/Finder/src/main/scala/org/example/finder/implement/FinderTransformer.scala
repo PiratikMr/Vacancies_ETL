@@ -1,53 +1,71 @@
 package org.example.finder.implement
 
-import org.apache.spark.sql.functions.{col, concat, explode, lit, to_timestamp, when}
-import org.apache.spark.sql.types.{ArrayType, BooleanType, DoubleType, LongType, StringType, StructField, StructType, TimestampType}
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
-import org.example.config.FolderName.FolderName
-import org.example.core.Interfaces.ETL.Transformer
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
+import org.example.core.adapter.database.DataBaseAdapter
+import org.example.core.config.model.structures.FuzzyMatcherConf
+import org.example.core.config.schema.SchemaRegistry.Internal.RawVacancy
+import org.example.core.etl.Transformer
+import org.example.core.normalization.api.NormalizationTask.ExtractTags
+import org.example.core.normalization.service.NormalizationOrchestrator
+import org.example.core.objects.NormalizersEnum._
 
-class FinderTransformer(
-                       transformPartition: Int
-                       ) extends Transformer {
+class FinderTransformer(dbAdapter: DataBaseAdapter,
+                        fuzzyConf: FuzzyMatcherConf) extends Transformer {
 
   override def toRows(spark: SparkSession, rawDS: Dataset[String]): DataFrame =
     spark.read.schema(FinderTransformer.schema).json(rawDS)
 
-  override def transform(spark: SparkSession, rawDF: DataFrame): Map[FolderName, DataFrame] =
-    {
-      val transformedDF: DataFrame = rawDF
-        .withColumn("published_at", to_timestamp(col("publication_at")))
-        .withColumn("salary_currency_id",
-          when(col("currency_symbol") === "RUR", lit("RUB"))
-            .when(col("currency_symbol") === "BYR", lit("BYN"))
-            .otherwise(col("currency_symbol"))
-        )
-        .withColumn("url", concat(lit("https://finder.work/vacancies/"), col("id")))
-        .withColumn("employer", col("company.title"))
-        .withColumn("address_lat", col("place.lat").cast(DoubleType))
-        .withColumn("address_lng", col("place.lon").cast(DoubleType))
-        .withColumn("closed_at", lit(null).cast(TimestampType))
-        .dropDuplicates("id")
+  override def transform(spark: SparkSession, rawDF: DataFrame): DataFrame = {
+    rawDF
+      .select(
+        col("id").cast(StringType).as(RawVacancy.externalId.name),
+        lit("Finder").as(RawVacancy.platform.name),
+        col("company.title").as(RawVacancy.employer.name),
+        col("currency_symbol").as(RawVacancy.currency.name),
+        col("experience").as(RawVacancy.experience.name),
 
-      val vacanciesDF: DataFrame = transformedDF.select("id", "title", "employment_type", "salary_from", "salary_to",
-        "salary_currency_id", "published_at", "url", "experience", "distant_work", "employer", "address_lat", "address_lng",
-        "closed_at").repartition(transformPartition)
+        col("place.lat").cast(DoubleType).as(RawVacancy.latitude.name),
+        col("place.lon").cast(DoubleType).as(RawVacancy.longitude.name),
 
-      val locationsDF: DataFrame = transformedDF.select(col("id"), explode(col("locations")).as("location"))
-        .select(col("id"), col("location.name").as("name"), col("location.country.name").as("country"))
-        .repartition(1)
+        col("salary_from").cast(DoubleType).as(RawVacancy.salaryFrom.name),
+        col("salary_to").cast(DoubleType).as(RawVacancy.salaryTo.name),
 
-      val fieldsDF: DataFrame = transformedDF.select(col("id"), explode(col("professions")).as("role"))
-        .select(col("id"), col("role.title").as("name"))
-        .repartition(1)
+        to_timestamp(col("publication_at")).as(RawVacancy.publishedAt.name),
+        col("title").as(RawVacancy.title.name),
+        col("description").as(RawVacancy.description.name),
+        concat(lit("https://finder.work/vacancies/"), col("id")).as(RawVacancy.url.name),
 
+        array(col("employment_type")).as(RawVacancy.employments.name),
 
-      Map(
-        FolderName.Vacancies -> vacanciesDF,
-        FolderName.Locations -> locationsDF,
-        FolderName.Fields -> fieldsDF
+        functions.transform(
+          col("locations"),
+          loc => struct(
+            loc.getField("name").as(RawVacancy.locationRegion.name),
+            loc.getField("country").getField("name").as(RawVacancy.locationCountry.name)
+          )
+        ).as(RawVacancy.locations.name),
+
+        col("professions.title").as(RawVacancy.fields.name)
       )
-    }
+  }
+
+  override def normalize(spark: SparkSession, transformedData: DataFrame): DataFrame = {
+    new NormalizationOrchestrator(spark, dbAdapter, fuzzyConf)
+      .normalize(Seq(
+        CURRENCY,
+        EMPLOYER,
+        EMPLOYMENTS,
+        EXPERIENCE,
+        FIELDS,
+        LOCATIONS,
+        PLATFORM
+//        ExtractTags(SCHEDULES, RawVacancy.description.name),
+//        ExtractTags(SKILLS, RawVacancy.description.name),
+//        ExtractTags(GRADES, RawVacancy.description.name)
+      ), transformedData)
+  }
 }
 
 object FinderTransformer {
@@ -77,7 +95,8 @@ object FinderTransformer {
     ))),
     StructField("professions", ArrayType(StructType(Seq(
       StructField("title", StringType)
-    ))))
+    )))),
+    StructField("description", StringType)
   ))
 
 }

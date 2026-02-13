@@ -6,9 +6,10 @@ import org.example.core.config.model.structures.FuzzyMatchSettings
 import org.example.core.config.schema.DataBaseOneToManyEntity
 import org.example.core.config.schema.SchemaRegistry.DataBase.Entities
 import org.example.core.config.schema.SchemaRegistry.Internal.RawVacancy
-import org.example.core.normalization.Normalizer
+import org.example.core.normalization.api.Normalizer
+import org.example.core.normalization.config.{DimTableConf, MappingDimTableConf}
+import org.example.core.normalization.impl.strategy.{Aggregators, Extractors, RawDataExtractor, ResultAggregator}
 import org.example.core.normalization.impl.{GenericNormalizer, HierarchicalNormalizer, LanguageNormalizer}
-import org.example.core.normalization.model._
 import org.example.core.normalization.service.NormalizeService
 import org.example.core.objects.NormalizersEnum._
 

@@ -4,7 +4,8 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.config.model.structures.FuzzyMatchSettings
-import org.example.core.normalization.model.{DimTableConf, MappingDimTableConf, NormalizeServiceResult}
+import org.example.core.normalization.config.{DimTableConf, MappingDimTableConf}
+import org.example.core.normalization.model.NormalizeServiceResult
 import org.example.core.normalization.service.NormalizeService._
 import org.example.core.normalization.service.matching.FuzzyMatcher
 

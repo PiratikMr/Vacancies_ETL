@@ -3,8 +3,8 @@ package org.example.getmatch.implement
 import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.types.{ArrayType, LongType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
-import org.example.core.Interfaces.ETL.Extractor
-import org.example.core.Interfaces.Services.WebService
+import org.example.core.adapter.web.WebAdapter
+import org.example.core.etl.Extractor
 import org.example.getmatch.config.GetMatchFileConfig
 
 class GetMatchExtractor(
@@ -14,17 +14,17 @@ class GetMatchExtractor(
                          rawPartition: Int
                        ) extends Extractor {
 
-  override def extract(spark: SparkSession, webService: WebService): Dataset[String] =
-  {
+  override def extract(spark: SparkSession, webAdapter: WebAdapter): Dataset[String] = {
 
     import spark.implicits._
 
     val _apiBaseUrl = apiBaseUrl
 
     val totalUrls: Int = math.min({
-      val body: String = webService.readOrDefault(
-        GetMatchExtractor.clusterURL(conf, _apiBaseUrl, perPage = 1), """{"total":0}"""
-      )
+      val body: String = webAdapter.readBody(
+        GetMatchExtractor.clusterURL(conf, _apiBaseUrl, perPage = 1),
+      ).getOrElse("""{"total":0}""")
+
       """"total"\s*:\s*(\d+)""".r.findFirstMatchIn(body).get.group(1).toInt
     }, conf.vacsLimit) / conf.vacsPerPage
 
@@ -34,7 +34,7 @@ class GetMatchExtractor(
       .toDS().repartition(netPartition)
 
     val clustersDS: Dataset[String] = clusterURLs
-      .mapPartitions(part => part.flatMap(url => webService.readOrNone(url)))
+      .mapPartitions(part => part.flatMap(url => webAdapter.readBodyOrNone(url)))
 
     val vacancyIdsDF: DataFrame = spark.read.schema(StructType(Seq(
         StructField("offers", ArrayType(StructType(Seq(StructField("id", LongType)))))
@@ -46,27 +46,26 @@ class GetMatchExtractor(
 
 
     vacancyIdsDF.mapPartitions(part => part.flatMap(row => {
-      webService.readOrNone(GetMatchExtractor.vacancyURL(_apiBaseUrl, row.getLong(0)))
+      webAdapter.readBodyOrNone(GetMatchExtractor.vacancyURL(_apiBaseUrl, row.getLong(0)))
     })).repartition(rawPartition)
   }
 
-  override def filterUnActiveVacancies(spark: SparkSession, idsDF: DataFrame, webService: WebService): DataFrame =
-    {
+  override def filterUnActiveVacancies(spark: SparkSession, idsDF: DataFrame, webAdapter: WebAdapter): DataFrame = {
 
-      import spark.implicits._
+    import spark.implicits._
 
-      val _apiBaseUrl = apiBaseUrl
+    val _apiBaseUrl = apiBaseUrl
 
-      idsDF.repartition(netPartition).mapPartitions(part => part.flatMap(row => {
-        val body: String = webService.readOrDefault(
-          GetMatchExtractor.vacancyURL(_apiBaseUrl, row.getLong(0)), """"is_active":true"""
-        )
-        """\s*"is_active":\s*false\s*""".r.findFirstMatchIn(body) match {
-          case Some(_) => Some(row.getLong(0))
-          case _ => None
-        }
-      })).toDF("id")
-    }
+    idsDF.repartition(netPartition).mapPartitions(part => part.flatMap(row => {
+      val body: String = webAdapter.readBody(
+        GetMatchExtractor.vacancyURL(_apiBaseUrl, row.getLong(0))
+      ).getOrElse(""""is_active":true""")
+      """\s*"is_active":\s*false\s*""".r.findFirstMatchIn(body) match {
+        case Some(_) => Some(row.getLong(0))
+        case _ => None
+      }
+    })).toDF("id")
+  }
 }
 
 object GetMatchExtractor {

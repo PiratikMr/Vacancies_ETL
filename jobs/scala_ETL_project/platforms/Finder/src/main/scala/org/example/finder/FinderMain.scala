@@ -1,12 +1,12 @@
 package org.example.finder
 
-import org.example.config.TableConfig.TableRegistry
-import org.example.core.implement.HDFS.HDFSService
-import org.example.core.implement.Network.{STTPBackendContext, STTPBackends, STTPService}
-import org.example.core.implement.Postgres.PostgresService
-import org.example.core.{ETLCycle, SparkApp}
-import org.example.finder.implement.{FinderExtractor, FinderTransformer}
+import org.example.core.adapter.database.impl.postgres.PostgresAdapter
+import org.example.core.adapter.storage.impl.hdfs.HDFSAdapter
+import org.example.core.adapter.web.impl.sttp.STTPAdapter
+import org.example.core.etl.ETLUService
+import org.example.core.util.SparkApp
 import org.example.finder.config.{FinderArgsLoader, FinderFileLoader}
+import org.example.finder.implement.{FinderExtractor, FinderTransformer}
 
 object FinderMain extends App {
 
@@ -15,26 +15,23 @@ object FinderMain extends App {
 
   private val spark = SparkApp.defineSession(fileConfig.structures.sparkConf, argsConfig.common.etlPart)
 
-  private val pc = new ETLCycle(
+  private val dbAdapter = new PostgresAdapter(fileConfig.structures.dbConf)
+
+  private val pc = new ETLUService(
     spark,
-    new PostgresService(fileConfig.structures.dbConf),
-    new HDFSService(fileConfig.structures.fsConf),
-    new STTPService(fileConfig.structures.netConf, () => STTPBackendContext.getBackend(STTPBackends.DEFAULT))
+    dbAdapter,
+    new HDFSAdapter(fileConfig.structures.fsConf),
+    STTPAdapter(fileConfig.structures.netConf)
   )
 
   private val extractor = new FinderExtractor(fileConfig.finder, fileConfig.common.apiBaseUrl,
     fileConfig.structures.netConf.requestsPS, fileConfig.common.rawPartitions)
-  private val transformer = new FinderTransformer(fileConfig.common.transformPartitions)
+  private val transformer = new FinderTransformer(dbAdapter, fileConfig.structures.fuzzyMatcherConf)
 
   pc.run(
     argsConfig.common.etlPart,
     Some(extractor),
     Some(transformer),
-    Some(() => Seq(
-      TableRegistry.Vacancies,
-      TableRegistry.Locations,
-      TableRegistry.Fields
-    )),
     Some(() => fileConfig.common.updateLimit)
   )
 

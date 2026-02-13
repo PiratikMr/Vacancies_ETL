@@ -4,7 +4,7 @@ import org.apache.spark.sql.DataFrame
 import org.example.TestObjects
 import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.config.model.structures.FuzzyMatchSettings
-import org.example.core.normalization.model.{DimTableConf, MappingDimTableConf}
+import org.example.core.normalization.config.{DimTableConf, MappingDimTableConf}
 import org.example.core.normalization.service.NormalizeService
 // Импорты для Mockito Core + ScalaTestPlus
 import org.mockito.ArgumentMatchers.{any, anyString, eq => eqTo}

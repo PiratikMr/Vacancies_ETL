@@ -11,6 +11,7 @@ import org.example.core.config.schema.SchemaRegistry.Internal.NormalizedVacancy
 import org.example.core.config.schema.{DataBaseBridgeTable, SchemaRegistry}
 import org.example.core.objects.ETLParts
 import org.example.core.objects.ETLParts._
+import com.typesafe.scalalogging.LazyLogging
 import org.example.core.util.SparkExtensions._
 
 class ETLUService(
@@ -18,7 +19,7 @@ class ETLUService(
                    dbAdapter: DataBaseAdapter,
                    storageAdapter: StorageAdapter,
                    webAdapter: WebAdapter
-                ) {
+                 ) extends LazyLogging {
 
   private def extract(extractor: Extractor, folderName: String): Unit = {
     val rawDS = extractor.extract(spark, webAdapter)
@@ -34,7 +35,7 @@ class ETLUService(
       .dropDuplicates(SchemaRegistry.Internal.RawVacancy.externalId.name)
       .localCheckpoint()
 
-    println(s"\n\n\nTRANSFIK HERE ${transformed.count()}\n\n\n")
+    logger.debug(s"Трансформация завершена. Количество записей: ${transformed.count()}")
 
     transformed.show()
 
@@ -43,7 +44,7 @@ class ETLUService(
       .dropDuplicates(SchemaRegistry.Internal.NormalizedVacancy.externalId.name)
       .localCheckpoint()
 
-      println(s"\n\n\nNORMIK HERE ${normalized.count()}\n\n\n")
+    logger.debug(s"Нормализация завершена. Количество записей: ${normalized.count()}")
 
     normalized.show()
 
@@ -56,7 +57,7 @@ class ETLUService(
     val factVacancy = df.smartSelect(mainTableSchema.schema)
       .drop(mainTableSchema.vacancyId.name)
 
-    println(s"\n\n\nFACT VACANCY ${factVacancy.count()}\n\n\n")
+    logger.debug(s"Таблица фактов вакансий подготовлена. Количество: ${factVacancy.count()}")
 
 
     val returnIds = dbAdapter.saveWithReturn(
@@ -65,14 +66,14 @@ class ETLUService(
       conflicts = Seq(mainTableSchema.externalId.name, mainTableSchema.platformId.name)
     ).localCheckpoint()
 
-    println(s"\n\n\nRETURN IDS ${returnIds.count()}\n\n\n")
+    logger.debug(s"Получены ID сохраненных вакансий. Количество: ${returnIds.count()}")
 
     val dfWithId = df.join(
       returnIds,
       Seq(mainTableSchema.externalId.name)
     )
 
-    println(s"\n\n\nDFWITHIDS ${dfWithId.count()}\n\n\n")
+    logger.debug(s"Данные объединены с ID. Количество: ${dfWithId.count()}")
 
     dfWithId.show()
 
@@ -89,7 +90,7 @@ class ETLUService(
       )
       .distinct()
 
-    println("\n\n\nHERE LOL\n\n\n")
+    logger.debug("Подготовка языков для сохранения...")
     languagesToWrite.show()
 
     if (!languagesToWrite.isEmpty)
@@ -104,19 +105,19 @@ class ETLUService(
       .smartSelect(bridge.schema)
       .distinct()
 
-    println(s"\n\n\nBRIDGE ${bridge.tableName} ${toWrite.count()}\n\n\n")
+    logger.debug(s"Связующая таблица ${bridge.tableName} подготовлена. Записей: ${toWrite.count()}")
 
     if (!toWrite.isEmpty)
       dbAdapter.save(toWrite, bridge.tableName, Seq(bridge.vacancyId.name, bridge.entityId.name))
   }
 
   private def update(extractor: Extractor, updater: Updater): Unit = {
-//    val activeIds: DataFrame = dbService
-//      .getActiveVacancies(spark, updater.updateLimit())
-//
-//    val unActiveIds: DataFrame = extractor.filterUnActiveVacancies(spark, activeIds, webService)
-//
-//    dbService.updateActiveVacancies(unActiveIds)
+    //    val activeIds: DataFrame = dbService
+    //      .getActiveVacancies(spark, updater.updateLimit())
+    //
+    //    val unActiveIds: DataFrame = extractor.filterUnActiveVacancies(spark, activeIds, webService)
+    //
+    //    dbService.updateActiveVacancies(unActiveIds)
   }
 
 

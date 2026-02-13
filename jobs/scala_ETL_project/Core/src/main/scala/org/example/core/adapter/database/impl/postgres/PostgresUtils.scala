@@ -1,13 +1,14 @@
 package org.example.core.adapter.database.impl.postgres
 
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import com.typesafe.scalalogging.LazyLogging
 import org.example.core.config.model.structures.DBConf
 
 import java.sql.{Connection, DriverManager}
 import java.util.UUID
 import scala.util.Try
 
-object PostgresUtils {
+object PostgresUtils extends LazyLogging {
 
 
   def loadTable(spark: SparkSession, conf: DBConf, targetTable: String): DataFrame = {
@@ -15,7 +16,7 @@ object PostgresUtils {
   }
 
   def loadQuery(spark: SparkSession, conf: DBConf, query: String): DataFrame = {
-    println(s"\n\n\n$query\n\n\n")
+    logger.debug(s"Выполнение SQL запроса:\n$query")
 
     readJdbc(spark, conf, "query", query)
   }
@@ -66,7 +67,6 @@ object PostgresUtils {
   }
 
 
-
   private def withStaging[T](conf: DBConf, df: DataFrame)(block: String => T): T = {
     val stagingTable = s"staging_${UUID.randomUUID().toString.replace("-", "")}"
     try {
@@ -105,14 +105,13 @@ object PostgresUtils {
   private def executeSql(conn: Connection, sql: String): Unit = {
     val stmt = conn.createStatement()
     try {
-      println(s"\n\n\nSQL EXECUTE: $sql\n\n\n")
+      logger.debug(s"Выполнение SQL команды:\n$sql")
 
       stmt.execute(sql)
     } finally {
       stmt.close()
     }
   }
-
 
 
   private def buildUpsertQuery(
@@ -144,12 +143,11 @@ object PostgresUtils {
   }
 
 
-
   private def baseOptions(conf: DBConf): Map[String, String] = Map(
-    "driver"    -> "org.postgresql.Driver",
-    "url"       -> conf.url,
-    "user"      -> conf.name,
-    "password"  -> conf.pass
+    "driver" -> "org.postgresql.Driver",
+    "url" -> conf.url,
+    "user" -> conf.name,
+    "password" -> conf.pass
   )
 
   private val JDBC = "jdbc"
@@ -168,6 +166,8 @@ object PostgresUtils {
       .mode(SaveMode.Append)
       .options(baseOptions(conf))
       .option("dbtable", targetTable)
+      .option("batchsize", conf.batchSize.toString)
+      .option("numPartitions", conf.maxPartitions.toString)
       .save()
   }
 

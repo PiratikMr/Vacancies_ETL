@@ -15,7 +15,7 @@ class GeekJobExtractor(apiBaseUrl: String,
 
     val _apiBaseUrl = apiBaseUrl
 
-    val firstPageContent: String = webAdapter.readOrThrow(GeekJobExtractor.pageURL(_apiBaseUrl, 1))
+    val firstPageContent: String = webAdapter.readBodyOrThrow(GeekJobExtractor.pageURL(_apiBaseUrl, 1))
 
     val pageURLs: Dataset[String] = {
       val totalPages: Int = """<small>страниц (\d+)</small>""".r.findFirstMatchIn(firstPageContent).get.group(1).toInt
@@ -26,7 +26,7 @@ class GeekJobExtractor(apiBaseUrl: String,
 
     val vacancyIDs: Dataset[String] = pageURLs.repartition(netPartition)
       .mapPartitions(part => part.flatMap(url => {
-        webAdapter.readOrNone(url) match {
+        webAdapter.readBodyOrNone(url) match {
           case Some(body) => """/vacancy/([a-z0-9]{24})""".r.findAllMatchIn(body).map(_.group(1))
           case None => None
         }
@@ -34,7 +34,7 @@ class GeekJobExtractor(apiBaseUrl: String,
 
 
     vacancyIDs.mapPartitions(part => part.flatMap(id => {
-      webAdapter.readOrNone(GeekJobExtractor.vacURL(_apiBaseUrl, id)) match {
+      webAdapter.readBodyOrNone(GeekJobExtractor.vacURL(_apiBaseUrl, id)) match {
         case Some(body) =>
           val start: Int = body.indexOf("""<article class="row vacancy">""")
           val bodyEnd: String = "</article>"
@@ -54,7 +54,7 @@ class GeekJobExtractor(apiBaseUrl: String,
 
     idsDF.repartition(netPartition)
       .mapPartitions(part => part.flatMap(row =>
-        webAdapter.readOrNone(GeekJobExtractor.vacURL(_apiBaseUrl, row.getString(0))) match {
+        webAdapter.readBodyOrNone(GeekJobExtractor.vacURL(_apiBaseUrl, row.getString(0))) match {
           case Some(body) if body.contains("Эта вакансия была перемещена в архив.") => Some(row.getString(0))
           case _ => None
         }

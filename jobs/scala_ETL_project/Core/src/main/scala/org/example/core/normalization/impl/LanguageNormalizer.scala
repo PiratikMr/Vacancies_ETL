@@ -7,8 +7,9 @@ import org.example.core.config.model.structures.FuzzyMatchSettings
 import org.example.core.config.schema.DataBaseOneToManyEntity
 import org.example.core.config.schema.SchemaRegistry.DataBase.Entities
 import org.example.core.config.schema.SchemaRegistry.Internal.NormalizedVacancy
-import org.example.core.normalization.Normalizer
-import org.example.core.normalization.model.{DimTableConf, MappingDimTableConf, NormalizeServiceResult}
+import org.example.core.normalization.api.Normalizer
+import org.example.core.normalization.config.{DimTableConf, MappingDimTableConf}
+import org.example.core.normalization.model.NormalizeServiceResult
 import org.example.core.normalization.service.NormalizeService
 
 class LanguageNormalizer(spark: SparkSession,

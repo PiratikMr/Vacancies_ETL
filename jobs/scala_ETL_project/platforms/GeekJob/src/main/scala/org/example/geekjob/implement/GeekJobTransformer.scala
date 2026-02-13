@@ -9,8 +9,9 @@ import org.example.core.config.schema.SchemaRegistry.DataBase.Entities
 import org.example.core.config.schema.SchemaRegistry.Internal.RawVacancy
 import org.example.core.etl.Transformer
 import org.example.core.normalization.factory.NormalizerFactory
-import org.example.core.normalization.model.NormalizerHelper
 import org.example.core.objects.NormalizersEnum._
+import org.example.core.normalization.api.NormalizationTask.Exact
+import org.example.core.normalization.service.NormalizationOrchestrator
 import org.jsoup.Jsoup
 import org.jsoup.nodes.{Document, Element}
 import org.jsoup.select.Elements
@@ -73,8 +74,7 @@ class GeekJobTransformer(currDate: String,
 
   override def normalize(spark: SparkSession, transformedData: DataFrame): DataFrame = {
 
-
-    val base = new NormalizerHelper(spark, dbAdapter, fuzzyConf)
+    new NormalizationOrchestrator(spark, dbAdapter, fuzzyConf)
       .normalize(Seq(
         CURRENCY,
         EMPLOYER,
@@ -82,23 +82,10 @@ class GeekJobTransformer(currDate: String,
         FIELDS,
         PLATFORM,
         SKILLS,
-        GRADES
+        GRADES,
+        Exact(EMPLOYMENTS),
+        Exact(SCHEDULES)
       ), transformedData)
-
-    // locations
-
-    val emp = NormalizerFactory.getEmploymentsNormalizer(spark, dbAdapter, fuzzyConf.get(EMPLOYMENTS))
-      .matchExactData(transformedData)
-
-    val sch = NormalizerFactory.getSchedulesNormalizer(spark, dbAdapter, fuzzyConf.get(SCHEDULES))
-      .matchExactData(transformedData)
-
-    base
-      .join(emp.mappedDf, Seq(RawVacancy.externalId.name), "left")
-      .withColumnRenamed(emp.mappedIdCol, Entities.Employments.bridge.entityId.name)
-
-      .join(sch.mappedDf, Seq(RawVacancy.externalId.name), "left")
-      .withColumnRenamed(sch.mappedIdCol,  Entities.Schedules.bridge.entityId.name)
   }
 
 }

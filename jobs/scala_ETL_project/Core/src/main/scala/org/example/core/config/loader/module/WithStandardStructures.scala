@@ -15,7 +15,7 @@ trait WithStandardStructures {
     val platform: String = Paths.get(confPath).getFileName.toString.stripSuffix(".conf")
 
     StructuresConfig(
-      StructuresFileParsing.parseDBConf(rootConfig.getConfig("DataBase"), platform),
+      StructuresFileParsing.parseDBConf(rootConfig.getConfig("DataBase")),
       StructuresFileParsing.parseFSConf(rootConfig.getConfig("FileSystem"), platform, saveFolder),
       StructuresFileParsing.parseSparkConf(rootConfig.getConfig("Spark")),
       StructuresFileParsing.parseNetworkConf(rootConfig.getConfig("Network")),

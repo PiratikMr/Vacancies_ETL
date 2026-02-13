@@ -1,13 +1,16 @@
 package org.example.core.adapter.web
 
-trait WebAdapter extends Serializable {
+import org.example.core.adapter.web.impl.sttp.model.{WebError, WebResponse}
 
-  def read(url: String): Either[String, String]
+trait WebAdapter extends AutoCloseable with Serializable {
 
-  def readOrDefault(url: String, default: String): String
+  def execute(url: String): Either[WebError, WebResponse]
 
-  def readOrNone(url: String): Option[String]
 
-  def readOrThrow(url: String): String
+  def readBody(url: String): Either[WebError, String]
+
+  def readBodyOrNone(url: String): Option[String]
+
+  def readBodyOrThrow(url: String): String
 
 }

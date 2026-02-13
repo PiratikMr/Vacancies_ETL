@@ -1,6 +1,7 @@
 package org.example.finder.config
 
-import org.example.config.Loaders.FileLoader
+import org.example.core.config.loader.FileLoader
+
 
 trait WithFinderFileConfig {
   self: FileLoader[_] =>

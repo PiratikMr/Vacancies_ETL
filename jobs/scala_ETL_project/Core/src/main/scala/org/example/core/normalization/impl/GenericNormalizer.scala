@@ -1,8 +1,9 @@
 package org.example.core.normalization.impl
 
 import org.apache.spark.sql.DataFrame
-import org.example.core.normalization.Normalizer
-import org.example.core.normalization.model.{NormalizeServiceResult, RawDataExtractor, ResultAggregator}
+import org.example.core.normalization.api.Normalizer
+import org.example.core.normalization.impl.strategy.{RawDataExtractor, ResultAggregator}
+import org.example.core.normalization.model.NormalizeServiceResult
 import org.example.core.normalization.service.NormalizeService
 
 class GenericNormalizer(normalizeService: NormalizeService,

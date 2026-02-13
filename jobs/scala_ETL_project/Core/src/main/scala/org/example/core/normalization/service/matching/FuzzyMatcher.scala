@@ -119,7 +119,7 @@ class FuzzyMatcher(
 
     cand
       .join(dict, cParentCol === dParentCol)
-      .withColumn("score", calculateScore(cNormCol, dNormCol))
+      .withColumn("score", calculateScore(cNormCol, dNormCol, settings.numberPenalty))
       .filter(col("score") >= settings.score)
       .withColumn("rank",
         row_number().over(
@@ -167,7 +167,7 @@ class FuzzyMatcher(
 
     val pairs = A
       .join(B, col(aPid) === col(bPid))
-      .withColumn("score", calculateScore(col(aN), col(bN)))
+      .withColumn("score", calculateScore(col(aN), col(bN), settings.numberPenalty))
       .filter($"score" >= settings.score)
       .cache()
 
