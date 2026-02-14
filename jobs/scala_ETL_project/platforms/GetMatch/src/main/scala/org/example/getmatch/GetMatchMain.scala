@@ -2,19 +2,21 @@ package org.example.getmatch
 
 import org.example.core.adapter.database.impl.postgres.PostgresAdapter
 import org.example.core.adapter.storage.impl.hdfs.HDFSAdapter
-import org.example.core.adapter.web.impl.sttp.{STTPAdapter, STTPBackendFactory, STTPBackends}
+import org.example.core.adapter.web.impl.sttp.STTPAdapter
+import org.example.core.config.model.structures.SparkConf
 import org.example.core.etl.ETLUService
-import org.example.core.util.SparkApp
+import org.example.core.util.SparkJob
 import org.example.getmatch.config.{GetMatchArgsLoader, GetMatchFileLoader}
 import org.example.getmatch.implement.{GetMatchExtractor, GetMatchTransformer}
 
-object GetMatchMain extends App {
+object GetMatchMain extends App with SparkJob {
 
   private val argsConfig = new GetMatchArgsLoader(args)
   private val fileConfig = new GetMatchFileLoader(argsConfig.common.confFile, argsConfig.common.saveFolder)
 
-  private val spark = SparkApp.defineSession(fileConfig.structures.sparkConf, argsConfig.common.etlPart)
+  override def sparkConf: SparkConf = fileConfig.structures.sparkConf
 
+  override def sparkName: String = s"GetMatch_${argsConfig.common.etlPart}"
 
   private val dbAdapter = new PostgresAdapter(fileConfig.structures.dbConf)
 
@@ -23,7 +25,7 @@ object GetMatchMain extends App {
     spark,
     dbAdapter,
     new HDFSAdapter(fileConfig.structures.fsConf),
-    new STTPAdapter(fileConfig.structures.netConf, () => STTPBackendFactory.getBackend(STTPBackends.DEFAULT))
+    STTPAdapter(fileConfig.structures.netConf)
   )
 
 
@@ -47,5 +49,4 @@ object GetMatchMain extends App {
     updater = Some(() => fileConfig.common.updateLimit)
   )
 
-  spark.stop()
 }

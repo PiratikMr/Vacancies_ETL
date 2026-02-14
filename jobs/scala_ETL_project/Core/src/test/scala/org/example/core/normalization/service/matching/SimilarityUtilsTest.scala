@@ -1,17 +1,14 @@
 package org.example.core.normalization.service.matching
 
 import org.apache.spark.sql.functions.{array_join, array_sort}
-import org.example.TestObjects
+import org.example.SparkEnv
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-class SimilarityUtilsTest extends AnyFlatSpec with Matchers with TableDrivenPropertyChecks {
-
-  private val spark = TestObjects.spark
+class SimilarityUtilsTest extends AnyFlatSpec with Matchers with SparkEnv with TableDrivenPropertyChecks {
 
   import spark.implicits._
-
 
   "normalize" should "correctly clean and stem input" in {
 

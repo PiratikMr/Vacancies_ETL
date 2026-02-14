@@ -8,12 +8,12 @@ import scala.jdk.CollectionConverters._
 
 object StructuresFileParsing {
 
-  def parseFSConf(config: Config, platform: String, saveFolder: String): FSConf = {
+  def parseFSConf(config: Config, saveFolder: String): FSConf = {
       FSConf(
         url = config.getString("url"),
-        currDate = saveFolder,
+        dateFolder = saveFolder,
         rootPath = config.getString("path"),
-        platform = platform
+        platform = config.getString("platform")
       )
     }
 

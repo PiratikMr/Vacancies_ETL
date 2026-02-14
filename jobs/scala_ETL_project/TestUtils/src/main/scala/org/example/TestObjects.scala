@@ -2,7 +2,7 @@ package org.example
 
 import org.apache.spark.sql.SparkSession
 
-object TestObjects {
+trait SparkEnv {
 
   lazy val spark: SparkSession = SparkSession.builder()
     .master("local[*]")

@@ -4,17 +4,20 @@ import org.apache.spark.sql.functions.col
 import org.example.core.adapter.database.impl.postgres.PostgresAdapter
 import org.example.core.adapter.storage.impl.hdfs.HDFSAdapter
 import org.example.core.adapter.web.impl.sttp.STTPAdapter
+import org.example.core.config.model.structures.SparkConf
 import org.example.core.etl.ETLUService
-import org.example.core.util.SparkApp
+import org.example.core.util.SparkJob
 import org.example.headhunter.config.{FolderNames, HHArgsLoader, HHFileLoader}
 import org.example.headhunter.implement.{HHExtractor, HHTransformer}
 
-object HeadHunterMain extends App {
+object HeadHunterMain extends App with SparkJob {
 
   private val argsConfig = new HHArgsLoader(args)
   private val fileConfig = new HHFileLoader(argsConfig.common.confFile, argsConfig.common.saveFolder)
 
-  private val spark = SparkApp.defineSession(fileConfig.structures.sparkConf, argsConfig.common.etlPart)
+  override def sparkConf: SparkConf = fileConfig.structures.sparkConf
+
+  override def sparkName: String = s"HeadHunter_${argsConfig.common.etlPart}"
 
   private val dbService = new PostgresAdapter(fileConfig.structures.dbConf)
 
@@ -53,6 +56,4 @@ object HeadHunterMain extends App {
     transformer = Some(new HHTransformer(areas, dbService, fileConfig.structures.fuzzyMatcherConf)),
     updater = Some(() => fileConfig.common.updateLimit)
   )
-
-  spark.stop()
 }

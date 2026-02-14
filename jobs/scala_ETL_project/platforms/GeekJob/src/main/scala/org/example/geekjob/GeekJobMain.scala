@@ -4,17 +4,20 @@ import org.example.core.adapter.database.impl.postgres.PostgresAdapter
 import org.example.core.adapter.storage.impl.hdfs.HDFSAdapter
 import org.example.core.adapter.web.impl.sttp.STTPAdapter
 import org.example.core.adapter.web.impl.sttp.model.BackendType.UnsafeSSL
+import org.example.core.config.model.structures.SparkConf
 import org.example.core.etl.ETLUService
-import org.example.core.util.SparkApp
+import org.example.core.util.SparkJob
 import org.example.geekjob.config.{GeekJobArgsLoader, GeekJobFileLoader}
 import org.example.geekjob.implement.{GeekJobExtractor, GeekJobTransformer}
 
-object GeekJobMain extends App {
+object GeekJobMain extends App with SparkJob {
 
   private val argsConfig = new GeekJobArgsLoader(args)
   private val fileConfig = new GeekJobFileLoader(argsConfig.common.confFile, argsConfig.common.saveFolder)
 
-  private val spark = SparkApp.defineSession(fileConfig.structures.sparkConf, argsConfig.common.etlPart)
+  override def sparkConf: SparkConf = fileConfig.structures.sparkConf
+
+  override def sparkName: String = argsConfig.common.etlPart
 
 
   private val dbAdapter = new PostgresAdapter(fileConfig.structures.dbConf)
@@ -46,6 +49,4 @@ object GeekJobMain extends App {
     transformer = Some(transformer),
     updater = Some(() => fileConfig.common.updateLimit)
   )
-
-  spark.stop()
 }
