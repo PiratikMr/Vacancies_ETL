@@ -1,15 +1,21 @@
 package org.example.core.objects
 
-object ETLParts extends Enumeration {
-  type ETLPart = Value
+import scala.util.{Failure, Success, Try}
 
-  val EXTRACT, TRANSFORM_LOAD, UPDATE, UNRECOGNIZED = Value
+sealed trait ETLPart
 
-  def parseString(str: String): ETLPart =
+object ETLParts {
+
+  case object Extract extends ETLPart
+  case object TransformLoad extends ETLPart
+  case object Update extends ETLPart
+
+  def parse(str: String): Try[ETLPart] = {
     str.trim.toLowerCase match {
-      case "e" => EXTRACT
-      case "tl" => TRANSFORM_LOAD
-      case "u" => UPDATE
-      case _ => UNRECOGNIZED
+      case "e" => Success(Extract)
+      case "tl" => Success(TransformLoad)
+      case "u" => Success(Update)
+      case _ => Failure(new IllegalArgumentException(s"Неизвестный ETL модуль: $str"))
     }
+  }
 }

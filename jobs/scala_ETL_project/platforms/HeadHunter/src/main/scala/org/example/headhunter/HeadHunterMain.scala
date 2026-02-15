@@ -52,8 +52,8 @@ object HeadHunterMain extends App with SparkJob {
 
   ec.run(
     argsConfig.common.etlPart,
-    extractor = Some(extractor),
-    transformer = Some(new HHTransformer(areas, dbService, fileConfig.structures.fuzzyMatcherConf)),
+    extractor = extractor,
+    transformer = new HHTransformer(areas, dbService, fileConfig.structures.fuzzyMatcherConf),
     updater = Some(() => fileConfig.common.updateLimit)
   )
 }

@@ -44,8 +44,8 @@ object GetMatchMain extends App with SparkJob {
 
   ec.run(
     argsConfig.common.etlPart,
-    extractor = Some(extractor),
-    transformer = Some(transformer),
+    extractor = extractor,
+    transformer = transformer,
     updater = Some(() => fileConfig.common.updateLimit)
   )
 

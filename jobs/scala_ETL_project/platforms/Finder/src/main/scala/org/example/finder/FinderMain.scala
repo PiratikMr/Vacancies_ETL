@@ -34,9 +34,9 @@ object FinderMain extends App with SparkJob {
 
   pc.run(
     argsConfig.common.etlPart,
-    Some(extractor),
-    Some(transformer),
-    Some(() => fileConfig.common.updateLimit)
+    extractor,
+    transformer,
+    updater = Some(() => fileConfig.common.updateLimit)
   )
 
 }
