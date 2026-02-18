@@ -1,4 +1,4 @@
-package org.example.headhunter.dictionaries.implement
+package org.example.headhunter.implement
 
 import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.types.LongType

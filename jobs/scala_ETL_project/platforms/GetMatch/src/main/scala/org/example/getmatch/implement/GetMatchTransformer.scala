@@ -92,9 +92,9 @@ class GetMatchTransformer(dbAdapter: DataBaseAdapter,
         SCHEDULES,
         LANGUAGES,
         LOCATIONS,
-        SKILLS,
-        ExtractTags(FIELDS, RawVacancy.description.name),
-        ExtractTags(EMPLOYMENTS, RawVacancy.description.name)
+        SKILLS
+//        ExtractTags(FIELDS, RawVacancy.description.name),
+//        ExtractTags(EMPLOYMENTS, RawVacancy.description.name)
       ), transformedData)
 
   }

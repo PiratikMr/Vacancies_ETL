@@ -65,8 +65,11 @@ object StructuresFileParsing {
       }
 
       val settings = FuzzyMatchSettings(
-        minScoreThreshold = specificConfig.getDouble("score"),
-        numberPenalty = specificConfig.getDouble("numberPenalty")
+        minScoreThreshold = specificConfig.getDouble("minScoreThreshold"),
+        numberPenalty = specificConfig.getDouble("numberPenalty"),
+        ngramWeight = specificConfig.getDouble("ngramWeight"),
+        levenshteinWeight = specificConfig.getDouble("levenshteinWeight"),
+        ngramSize = specificConfig.getInt("ngramSize")
       )
 
       enumValue -> settings

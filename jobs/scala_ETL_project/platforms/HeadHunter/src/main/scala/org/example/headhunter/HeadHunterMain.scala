@@ -10,6 +10,8 @@ import org.example.core.util.SparkJob
 import org.example.headhunter.config.{FolderNames, HHArgsLoader, HHFileLoader}
 import org.example.headhunter.implement.{HHExtractor, HHTransformer}
 
+import scala.util.Try
+
 object HeadHunterMain extends App with SparkJob {
 
   private val argsConfig = new HHArgsLoader(args)
@@ -20,10 +22,24 @@ object HeadHunterMain extends App with SparkJob {
   override def sparkName: String = s"HeadHunter_${argsConfig.common.etlPart}"
 
   private val dbService = new PostgresAdapter(fileConfig.structures.dbConf)
+  private val hdfsAdapter = new HDFSAdapter(fileConfig.structures.fsConf)
+  private val sttpAdapter = STTPAdapter(fileConfig.structures.netConf)
 
   import spark.implicits._
 
-  private val hdfsAdapter = new HDFSAdapter(fileConfig.structures.fsConf)
+
+  private val dictionariesMissingOrEmpty = Try {
+    val areas = hdfsAdapter.read(spark, FolderNames.areas, withDate = false)
+    val roles = hdfsAdapter.read(spark, FolderNames.roles, withDate = false)
+
+    areas.isEmpty || roles.isEmpty
+  }.getOrElse(true)
+
+  if (dictionariesMissingOrEmpty || fileConfig.forceDict) {
+    DictionaryLoader.update(spark, sttpAdapter, hdfsAdapter, fileConfig.common.apiBaseUrl)
+  }
+
+
   private val profRolesIds = hdfsAdapter.read(spark, FolderNames.roles, withDate = false)
     .where(col("field_id").isin(fileConfig.fieldIDs: _*))
     .select("role_id")
@@ -47,7 +63,7 @@ object HeadHunterMain extends App with SparkJob {
     fileConfig.common.rawPartitions
   )
 
-  val areas = hdfsAdapter.read(spark, FolderNames.areas, withDate = false)
+  private lazy val areas = hdfsAdapter.read(spark, FolderNames.areas, withDate = false)
     .withColumnRenamed("id", "area_id")
 
   ec.run(

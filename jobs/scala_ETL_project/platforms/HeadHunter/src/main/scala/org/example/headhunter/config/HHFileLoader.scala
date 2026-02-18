@@ -17,4 +17,6 @@ class HHFileLoader(confPath: String, currDate: String)
   lazy val fieldIDs: Seq[Int] = args.getIntList("fieldIds").asScala.map(_.toInt).toSeq
   lazy val vacsPerPage: Int = args.getInt("vacsPerPage")
   lazy val pageLimit: Int = args.getInt("pageLimit")
+
+  lazy val forceDict: Boolean = args.getBoolean("forceDict")
 }

@@ -92,13 +92,13 @@ lazy val HeadHunter = (project in file(s"${platformFolder}HeadHunter"))
   .dependsOn(Core)
   .dependsOn(TestUtils % Test)
 
-lazy val Dictionaries = (project in file(s"${platformFolder}HeadHunter/Dictionaries"))
-  .settings(
-    assemblySettings,
-    assembly / mainClass := Some("org.example.headhunter.dictionaries.DictionariesMain"),
-    assembly / assemblyJarName := "Dictionaries-etl.jar"
-  )
-  .dependsOn(HeadHunter)
+//lazy val Dictionaries = (project in file(s"${platformFolder}HeadHunter/Dictionaries"))
+//  .settings(
+//    assemblySettings,
+//    assembly / mainClass := Some("org.example.headhunter.dictionaries.DictionariesMain"),
+//    assembly / assemblyJarName := "Dictionaries-etl.jar"
+//  )
+//  .dependsOn(HeadHunter)
 
 //
 //lazy val HabrCareer = (project in file("HabrCareer"))
