@@ -9,4 +9,5 @@ trait Transformer {
   def transform(spark: SparkSession, rawDF: DataFrame): DataFrame
 
   def normalize(spark: SparkSession, transformedData: DataFrame): DataFrame
+
 }

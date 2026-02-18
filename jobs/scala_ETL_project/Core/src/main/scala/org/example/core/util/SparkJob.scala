@@ -17,10 +17,12 @@ trait SparkJob extends LazyLogging {
     val s = SparkSession.builder()
       .appName(s"${sparkConf.name}_$sparkName")
       .master(sparkConf.master)
+
       .config("spark.driver.memory", sparkConf.driverMemory)
       .config("spark.driver.cores", sparkConf.driverCores)
       .config("spark.executor.memory", sparkConf.executorMemory)
       .config("spark.executor.cores", sparkConf.executorCores)
+
       .getOrCreate()
 
     sys.addShutdownHook {

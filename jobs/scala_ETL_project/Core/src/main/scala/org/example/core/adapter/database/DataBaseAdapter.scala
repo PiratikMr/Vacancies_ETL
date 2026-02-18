@@ -14,7 +14,6 @@ trait DataBaseAdapter {
                  query: String
                ): DataFrame
 
-
   def save(
             df: DataFrame,
             targetTable: String,
@@ -30,4 +29,5 @@ trait DataBaseAdapter {
                       conflicts: Seq[String],
                       updates: Option[Seq[String]] = None
                     ): DataFrame
+
 }

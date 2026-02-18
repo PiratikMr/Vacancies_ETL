@@ -3,7 +3,6 @@ package org.example.core.normalization.service.matching
 import org.apache.spark.sql.Column
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
-import org.tartarus.snowball.ext.{englishStemmer, russianStemmer}
 
 object SimilarityUtils {
 
@@ -44,17 +43,7 @@ object SimilarityUtils {
   })
 
   private val stemmerUdf: UserDefinedFunction = udf((word: String) => {
-    if (word == null || word.isEmpty) ""
-    else {
-      val stemmer = {
-        if (word.exists(c => c >= '\u0400' && c <= '\u04FF')) new russianStemmer()
-        else new englishStemmer()
-      }
-
-      stemmer.setCurrent(word)
-      stemmer.stem()
-      stemmer.getCurrent
-    }
+    StemmerProvider.stem(word)
   })
 
 
