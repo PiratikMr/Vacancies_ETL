@@ -124,79 +124,26 @@ class NormalizeService(
 
     val fullMappingTable = loadFullMappingTable().cache() // [id, norm_value, is_canonical, parent_id]
 
-    val inputClean = candidates
+    val rawCandidates = candidates
       .withColumn(parentId, parentIdCol.map(col).getOrElse(lit(DEFAULT_PARENT_ID)))
-      .withColumn(normValue, fuzzyMatcher.normCol(col(valueCol)))
-      .cache()
-
-    val joinKeys = Seq(normValue, parentId)
-
-    val resolvedFromMap = inputClean.join(fullMappingTable, joinKeys) // [vacancy_id, id, norm_value, is_canonical, parent_id]
-
-    val noInMappingTable = inputClean.join(resolvedFromMap, joinKeys :+ entityIdCol, "left_anti") // [vacancy_id, value, norm_value, parent_id]
-
-
-    if (noInMappingTable.isEmpty || !withCreate) {
-      return returnResult(resolvedFromMap.select(entityIdCol, valueCol, mappedId))
-    }
-
-
-    val canonicalDict = fullMappingTable.filter(col(isCanonical)).select(mappedId, normValue, parentId)
-
-
-    val newMappings = processNewValues(
-      noInMappingTable,
-      canonicalDict,
-      entityIdCol,
-      valueCol
-    ) // [vacancy_id, id]
-
-    val finalRes = resolvedFromMap
-      .select(entityIdCol, mappedId)
-      .union(newMappings)
-      .distinct()
-
-    returnResult(finalRes)
-  }
-
-  // [vacancy_id, id]
-  private def processNewValues(noInMappingTable: DataFrame, // [vacancy_id, value, norm_value, parent_id]
-                               dimTable: DataFrame, // [id, norm_value, parent_id],
-                               entityIdCol: String,
-                               valueCol: String
-                              ): DataFrame = {
-
 
     val fuzzyRes = fuzzyMatcher.execute(
-      candidatesDf = noInMappingTable,
-      dictDf = dimTable,
+      rawCandidatesDf = rawCandidates,
+      mappingDf = fullMappingTable,
       cEntityId = entityIdCol,
       cRawValue = valueCol,
-      cNormValue = normValue,
+      cNormValue = normValue, // Имя колонки для нормализованного значения, которую создаст матчер
       cParentId = parentId,
       dId = mappedId,
-      dNormValue = normValue,
+      dNormValue = normValue, // Имя колонки нормализованного значения в mappingDf
       dParentId = parentId
     )
 
-    if (fuzzyRes.matchedDf.isEmpty) {
-      val mappingsToSave = fuzzyRes.matchedDf
-        .select(
-          col(normValue).as(mdt.mappedValueColName),
-          col(mappedId).as(mdt.idColName)
-        )
-        .distinct()
-        .withColumn(mdt.isOrigin, lit(false))
+    val matchedResult = fuzzyRes.matchedDf.select(entityIdCol, mappedId)
 
-      dbAdapter.save(mappingsToSave, mdt.tableName, Seq(mdt.idColName, mdt.mappedValueColName))
-    }
-
-    val dictMatchedResult = fuzzyRes.matchedDf
-      .select(entityIdCol, mappedId)
-
-
-    if (fuzzyRes.toCreateDf.isEmpty) {
-      return dictMatchedResult
+    // Если не нужно создавать новые сущности или ничего нового не нашлось, возвращаем что есть
+    if (!withCreate || fuzzyRes.toCreateDf.isEmpty) {
+      return returnResult(matchedResult)
     }
 
 
@@ -207,10 +154,12 @@ class NormalizeService(
     val reloadedDims = saveDimTable(newDimsToWrite, valueCol)
       .cache()
 
+    // 2. Получаем маппинг "Кандидат -> Новый ID"
     val createdMapping = fuzzyRes.toCreateDf
       .join(reloadedDims, Seq(valueCol, parentId))
       .select(col(entityIdCol), col(mappedId))
 
+    // 3. Сохраняем метаданные матчинга в Mapping Table
     if (!fuzzyRes.mappingDataDf.isEmpty) {
       val mappingDataToWrite = fuzzyRes.mappingDataDf
         .join(reloadedDims, Seq(valueCol, parentId))
@@ -223,8 +172,115 @@ class NormalizeService(
       dbAdapter.save(mappingDataToWrite, mdt.tableName, Seq(mdt.mappedValueColName, mdt.idColName))
     }
 
-    dictMatchedResult.union(createdMapping).distinct()
+    // Объединяем старые (найденные) и новые (созданные) маппинги
+    val finalRes = matchedResult.union(createdMapping).distinct()
+
+    returnResult(finalRes)
+
+
+
+
+//    val inputClean = candidates
+//      .withColumn(parentId, parentIdCol.map(col).getOrElse(lit(DEFAULT_PARENT_ID)))
+//      .withColumn(normValue, fuzzyMatcher.normCol(col(valueCol)))
+//      .cache()
+//
+//    val joinKeys = Seq(normValue, parentId)
+//
+//    val resolvedFromMap = inputClean.join(fullMappingTable, joinKeys) // [vacancy_id, id, norm_value, is_canonical, parent_id]
+//
+//    val noInMappingTable = inputClean.join(resolvedFromMap, joinKeys :+ entityIdCol, "left_anti") // [vacancy_id, value, norm_value, parent_id]
+//
+//
+//    if (noInMappingTable.isEmpty || !withCreate) {
+//      return returnResult(resolvedFromMap.select(entityIdCol, valueCol, mappedId))
+//    }
+//
+//
+//    val canonicalDict = fullMappingTable.filter(col(isCanonical)).select(mappedId, normValue, parentId)
+//
+//
+//    val newMappings = processNewValues(
+//      noInMappingTable,
+//      canonicalDict,
+//      entityIdCol,
+//      valueCol
+//    ) // [vacancy_id, id]
+//
+//    val finalRes = resolvedFromMap
+//      .select(entityIdCol, mappedId)
+//      .union(newMappings)
+//      .distinct()
+//
+//    returnResult(finalRes)
   }
+
+  // [vacancy_id, id]
+//  private def processNewValues(noInMappingTable: DataFrame, // [vacancy_id, value, norm_value, parent_id]
+//                               dimTable: DataFrame, // [id, norm_value, parent_id],
+//                               entityIdCol: String,
+//                               valueCol: String
+//                              ): DataFrame = {
+//
+//
+//    val fuzzyRes = fuzzyMatcher.execute(
+//      candidatesDf = noInMappingTable,
+//      dictDf = dimTable,
+//      cEntityId = entityIdCol,
+//      cRawValue = valueCol,
+//      cNormValue = normValue,
+//      cParentId = parentId,
+//      dId = mappedId,
+//      dNormValue = normValue,
+//      dParentId = parentId
+//    )
+//
+//    if (fuzzyRes.matchedDf.isEmpty) {
+//      val mappingsToSave = fuzzyRes.matchedDf
+//        .select(
+//          col(normValue).as(mdt.mappedValueColName),
+//          col(mappedId).as(mdt.idColName)
+//        )
+//        .distinct()
+//        .withColumn(mdt.isOrigin, lit(false))
+//
+//      dbAdapter.save(mappingsToSave, mdt.tableName, Seq(mdt.idColName, mdt.mappedValueColName))
+//    }
+//
+//    val dictMatchedResult = fuzzyRes.matchedDf
+//      .select(entityIdCol, mappedId)
+//
+//
+//    if (fuzzyRes.toCreateDf.isEmpty) {
+//      return dictMatchedResult
+//    }
+//
+//
+//    val newDimsToWrite = fuzzyRes.toCreateDf
+//      .select(valueCol, parentId)
+//      .distinct()
+//
+//    val reloadedDims = saveDimTable(newDimsToWrite, valueCol)
+//      .cache()
+//
+//    val createdMapping = fuzzyRes.toCreateDf
+//      .join(reloadedDims, Seq(valueCol, parentId))
+//      .select(col(entityIdCol), col(mappedId))
+//
+//    if (!fuzzyRes.mappingDataDf.isEmpty) {
+//      val mappingDataToWrite = fuzzyRes.mappingDataDf
+//        .join(reloadedDims, Seq(valueCol, parentId))
+//        .select(
+//          col(normValue).as(mdt.mappedValueColName),
+//          col(fuzzyRes.isCanonicalCol).as(mdt.isOrigin),
+//          col(mappedId).as(mdt.idColName)
+//        )
+//
+//      dbAdapter.save(mappingDataToWrite, mdt.tableName, Seq(mdt.mappedValueColName, mdt.idColName))
+//    }
+//
+//    dictMatchedResult.union(createdMapping).distinct()
+//  }
 
 
   private def makeSortedNGrams(arrC: Column, n: Int): Column = {

@@ -8,6 +8,9 @@ import org.scalatest.matchers.should.Matchers
 
 class FuzzyMatcherTest extends AnyFlatSpec with Matchers with SparkEnv {
 
+  // тест на матчинг в существующими в словаре словами
+
+
   import spark.implicits._
 
   private val settings = FuzzyMatchSettings(score = 0.5, numberPenalty = 0.1)

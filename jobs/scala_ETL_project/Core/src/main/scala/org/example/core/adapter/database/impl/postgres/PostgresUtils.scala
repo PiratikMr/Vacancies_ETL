@@ -27,7 +27,7 @@ object PostgresUtils extends LazyLogging {
            conflicts: Seq[String],
            updates: Option[Seq[String]]): Unit = {
 
-    withStaging(conf, df) { stagingTable =>
+    withStaging(conf, df.dropDuplicates(conflicts)) { stagingTable =>
       executeInTransaction(conf) { conn =>
         val sql = buildUpsertQuery(targetTable, stagingTable, df.columns, conflicts, updates)
         executeSql(conn, sql)
@@ -45,7 +45,7 @@ object PostgresUtils extends LazyLogging {
                       updates: Option[Seq[String]]
                     ): DataFrame = {
 
-    withStaging(conf, df) { stagingTable =>
+    withStaging(conf, df.dropDuplicates(conflicts)) { stagingTable =>
       executeInTransaction(conf) { conn =>
         val sql = buildUpsertQuery(targetTable, stagingTable, df.columns, conflicts, updates)
         executeSql(conn, sql)

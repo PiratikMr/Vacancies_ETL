@@ -43,6 +43,7 @@ class STTPAdapter(conf: NetworkConf,
           else Left(HttpError(response.code.code, bodyString))
 
         case Failure(exception) =>
+          println(exception)
           Left(ConnectionError(exception))
       }
     }

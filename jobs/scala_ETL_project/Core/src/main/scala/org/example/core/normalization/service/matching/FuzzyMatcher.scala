@@ -28,12 +28,12 @@ class FuzzyMatcher(
   }
 
   def execute(
-               candidatesDf: DataFrame,
-               dictDf: DataFrame,
+               rawCandidatesDf: DataFrame, // cEntityId, cRawValue, cParentId
+               mappingDf: DataFrame,  // dId, dNormValue, dParentId
 
                cEntityId: String,
                cRawValue: String,
-               cNormValue: String,
+               cNormValue: String, // delete ts
                cParentId: String,
 
                dId: String,
@@ -41,37 +41,72 @@ class FuzzyMatcher(
                dParentId: String
              ): FuzzyMatcherResult = {
 
+    val candidatesDf = rawCandidatesDf
+      .withColumn(cNormValue, normCol(col(cRawValue)))
+      .alias("cand")
+      .cache()
+
+    val dict = mappingDf.alias("dict")
+
+    // 2. Exact Match (Точное совпадение по нормализованному значению)
+    // Ищем тех, у кого norm_value и parent_id полностью совпадают со словарем
+    val exactMatches = candidatesDf
+      .join(
+        dict,
+        col(s"cand.$cNormValue") === col(s"dict.$dNormValue") &&
+          col(s"cand.$cParentId") === col(s"dict.$dParentId")
+      )
+      .select(
+        col(s"cand.$cEntityId"),
+        col(s"cand.$cNormValue"),
+        col(s"dict.$dId")
+      )
+
+    // 3. Исключаем найденные точные совпадения из кандидатов
+    // Используем left_anti join по ID сущности
+    val candidatesForFuzzy = candidatesDf
+      .join(
+        exactMatches,
+        candidatesDf(cEntityId) === exactMatches(cEntityId),
+        "left_anti"
+      )
+      .cache()
+
+    // Если кандидатов не осталось, возвращаем только точные совпадения
+    if (candidatesForFuzzy.isEmpty) {
+      candidatesDf.unpersist()
+      return returnResult(exactMatches, spark.emptyDataFrame, spark.emptyDataFrame)
+    }
+
+
+
     // 1. Матчинг со словарем
-    val dictMatches = matchDictionary(
+    val fuzzyDictMatches = matchDictionary(
       candidatesDf,
-      dictDf,
+      dict,
       cEntityId, cNormValue, cParentId,
       dId, dNormValue, dParentId
     ).alias("dict").cache()
 
-    val cand = candidatesDf.alias("cand")
+    val allDictMatches = exactMatches
+      .unionByName(fuzzyDictMatches.select(cEntityId, cNormValue, dId))
+      .distinct()
 
     // 2. Исключаем тех, кто сматчился со словарем
-    // dictMatches возвращает колонки с префиксом dm_, поэтому конфликт исключен
-    val remainingCandidates = cand
+    val remainingCandidates = candidatesForFuzzy
       .join(
-        dictMatches,
-        cand(cEntityId) === dictMatches(cEntityId) &&
-          cand(cNormValue) === dictMatches(cNormValue) &&
-          cand(cParentId) === dictMatches(cParentId),
+        fuzzyDictMatches,
+        candidatesForFuzzy(cEntityId) === fuzzyDictMatches(cEntityId),
         "left_anti"
       ).cache()
 
-    val dictMatchesToReturn = dictMatches.select(
-      cEntityId,
-      cNormValue,
-      dId
-    )
-
     if (remainingCandidates.isEmpty) {
       remainingCandidates.unpersist()
-      return returnResult(dictMatchesToReturn, spark.emptyDataFrame, spark.emptyDataFrame)
+      return returnResult(allDictMatches, spark.emptyDataFrame, spark.emptyDataFrame)
     }
+
+
+
 
     // 3. Self-Matching с полной изоляцией имен колонок
     val selfMatches = selfMatching(
@@ -90,7 +125,7 @@ class FuzzyMatcher(
       .select(cNormValue, isCanonical, cRawValue, cParentId)
       .distinct()
 
-    returnResult(dictMatchesToReturn, toCreate, newMappingData)
+    returnResult(allDictMatches, toCreate, newMappingData)
   }
 
 

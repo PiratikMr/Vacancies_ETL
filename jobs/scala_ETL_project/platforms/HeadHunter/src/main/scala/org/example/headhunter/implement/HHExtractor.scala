@@ -17,8 +17,10 @@ class HHExtractor(
                    rawPartition: Int
                  ) extends Extractor {
 
-  override def extract(spark: SparkSession, webService: WebAdapter): Dataset[String] =
-  {
+  override def extract(spark: SparkSession, webService: WebAdapter): Dataset[String] = {
+
+    println(s"ВСЕГО РОЛЕЙ: ${profRolesIds.count()}")
+
     import spark.implicits._
 
     val _apiBaseUrl = apiBaseUrl
@@ -39,9 +41,11 @@ class HHExtractor(
         .map(page => HHExtractor.clusterURL(_apiBaseUrl, _dateFrom, role_id, page, _vacsPerPage))
     }))
 
+    println(clusterURLs.collect().mkString("Array(\n\t", "\n\t", "\n)"))
+
     val clusterData: Dataset[String] = clusterURLs.mapPartitions(part => part.flatMap(url =>
       webService.readBodyOrNone(url)
-    ))
+    )).persist()
 
     val schema: StructType = StructType(Seq(StructField("items", ArrayType(StructType(Seq(StructField("id", StringType)))))))
 
@@ -49,13 +53,15 @@ class HHExtractor(
       .json(clusterData).select(explode(col("items.id")).as("id")).dropDuplicates("id")
       .map(row => HHExtractor.vacancyURL(_apiBaseUrl, row.getString(0)))
 
+    println(s"ВСЕГО айди: ${vacURLs.count()}")
+    println(vacURLs.head(10).mkString("Array(\n\t", "\n\t", "\n)"))
+
     vacURLs.repartition(netPartition).mapPartitions(part => part.flatMap(url =>
       webService.readBodyOrNone(url)
     )).repartition(rawPartition)
   }
 
-  override def filterUnActiveVacancies(spark: SparkSession, idsDF: DataFrame, webService: WebAdapter): DataFrame =
-  {
+  override def filterUnActiveVacancies(spark: SparkSession, idsDF: DataFrame, webService: WebAdapter): DataFrame = {
     import spark.implicits._
 
     val _apiBaseUrl = apiBaseUrl
