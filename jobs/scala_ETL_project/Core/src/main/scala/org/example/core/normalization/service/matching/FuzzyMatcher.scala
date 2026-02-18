@@ -6,25 +6,27 @@ import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
 import org.example.core.config.model.structures.FuzzyMatchSettings
 import org.example.core.normalization.model._
 import org.example.core.normalization.service.matching.FuzzyMatcher._
+import org.example.core.normalization.service.matching.impl.DefaultSimilarityStrategy
 
 class FuzzyMatcher(
                     spark: SparkSession,
-                    settings: FuzzyMatchSettings
+
+                    similarityStrategy: SimilarityStrategy,
+                    minScore: Double
                   ) {
 
-  import SimilarityUtils._
   import spark.implicits._
 
   def normCol(rawCol: Column): Column = {
     array_join(
       array_sort(
-        normalize(rawCol)
+        similarityStrategy.normalize(rawCol)
       ),
       " ")
   }
 
   def normArrayCol(rawCol: Column): Column = {
-    normalize(rawCol)
+    similarityStrategy.normalize(rawCol)
   }
 
   def execute(
@@ -32,7 +34,7 @@ class FuzzyMatcher(
                dictionaryDs: Dataset[FuzzyDictionary]
              ): FuzzyMatcherResult = {
 
-    val candidatesDf = candidatesDs
+    val candidatesDf = candidatesDs.filter(col(C_RAW_VAL).isNotNull)
       .withColumn(C_NORM_VAL, normCol(col(C_RAW_VAL)))
       .alias("cand")
       .cache()
@@ -129,8 +131,8 @@ class FuzzyMatcher(
 
     cand
       .join(dict, col(s"c.$C_PARENT_ID") === col(s"d.$D_PARENT_ID"))
-      .withColumn("score", calculateScore(col(s"c.$C_NORM_VAL"), col(s"d.$D_NORM_VAL"), settings.numberPenalty))
-      .filter(col("score") >= settings.score)
+      .withColumn("score", similarityStrategy.calculateScore(col(s"c.$C_NORM_VAL"), col(s"d.$D_NORM_VAL")))
+      .filter(col("score") >= minScore)
       .withColumn("rank",
         row_number().over(
           partitionBy(col(s"c.$C_NORM_VAL"), col(s"c.$C_ENTITY_ID"), col(s"c.$C_PARENT_ID"))
@@ -146,7 +148,6 @@ class FuzzyMatcher(
   }
 
   private def selfMatching(candidatesDf: DataFrame): DataFrame = {
-    // Используем фиксированные имена из контракта
     val rawValue = C_RAW_VAL
     val normValue = C_NORM_VAL
     val parentId = C_PARENT_ID
@@ -173,8 +174,8 @@ class FuzzyMatcher(
 
     val pairs = A
       .join(B, col(aPid) === col(bPid))
-      .withColumn("score", calculateScore(col(aN), col(bN), settings.numberPenalty))
-      .filter(col("score") >= settings.score)
+      .withColumn("score", similarityStrategy.calculateScore(col(aN), col(bN)))
+      .filter(col("score") >= minScore)
       .cache()
 
     val authority = pairs
@@ -239,11 +240,15 @@ object FuzzyMatcher {
 
   private val C_ENTITY_ID = "entityId"
   private val C_RAW_VAL = "rawValue"
-  private val C_NORM_VAL = "normValue" // Вычисляемое поле
+  private val C_NORM_VAL = "normValue"
   private val C_PARENT_ID = "parentId"
 
   private val D_ID = "id"
   private val D_NORM_VAL = "normValue"
   private val D_PARENT_ID = "parentId"
 
+
+  def apply(spark: SparkSession, settings: FuzzyMatchSettings): FuzzyMatcher = {
+    new FuzzyMatcher(spark, new DefaultSimilarityStrategy(settings), settings.minScoreThreshold)
+  }
 }

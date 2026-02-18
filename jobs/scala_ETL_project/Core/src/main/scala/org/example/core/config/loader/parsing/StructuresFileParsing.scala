@@ -65,7 +65,7 @@ object StructuresFileParsing {
       }
 
       val settings = FuzzyMatchSettings(
-        score = specificConfig.getDouble("score"),
+        minScoreThreshold = specificConfig.getDouble("score"),
         numberPenalty = specificConfig.getDouble("numberPenalty")
       )
 
