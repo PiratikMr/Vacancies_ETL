@@ -2,10 +2,10 @@ package org.example.core.normalization.service.matching
 
 import org.apache.spark.sql.expressions.Window.partitionBy
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.{Column, DataFrame, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
 import org.example.core.config.model.structures.FuzzyMatchSettings
-import org.example.core.normalization.model.FuzzyMatcherResult
-import org.example.core.normalization.service.matching.FuzzyMatcher.{isCanonical, returnResult}
+import org.example.core.normalization.model._
+import org.example.core.normalization.service.matching.FuzzyMatcher._
 
 class FuzzyMatcher(
                     spark: SparkSession,
@@ -28,38 +28,30 @@ class FuzzyMatcher(
   }
 
   def execute(
-               rawCandidatesDf: DataFrame, // cEntityId, cRawValue, cParentId
-               mappingDf: DataFrame,  // dId, dNormValue, dParentId
-
-               cEntityId: String,
-               cRawValue: String,
-               cNormValue: String, // delete ts
-               cParentId: String,
-
-               dId: String,
-               dNormValue: String,
-               dParentId: String
+               candidatesDs: Dataset[FuzzyCandidate],
+               dictionaryDs: Dataset[FuzzyDictionary]
              ): FuzzyMatcherResult = {
 
-    val candidatesDf = rawCandidatesDf
-      .withColumn(cNormValue, normCol(col(cRawValue)))
+    val candidatesDf = candidatesDs
+      .withColumn(C_NORM_VAL, normCol(col(C_RAW_VAL)))
       .alias("cand")
       .cache()
 
-    val dict = mappingDf.alias("dict")
+    val dictDf = dictionaryDs.toDF().alias("dict")
+
 
     // 2. Exact Match (Точное совпадение по нормализованному значению)
     // Ищем тех, у кого norm_value и parent_id полностью совпадают со словарем
     val exactMatches = candidatesDf
       .join(
-        dict,
-        col(s"cand.$cNormValue") === col(s"dict.$dNormValue") &&
-          col(s"cand.$cParentId") === col(s"dict.$dParentId")
+        dictDf,
+        col(s"cand.$C_NORM_VAL") === col(s"dict.$D_NORM_VAL") &&
+          col(s"cand.$C_PARENT_ID") === col(s"dict.$D_PARENT_ID")
       )
       .select(
-        col(s"cand.$cEntityId"),
-        col(s"cand.$cNormValue"),
-        col(s"dict.$dId")
+        col(s"cand.$C_ENTITY_ID"),
+        col(s"cand.$C_NORM_VAL"),
+        col(s"dict.$D_ID").as("dictId") // alias для контракта FuzzyMatchFound
       )
 
     // 3. Исключаем найденные точные совпадения из кандидатов
@@ -67,7 +59,8 @@ class FuzzyMatcher(
     val candidatesForFuzzy = candidatesDf
       .join(
         exactMatches,
-        candidatesDf(cEntityId) === exactMatches(cEntityId),
+        candidatesDf(C_ENTITY_ID) === exactMatches(C_ENTITY_ID) &&
+          candidatesDf(C_NORM_VAL) === exactMatches(C_NORM_VAL),
         "left_anti"
       )
       .cache()
@@ -75,110 +68,89 @@ class FuzzyMatcher(
     // Если кандидатов не осталось, возвращаем только точные совпадения
     if (candidatesForFuzzy.isEmpty) {
       candidatesDf.unpersist()
-      return returnResult(exactMatches, spark.emptyDataFrame, spark.emptyDataFrame)
+      return emptyResult(exactMatches)
     }
 
 
-
     // 1. Матчинг со словарем
-    val fuzzyDictMatches = matchDictionary(
-      candidatesDf,
-      dict,
-      cEntityId, cNormValue, cParentId,
-      dId, dNormValue, dParentId
-    ).alias("dict").cache()
+    val fuzzyDictMatches = matchDictionary(candidatesForFuzzy, dictDf)
+      .alias("dict_fuzzy")
+      .cache()
 
-    val allDictMatches = exactMatches
-      .unionByName(fuzzyDictMatches.select(cEntityId, cNormValue, dId))
+    val allDictMatches = exactMatches.drop(C_NORM_VAL)
+      .unionByName(fuzzyDictMatches.select(col(C_ENTITY_ID), col("dictId")))
       .distinct()
 
     // 2. Исключаем тех, кто сматчился со словарем
     val remainingCandidates = candidatesForFuzzy
       .join(
         fuzzyDictMatches,
-        candidatesForFuzzy(cEntityId) === fuzzyDictMatches(cEntityId),
+        candidatesForFuzzy(C_ENTITY_ID) === fuzzyDictMatches(C_ENTITY_ID),
         "left_anti"
       ).cache()
 
     if (remainingCandidates.isEmpty) {
       remainingCandidates.unpersist()
-      return returnResult(allDictMatches, spark.emptyDataFrame, spark.emptyDataFrame)
+      return emptyResult(allDictMatches)
     }
 
 
-
-
     // 3. Self-Matching с полной изоляцией имен колонок
-    val selfMatches = selfMatching(
-      remainingCandidates,
-      cEntityId,
-      cRawValue,
-      cNormValue,
-      cParentId
-    ).cache()
+    val selfMatches = selfMatching(remainingCandidates).cache()
 
     val toCreate = selfMatches
-      .select(cEntityId, cRawValue, cParentId)
+      .select(
+        col(C_ENTITY_ID),
+        col(C_RAW_VAL),
+        col(C_PARENT_ID)
+      )
       .distinct()
+      .as[FuzzyToCreate]
 
     val newMappingData = selfMatches
-      .select(cNormValue, isCanonical, cRawValue, cParentId)
+      .select(
+        col(C_NORM_VAL),
+        col("isCanonical"), // Поле создается внутри selfMatching
+        col(C_RAW_VAL),
+        col(C_PARENT_ID)
+      )
       .distinct()
+      .as[FuzzyMappingMeta]
 
-    returnResult(allDictMatches, toCreate, newMappingData)
+    val matchedResult = allDictMatches.as[FuzzyMatch]
+
+    FuzzyMatcherResult(matchedResult, toCreate, newMappingData)
   }
 
 
-  private def matchDictionary(
-                               candidatesDf: DataFrame,
-                               dictDf: DataFrame,
-                               candEntityId: String,
-                               candNormVal: String,
-                               candParentId: String,
-                               dictId: String,
-                               dictNormVal: String,
-                               dictParentId: String
-                             ): DataFrame = {
-
-    val cand = candidatesDf.alias("c")
+  private def matchDictionary(candDf: DataFrame, dictDf: DataFrame): DataFrame = {
+    val cand = candDf.alias("c")
     val dict = dictDf.alias("d")
 
-    val cNormCol = col(s"c.$candNormVal")
-    val dNormCol = col(s"d.$dictNormVal")
-
-    val cParentCol = col(s"c.$candParentId")
-    val dParentCol = col(s"d.$dictParentId")
-
-    val cEntityIdCol = col(s"c.$candEntityId")
-    val dIdCol = col(s"d.$dictId")
-
     cand
-      .join(dict, cParentCol === dParentCol)
-      .withColumn("score", calculateScore(cNormCol, dNormCol, settings.numberPenalty))
+      .join(dict, col(s"c.$C_PARENT_ID") === col(s"d.$D_PARENT_ID"))
+      .withColumn("score", calculateScore(col(s"c.$C_NORM_VAL"), col(s"d.$D_NORM_VAL"), settings.numberPenalty))
       .filter(col("score") >= settings.score)
       .withColumn("rank",
         row_number().over(
-          partitionBy(cNormCol, cEntityIdCol, cParentCol)
-            .orderBy(col("score").desc, dNormCol)
+          partitionBy(col(s"c.$C_NORM_VAL"), col(s"c.$C_ENTITY_ID"), col(s"c.$C_PARENT_ID"))
+            .orderBy(col("score").desc, col(s"d.$D_NORM_VAL"))
         )
       )
       .filter(col("rank") === 1)
       .select(
-        cEntityIdCol,
-        dIdCol,
-        cNormCol,
-        cParentCol
+        col(s"c.$C_ENTITY_ID"),
+        col(s"d.$D_ID").as("dictId")
       )
       .distinct()
   }
 
-  private def selfMatching(
-                            candidatesDf: DataFrame,
-                            entityId: String,
-                            rawValue: String,
-                            normValue: String,
-                            parentId: String
-                          ): DataFrame = {
+  private def selfMatching(candidatesDf: DataFrame): DataFrame = {
+    // Используем фиксированные имена из контракта
+    val rawValue = C_RAW_VAL
+    val normValue = C_NORM_VAL
+    val parentId = C_PARENT_ID
+    val entityId = C_ENTITY_ID
 
     val aV = s"A_$rawValue"
     val aN = s"A_$normValue"
@@ -199,11 +171,10 @@ class FuzzyMatcher(
       col(parentId).as(bPid)
     )
 
-
     val pairs = A
       .join(B, col(aPid) === col(bPid))
       .withColumn("score", calculateScore(col(aN), col(bN), settings.numberPenalty))
-      .filter($"score" >= settings.score)
+      .filter(col("score") >= settings.score)
       .cache()
 
     val authority = pairs
@@ -214,18 +185,18 @@ class FuzzyMatcher(
     val rankedCandidates = pairs
       .join(
         authority,
-        col(aN) === $"auth_norm" &&
-          col(aPid) === $"auth_parent"
+        col(aN) === col("auth_norm") &&
+          col(aPid) === col("auth_parent")
       )
       .withColumn("rank1",
         row_number().over(
           partitionBy(bN, aPid)
-            .orderBy($"auth_score".desc, len(col(aV)).asc, col(aN).asc)
+            .orderBy(col("auth_score").desc, length(col(aV)).asc, col(aN).asc)
         )
       ).cache()
 
     val activeHubs = rankedCandidates
-      .filter($"rank1" === 1)
+      .filter(col("rank1") === 1)
       .filter(col(aN) =!= col(bN))
       .select(col(aN).as("hub"), col(aPid).as("hub_pid"))
       .distinct()
@@ -233,40 +204,46 @@ class FuzzyMatcher(
     rankedCandidates
       .join(
         activeHubs,
-        $"hub" === col(bN) &&
+        col("hub") === col(bN) &&
           col(aN) =!= col(bN) &&
-          col(aPid) === $"hub_pid",
+          col(aPid) === col("hub_pid"),
         "left_anti"
       )
       .withColumn("rank2",
         row_number().over(
           partitionBy(bId, bN, aPid)
-            .orderBy($"rank1".asc)
+            .orderBy(col("rank1").asc)
         )
       )
-      .filter($"rank2" === 1)
-      .withColumn(isCanonical, col(aN) === col(bN))
+      .filter(col("rank2") === 1)
+      .withColumn("isCanonical", col(aN) === col(bN)) // Важно: имя колонки string literal
       .select(
         col(aV).as(rawValue),
         col(bN).as(normValue),
-        col(isCanonical),
+        col("isCanonical"),
         col(bId).as(entityId),
         col(aPid).as(parentId)
       ).distinct()
   }
 
+  private def emptyResult(matchedDf: DataFrame): FuzzyMatcherResult = {
+    FuzzyMatcherResult(
+      matched = matchedDf.as[FuzzyMatch],
+      toCreate = spark.emptyDataset[FuzzyToCreate],
+      mappingData = spark.emptyDataset[FuzzyMappingMeta]
+    )
+  }
 }
 
 object FuzzyMatcher {
 
-  private def returnResult(matchedDf: DataFrame, toCreateDf: DataFrame, mappingDataDf: DataFrame): FuzzyMatcherResult = {
-    FuzzyMatcherResult(
-      matchedDf = matchedDf,
-      toCreateDf = toCreateDf,
-      mappingDataDf = mappingDataDf,
-      isCanonicalCol = isCanonical
-    )
-  }
+  private val C_ENTITY_ID = "entityId"
+  private val C_RAW_VAL = "rawValue"
+  private val C_NORM_VAL = "normValue" // Вычисляемое поле
+  private val C_PARENT_ID = "parentId"
 
-  private val isCanonical = "is_canonical"
+  private val D_ID = "id"
+  private val D_NORM_VAL = "normValue"
+  private val D_PARENT_ID = "parentId"
+
 }

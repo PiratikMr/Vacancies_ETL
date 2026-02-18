@@ -1,11 +1,9 @@
 package org.example.core.normalization.model
 
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.Dataset
 
 case class FuzzyMatcherResult(
-                             matchedDf: DataFrame,
-                             toCreateDf: DataFrame,
-                             mappingDataDf: DataFrame,
-
-                             isCanonicalCol: String
+                               matched: Dataset[FuzzyMatch],
+                               toCreate: Dataset[FuzzyToCreate],
+                               mappingData: Dataset[FuzzyMappingMeta]
                              )
