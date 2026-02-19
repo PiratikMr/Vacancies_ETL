@@ -23,6 +23,8 @@ def parse_args(config: ConfigTree, args: list[tuple[str, str, bool]]) -> list[st
     return cli_args
 
 def spark_ETLTaskBuild(part: str, moduleName: str, jarName: str, args: list[str], task_name: str = None):
+    log_conf_path = '/opt/airflow/scalaProject/Core/src/main/resources/log4j2.properties'
+    
     return SparkSubmitOperator(
         task_id=task_name or part,
         conn_id="SPARK_CONN",
@@ -30,5 +32,10 @@ def spark_ETLTaskBuild(part: str, moduleName: str, jarName: str, args: list[str]
             f'/opt/airflow/scalaProject/platforms/{moduleName}/'
             f"target/scala-2.13/{jarName}-etl.jar"
         ),
-        application_args=args + ["--etlpart", part]
+        files=log_conf_path,
+        application_args=args + ["--etlpart", part],
+        conf={
+            'spark.driver.extraJavaOptions': f'-Dlog4j.configurationFile=file://{log_conf_path}',
+            'spark.executor.extraJavaOptions': '-Dlog4j.configurationFile=log4j2.properties'
+        }
     )

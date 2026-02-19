@@ -31,13 +31,7 @@ class NormalizationOrchestrator(spark: SparkSession,
         case _ => mappedResult.mappedDf.withColumnRenamed(mappedResult.mappedIdCol, task.nType.mappedIdCol)
       }
 
-
-      res.join(
-          mappedDf,
-          Seq(SchemaRegistry.Internal.RawVacancy.externalId.name),
-          "left"
-        )
-        .localCheckpoint()
+      res.join(mappedDf, Seq(SchemaRegistry.Internal.RawVacancy.externalId.name), "left")
     })
   }
 

@@ -1,5 +1,6 @@
 package org.example.headhunter
 
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions.col
 import org.example.core.adapter.database.impl.postgres.PostgresAdapter
 import org.example.core.adapter.storage.impl.hdfs.HDFSAdapter
@@ -12,7 +13,7 @@ import org.example.headhunter.implement.{HHExtractor, HHTransformer}
 
 import scala.util.Try
 
-object HeadHunterMain extends App with SparkJob {
+object HeadHunterMain extends App with SparkJob /*with LazyLogging*/ {
 
   private val argsConfig = new HHArgsLoader(args)
   private val fileConfig = new HHFileLoader(argsConfig.common.confFile, argsConfig.common.saveFolder)
@@ -45,12 +46,11 @@ object HeadHunterMain extends App with SparkJob {
     .select("role_id")
     .map(row => row.getLong(0))
 
-
   private val ec = new ETLUService(
     spark,
     dbService,
     hdfsAdapter,
-    STTPAdapter(fileConfig.structures.netConf)
+    sttpAdapter
   )
 
   private val extractor = new HHExtractor(
@@ -63,7 +63,7 @@ object HeadHunterMain extends App with SparkJob {
     fileConfig.common.rawPartitions
   )
 
-  private lazy val areas = hdfsAdapter.read(spark, FolderNames.areas, withDate = false)
+  private val areas = hdfsAdapter.read(spark, FolderNames.areas, withDate = false)
     .withColumnRenamed("id", "area_id")
 
   ec.run(

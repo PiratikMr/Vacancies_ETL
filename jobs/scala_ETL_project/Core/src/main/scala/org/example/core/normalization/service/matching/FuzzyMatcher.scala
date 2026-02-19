@@ -69,7 +69,8 @@ class FuzzyMatcher(
 
     // Если кандидатов не осталось, возвращаем только точные совпадения
     if (candidatesForFuzzy.isEmpty) {
-      candidatesDf.unpersist()
+      candidatesDf.unpersist(blocking = false)
+      candidatesForFuzzy.unpersist(blocking = false)
       return emptyResult(exactMatches)
     }
 
@@ -91,37 +92,42 @@ class FuzzyMatcher(
         "left_anti"
       ).cache()
 
+
     if (remainingCandidates.isEmpty) {
-      remainingCandidates.unpersist()
+      candidatesDf.unpersist(blocking = false)
+      candidatesForFuzzy.unpersist(blocking = false)
+      fuzzyDictMatches.unpersist(blocking = false)
+      remainingCandidates.unpersist(blocking = false)
       return emptyResult(allDictMatches)
     }
 
 
     // 3. Self-Matching с полной изоляцией имен колонок
-    val selfMatches = selfMatching(remainingCandidates).cache()
+    val (rawSelfMatches, clearSelfMatches) = selfMatching(remainingCandidates)
+    val selfMatches = rawSelfMatches.cache()
 
     val toCreate = selfMatches
-      .select(
-        col(C_ENTITY_ID),
-        col(C_RAW_VAL),
-        col(C_PARENT_ID)
-      )
+      .select($"$C_ENTITY_ID", $"$C_RAW_VAL", $"$C_PARENT_ID")
       .distinct()
       .as[FuzzyToCreate]
 
     val newMappingData = selfMatches
-      .select(
-        col(C_NORM_VAL),
-        col("isCanonical"), // Поле создается внутри selfMatching
-        col(C_RAW_VAL),
-        col(C_PARENT_ID)
-      )
+      .select($"$C_NORM_VAL", $"isCanonical",$"$C_RAW_VAL", $"$C_PARENT_ID")
       .distinct()
       .as[FuzzyMappingMeta]
 
     val matchedResult = allDictMatches.as[FuzzyMatch]
 
-    FuzzyMatcherResult(matchedResult, toCreate, newMappingData)
+    val clearAllCaches = () => {
+      candidatesDf.unpersist(blocking = false)
+      candidatesForFuzzy.unpersist(blocking = false)
+      fuzzyDictMatches.unpersist(blocking = false)
+      remainingCandidates.unpersist(blocking = false)
+      selfMatches.unpersist(blocking = false)
+      clearSelfMatches()
+    }
+
+    FuzzyMatcherResult(matchedResult, toCreate, newMappingData, clearAllCaches)
   }
 
 
@@ -147,7 +153,7 @@ class FuzzyMatcher(
       .distinct()
   }
 
-  private def selfMatching(candidatesDf: DataFrame): DataFrame = {
+  private def selfMatching(candidatesDf: DataFrame): (DataFrame, () => Unit) = {
     val rawValue = C_RAW_VAL
     val normValue = C_NORM_VAL
     val parentId = C_PARENT_ID
@@ -202,7 +208,7 @@ class FuzzyMatcher(
       .select(col(aN).as("hub"), col(aPid).as("hub_pid"))
       .distinct()
 
-    rankedCandidates
+    val resultDf = rankedCandidates
       .join(
         activeHubs,
         col("hub") === col(bN) &&
@@ -225,13 +231,22 @@ class FuzzyMatcher(
         col(bId).as(entityId),
         col(aPid).as(parentId)
       ).distinct()
+
+    val unpersistFn = () => {
+      pairs.unpersist(blocking = false)
+      rankedCandidates.unpersist(blocking = false)
+      ()
+    }
+
+    (resultDf, unpersistFn)
   }
 
   private def emptyResult(matchedDf: DataFrame): FuzzyMatcherResult = {
     FuzzyMatcherResult(
       matched = matchedDf.as[FuzzyMatch],
       toCreate = spark.emptyDataset[FuzzyToCreate],
-      mappingData = spark.emptyDataset[FuzzyMappingMeta]
+      mappingData = spark.emptyDataset[FuzzyMappingMeta],
+      () => {}
     )
   }
 }

@@ -26,9 +26,7 @@ trait SparkJob extends LazyLogging {
       .getOrCreate()
 
     sys.addShutdownHook {
-
       logger.info(s"Остановка Spark Session $sparkName...")
-
       s.stop()
     }
 

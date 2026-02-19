@@ -27,8 +27,6 @@ class HHTransformer(
       "left"
     )
 
-    println(s"КОЛВО: ${rawDF.count()}")
-
     dfWithAreas
       .withColumn("parsed_published_at", to_timestamp(col("published_at"), "yyyy-MM-dd'T'HH:mm:ss+0300"))
 

@@ -35,18 +35,10 @@ class ETLUService(
       .dropDuplicates(SchemaRegistry.Internal.RawVacancy.externalId.name)
       .localCheckpoint()
 
-    logger.debug(s"Трансформация завершена. Количество записей: ${transformed.count()}")
-
-    transformed.show()
-
     val normalized = transformer.normalize(spark, transformed)
       .smartSelect(SchemaRegistry.Internal.NormalizedVacancy.schema)
       .dropDuplicates(SchemaRegistry.Internal.NormalizedVacancy.externalId.name)
       .localCheckpoint()
-
-    logger.debug(s"Нормализация завершена. Количество записей: ${normalized.count()}")
-
-    normalized.show()
 
     normalized
   }

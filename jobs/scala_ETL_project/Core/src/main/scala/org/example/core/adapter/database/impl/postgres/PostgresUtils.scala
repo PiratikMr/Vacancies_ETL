@@ -1,23 +1,24 @@
 package org.example.core.adapter.database.impl.postgres
 
-import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 import org.example.core.config.model.structures.DBConf
 
 import java.sql.{Connection, DriverManager}
 import java.util.UUID
 import scala.util.Try
+import scala.util.control.NonFatal
 
 object PostgresUtils extends LazyLogging {
 
-
   def loadTable(spark: SparkSession, conf: DBConf, targetTable: String): DataFrame = {
+    logger.info(s"Загрузка всей таблицы $targetTable из БД ${conf.base}")
     readJdbc(spark, conf, "dbtable", targetTable)
   }
 
   def loadQuery(spark: SparkSession, conf: DBConf, query: String): DataFrame = {
+    logger.info(s"Загрузка данных из БД ${conf.base} с помощью пользовательского запроса")
     logger.debug(s"Выполнение SQL запроса:\n$query")
-
     readJdbc(spark, conf, "query", query)
   }
 
@@ -27,12 +28,16 @@ object PostgresUtils extends LazyLogging {
            conflicts: Seq[String],
            updates: Option[Seq[String]]): Unit = {
 
+    logger.info(s"Старт операции SAVE (upsert) для таблицы $targetTable. Ключи конфликта: ${conflicts.mkString(", ")}")
+
     withStaging(conf, df.dropDuplicates(conflicts)) { stagingTable =>
       executeInTransaction(conf) { conn =>
         val sql = buildUpsertQuery(targetTable, stagingTable, df.columns, conflicts, updates)
         executeSql(conn, sql)
       }
     }
+
+    logger.info(s"Операция SAVE (upsert) для таблицы $targetTable успешно завершена")
   }
 
   def saveWithReturn(
@@ -45,11 +50,15 @@ object PostgresUtils extends LazyLogging {
                       updates: Option[Seq[String]]
                     ): DataFrame = {
 
+    logger.info(s"Старт операции SAVE_WITH_RETURN (upsert) для таблицы $targetTable. Ключи конфликта: ${conflicts.mkString(", ")}")
+
     withStaging(conf, df.dropDuplicates(conflicts)) { stagingTable =>
       executeInTransaction(conf) { conn =>
         val sql = buildUpsertQuery(targetTable, stagingTable, df.columns, conflicts, updates)
         executeSql(conn, sql)
       }
+
+      logger.debug(s"Чтение возвращаемых колонок: ${returns.mkString(", ")}")
 
       val joinCondition = conflicts.map(c => s"t.$c = s.$c").mkString(" AND ")
       val returnCols = returns.map(c => s"t.$c").mkString(", ")
@@ -62,34 +71,57 @@ object PostgresUtils extends LazyLogging {
            |""".stripMargin
       )
 
-      result.localCheckpoint()
+      val checkpointedResult = result.localCheckpoint()
+      logger.info(s"Операция SAVE_WITH_RETURN успешно завершена для $targetTable")
+      checkpointedResult
     }
   }
 
 
   private def withStaging[T](conf: DBConf, df: DataFrame)(block: String => T): T = {
     val stagingTable = s"staging_${UUID.randomUUID().toString.replace("-", "")}"
+
+    logger.debug(s"Создание и запись во временную staging-таблицу: $stagingTable")
+
     try {
       writeDefault(conf, df, stagingTable)
       block(stagingTable)
+
     } finally {
-      Try(dropTable(conf, stagingTable))
+      logger.debug(s"Удаление временной staging-таблицы: $stagingTable")
+      Try(dropTable(conf, stagingTable)).recover {
+        case NonFatal(e) => logger.error(s"Не удалось удалить staging-таблицу $stagingTable", e)
+      }
     }
   }
 
   private def executeInTransaction[T](conf: DBConf)(block: Connection => T): T = {
+    logger.debug("Открытие соединения и начало транзакции")
+
     val conn = getConnection(conf)
     try {
       conn.setAutoCommit(false)
       val result = block(conn)
       conn.commit()
+
+      logger.debug("Транзакция успешно закоммичена")
+
       result
+
     } catch {
-      case e: Throwable =>
+      case NonFatal(e) =>
+
+        logger.error("Ошибка при выполнении транзакции, выполняется rollback()", e)
+
         Try(conn.rollback())
         throw e
+
     } finally {
-      conn.close()
+      logger.debug("Закрытие соединения с БД")
+
+      Try(conn.close()).recover {
+        case NonFatal(e) => logger.error("Ошибка при закрытии соединения", e)
+      }
     }
   }
 
@@ -108,6 +140,7 @@ object PostgresUtils extends LazyLogging {
       logger.debug(s"Выполнение SQL команды:\n$sql")
 
       stmt.execute(sql)
+
     } finally {
       stmt.close()
     }
@@ -172,5 +205,12 @@ object PostgresUtils extends LazyLogging {
   }
 
   private def getConnection(conf: DBConf): Connection =
-    DriverManager.getConnection(conf.url, conf.name, conf.pass)
+    try {
+      DriverManager.getConnection(conf.url, conf.name, conf.pass)
+
+    } catch {
+      case NonFatal(e) =>
+        logger.error(s"Не удалось установить подключение с БД по URL: ${conf.url}", e)
+        throw e
+    }
 }

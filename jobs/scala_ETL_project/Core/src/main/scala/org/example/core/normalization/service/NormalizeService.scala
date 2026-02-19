@@ -156,7 +156,9 @@ class NormalizeService(
       )
 
     if (!withCreate || fuzzyRes.toCreate.isEmpty) {
-      return returnResult(matchedResult)
+      val checkPointedRes = matchedResult.localCheckpoint()
+      fuzzyRes.clearCache()
+      return returnResult(checkPointedRes)
     }
 
 
@@ -195,11 +197,12 @@ class NormalizeService(
       dbAdapter.save(mappingDataToWrite, mdt.tableName, Seq(mdt.mappedValueColName, mdt.idColName))
     }
 
-    // Объединяем старые (найденные) и новые (созданные) маппинги
     val finalRes = matchedResult.union(createdMapping).distinct()
 
-    returnResult(finalRes)
+    val checkPointedRes = finalRes.localCheckpoint()
+    fuzzyRes.clearCache()
 
+    returnResult(checkPointedRes)
   }
 
 
