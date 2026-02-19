@@ -1,6 +1,7 @@
 package org.example.core.normalization.service.matching.impl
 
 import org.example.SparkEnv
+import org.example.core.normalization.engine.similarity.impl.ScoringAlgorithms
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

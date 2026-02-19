@@ -7,8 +7,8 @@ import org.example.core.adapter.storage.StorageAdapter
 import org.example.core.adapter.web.WebAdapter
 import org.example.core.config.schema.SchemaRegistry
 import org.example.core.etl.impl.VacancyLoader
-import org.example.core.objects.ETLParts
-import org.example.core.objects.ETLParts.{Extract, TransformLoad, Update}
+import org.example.core.etl.model.ETLParts
+import ETLParts.{Extract, TransformLoad, Update}
 import org.example.core.util.SparkExtensions._
 
 import scala.util.{Failure, Success}

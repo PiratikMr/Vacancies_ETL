@@ -1,4 +1,4 @@
-package org.example.core.normalization.model
+package org.example.core.normalization.engine.model
 
 case class FuzzyCandidate(
                            entityId: String,

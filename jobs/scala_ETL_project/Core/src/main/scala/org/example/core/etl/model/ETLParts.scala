@@ -1,4 +1,4 @@
-package org.example.core.objects
+package org.example.core.etl.model
 
 import scala.util.{Failure, Success, Try}
 

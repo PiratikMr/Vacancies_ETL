@@ -1,4 +1,4 @@
-package org.example.core.normalization.service.matching
+package org.example.core.normalization.engine.similarity
 
 import org.apache.spark.sql.Column
 

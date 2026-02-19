@@ -11,7 +11,7 @@ import org.example.core.normalization.config.{DimTableConf, MappingDimTableConf}
 import org.example.core.normalization.impl.strategy.{Aggregators, Extractors, RawDataExtractor, ResultAggregator}
 import org.example.core.normalization.impl.{GenericNormalizer, HierarchicalNormalizer, LanguageNormalizer}
 import org.example.core.normalization.service.NormalizeService
-import org.example.core.objects.NormalizersEnum._
+import org.example.core.normalization.model.NormalizersEnum._
 
 object NormalizerFactory {
 

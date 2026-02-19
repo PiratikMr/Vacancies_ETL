@@ -5,9 +5,10 @@ import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.config.model.structures.FuzzyMatchSettings
 import org.example.core.normalization.config.{DimTableConf, MappingDimTableConf}
-import org.example.core.normalization.model.{FuzzyCandidate, FuzzyDictionary, NormalizeServiceResult}
+import org.example.core.normalization.engine.FuzzyMatcher
+import org.example.core.normalization.engine.model.{FuzzyCandidate, FuzzyDictionary}
+import org.example.core.normalization.model.NormalizeServiceResult
 import org.example.core.normalization.service.NormalizeService._
-import org.example.core.normalization.service.matching.FuzzyMatcher
 
 class NormalizeService(
                         spark: SparkSession,

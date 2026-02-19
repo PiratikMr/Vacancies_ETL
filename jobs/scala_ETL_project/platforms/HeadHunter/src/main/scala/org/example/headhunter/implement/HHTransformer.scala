@@ -8,7 +8,7 @@ import org.example.core.config.model.structures.FuzzyMatcherConf
 import org.example.core.config.schema.SchemaRegistry.Internal.RawVacancy
 import org.example.core.etl.Transformer
 import org.example.core.normalization.service.NormalizationOrchestrator
-import org.example.core.objects.NormalizersEnum._
+import org.example.core.normalization.model.NormalizersEnum._
 
 class HHTransformer(
                      areas: DataFrame,

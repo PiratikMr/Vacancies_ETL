@@ -1,4 +1,4 @@
-package org.example.core.normalization.service.matching.impl
+package org.example.core.normalization.engine.similarity.impl
 
 import org.tartarus.snowball.SnowballStemmer
 import org.tartarus.snowball.ext.{englishStemmer, russianStemmer}

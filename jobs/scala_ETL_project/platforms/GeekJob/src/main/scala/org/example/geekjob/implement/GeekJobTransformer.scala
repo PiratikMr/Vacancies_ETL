@@ -9,7 +9,7 @@ import org.example.core.config.schema.SchemaRegistry.DataBase.Entities
 import org.example.core.config.schema.SchemaRegistry.Internal.RawVacancy
 import org.example.core.etl.Transformer
 import org.example.core.normalization.factory.NormalizerFactory
-import org.example.core.objects.NormalizersEnum._
+import org.example.core.normalization.model.NormalizersEnum._
 import org.example.core.normalization.api.NormalizationTask.Exact
 import org.example.core.normalization.service.NormalizationOrchestrator
 import org.jsoup.Jsoup

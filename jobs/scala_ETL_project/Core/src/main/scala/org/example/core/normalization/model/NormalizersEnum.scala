@@ -1,4 +1,4 @@
-package org.example.core.objects
+package org.example.core.normalization.model
 
 import org.example.core.config.schema.SchemaRegistry.DataBase.{Entities, FactVacancy}
 

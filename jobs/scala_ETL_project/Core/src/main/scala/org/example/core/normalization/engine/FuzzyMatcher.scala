@@ -1,12 +1,13 @@
-package org.example.core.normalization.service.matching
+package org.example.core.normalization.engine
 
 import org.apache.spark.sql.expressions.Window.partitionBy
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
 import org.example.core.config.model.structures.FuzzyMatchSettings
-import org.example.core.normalization.model._
-import org.example.core.normalization.service.matching.FuzzyMatcher._
-import org.example.core.normalization.service.matching.impl.DefaultSimilarityStrategy
+import org.example.core.normalization.engine.FuzzyMatcher._
+import org.example.core.normalization.engine.model._
+import org.example.core.normalization.engine.similarity.SimilarityStrategy
+import org.example.core.normalization.engine.similarity.impl.DefaultSimilarityStrategy
 
 class FuzzyMatcher(
                     spark: SparkSession,
@@ -112,7 +113,7 @@ class FuzzyMatcher(
       .as[FuzzyToCreate]
 
     val newMappingData = selfMatches
-      .select($"$C_NORM_VAL", $"isCanonical",$"$C_RAW_VAL", $"$C_PARENT_ID")
+      .select($"$C_NORM_VAL", $"isCanonical", $"$C_RAW_VAL", $"$C_PARENT_ID")
       .distinct()
       .as[FuzzyMappingMeta]
 

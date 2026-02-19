@@ -2,7 +2,7 @@ package org.example.core.config.loader.parsing
 
 import com.typesafe.config.Config
 import org.example.core.config.model.structures._
-import org.example.core.objects.NormalizersEnum
+import org.example.core.normalization.model.NormalizersEnum
 
 import scala.jdk.CollectionConverters._
 

@@ -1,6 +1,6 @@
 package org.example.core.normalization.api
 
-import org.example.core.objects.NormalizersEnum.NormalizerType
+import org.example.core.normalization.model.NormalizersEnum.NormalizerType
 
 import scala.language.implicitConversions
 

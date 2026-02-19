@@ -9,7 +9,7 @@ import org.example.core.config.schema.SchemaRegistry.Internal.RawVacancy
 import org.example.core.etl.Transformer
 import org.example.core.normalization.api.NormalizationTask.ExtractTags
 import org.example.core.normalization.service.NormalizationOrchestrator
-import org.example.core.objects.NormalizersEnum._
+import org.example.core.normalization.model.NormalizersEnum._
 
 class FinderTransformer(dbAdapter: DataBaseAdapter,
                         fuzzyConf: FuzzyMatcherConf) extends Transformer {

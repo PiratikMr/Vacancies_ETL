@@ -1,9 +1,9 @@
-package org.example.core.normalization.service.matching.impl
+package org.example.core.normalization.engine.similarity.impl
 
 import org.apache.spark.sql.Column
 import org.apache.spark.sql.functions.{greatest, least, lit}
 import org.example.core.config.model.structures.FuzzyMatchSettings
-import org.example.core.normalization.service.matching.SimilarityStrategy
+import org.example.core.normalization.engine.similarity.SimilarityStrategy
 
 class DefaultSimilarityStrategy(settings: FuzzyMatchSettings) extends SimilarityStrategy {
 

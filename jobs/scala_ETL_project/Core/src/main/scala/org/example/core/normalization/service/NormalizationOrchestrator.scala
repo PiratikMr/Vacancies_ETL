@@ -6,7 +6,7 @@ import org.example.core.config.model.structures.FuzzyMatcherConf
 import org.example.core.config.schema.SchemaRegistry
 import org.example.core.normalization.api.{NormalizationTask, Normalizer}
 import org.example.core.normalization.factory.NormalizerFactory
-import org.example.core.objects.NormalizersEnum._
+import org.example.core.normalization.model.NormalizersEnum._
 
 class NormalizationOrchestrator(spark: SparkSession,
                                 dbAdapter: DataBaseAdapter,
