@@ -22,7 +22,7 @@ class Platform:
         ] + args 
         # self.parts = ["update"] if u else []
         # self.parts.extend(["extract", "transform", "load"])
-        self.parts = ["e", "tl"]
+        self.parts = ["extract", "transform-load"]
         
 
 PLATFORMS = [

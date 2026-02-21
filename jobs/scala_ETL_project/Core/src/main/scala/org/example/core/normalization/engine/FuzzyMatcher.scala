@@ -18,14 +18,6 @@ class FuzzyMatcher(
 
   import spark.implicits._
 
-  def normCol(rawCol: Column): Column = {
-    array_join(
-      array_sort(
-        similarityStrategy.normalize(rawCol)
-      ),
-      " ")
-  }
-
   def normArrayCol(rawCol: Column): Column = {
     similarityStrategy.normalize(rawCol)
   }
@@ -36,15 +28,14 @@ class FuzzyMatcher(
              ): FuzzyMatcherResult = {
 
     val candidatesDf = candidatesDs.filter(col(C_RAW_VAL).isNotNull)
-      .withColumn(C_NORM_VAL, normCol(col(C_RAW_VAL)))
+      .withColumn(C_NORM_VAL, similarityStrategy.normalize(col(C_RAW_VAL)))
       .alias("cand")
       .cache()
 
     val dictDf = dictionaryDs.toDF().alias("dict")
 
 
-    // 2. Exact Match (Точное совпадение по нормализованному значению)
-    // Ищем тех, у кого norm_value и parent_id полностью совпадают со словарем
+    // === 1. Точные совпадения ===
     val exactMatches = candidatesDf
       .join(
         dictDf,
@@ -54,11 +45,10 @@ class FuzzyMatcher(
       .select(
         col(s"cand.$C_ENTITY_ID"),
         col(s"cand.$C_NORM_VAL"),
-        col(s"dict.$D_ID").as("dictId") // alias для контракта FuzzyMatchFound
+        col(s"dict.$D_ID").as("dictId")
       )
 
-    // 3. Исключаем найденные точные совпадения из кандидатов
-    // Используем left_anti join по ID сущности
+
     val candidatesForFuzzy = candidatesDf
       .join(
         exactMatches,
@@ -68,16 +58,26 @@ class FuzzyMatcher(
       )
       .cache()
 
-    // Если кандидатов не осталось, возвращаем только точные совпадения
     if (candidatesForFuzzy.isEmpty) {
       candidatesDf.unpersist(blocking = false)
       candidatesForFuzzy.unpersist(blocking = false)
       return emptyResult(exactMatches)
     }
+    // === Точные совпадения ===
 
 
-    // 1. Матчинг со словарем
-    val fuzzyDictMatches = matchDictionary(candidatesForFuzzy, dictDf)
+    // === 2. Векторизация ===
+    val fuzzyCandidatesWithFeatures = candidatesForFuzzy
+      .withColumn(C_NORM_STRUCT, similarityStrategy.buildFeatures(col(C_NORM_VAL)))
+      .cache()
+
+    val dictWithFeatures = dictDf
+      .withColumn("dict_norm_struct", similarityStrategy.buildFeatures(col(D_NORM_VAL)))
+    // === Векторизация ===
+
+
+    // === 3. Fuzzy matching со словарями ===
+    val fuzzyDictMatches = matchDictionary(fuzzyCandidatesWithFeatures, dictWithFeatures)
       .alias("dict_fuzzy")
       .cache()
 
@@ -85,25 +85,25 @@ class FuzzyMatcher(
       .unionByName(fuzzyDictMatches.select(col(C_ENTITY_ID), col("dictId")))
       .distinct()
 
-    // 2. Исключаем тех, кто сматчился со словарем
-    val remainingCandidates = candidatesForFuzzy
+    val remainingCandidates = fuzzyCandidatesWithFeatures
       .join(
         fuzzyDictMatches,
-        candidatesForFuzzy(C_ENTITY_ID) === fuzzyDictMatches(C_ENTITY_ID),
+        fuzzyCandidatesWithFeatures(C_ENTITY_ID) === fuzzyDictMatches(C_ENTITY_ID),
         "left_anti"
       ).cache()
-
 
     if (remainingCandidates.isEmpty) {
       candidatesDf.unpersist(blocking = false)
       candidatesForFuzzy.unpersist(blocking = false)
       fuzzyDictMatches.unpersist(blocking = false)
       remainingCandidates.unpersist(blocking = false)
+      fuzzyCandidatesWithFeatures.unpersist(blocking = false)
       return emptyResult(allDictMatches)
     }
+    // === Fuzzy matching со словарями ===
 
 
-    // 3. Self-Matching с полной изоляцией имен колонок
+    // === 4. Self fuzzy matching ===
     val (rawSelfMatches, clearSelfMatches) = selfMatching(remainingCandidates)
     val selfMatches = rawSelfMatches.cache()
 
@@ -125,8 +125,10 @@ class FuzzyMatcher(
       fuzzyDictMatches.unpersist(blocking = false)
       remainingCandidates.unpersist(blocking = false)
       selfMatches.unpersist(blocking = false)
+      fuzzyCandidatesWithFeatures.unpersist(blocking = false)
       clearSelfMatches()
     }
+    // === Self fuzzy matching ===
 
     FuzzyMatcherResult(matchedResult, toCreate, newMappingData, clearAllCaches)
   }
@@ -137,19 +139,19 @@ class FuzzyMatcher(
     val dict = dictDf.alias("d")
 
     cand
-      .join(dict, col(s"c.$C_PARENT_ID") === col(s"d.$D_PARENT_ID"))
-      .withColumn("score", similarityStrategy.calculateScore(col(s"c.$C_NORM_VAL"), col(s"d.$D_NORM_VAL")))
-      .filter(col("score") >= minScore)
+      .join(dict, $"c.$C_PARENT_ID" === $"d.$D_PARENT_ID")
+      .withColumn("score", similarityStrategy.calculateScore($"c.$C_NORM_STRUCT", $"d.dict_norm_struct"))
+      .filter($"score" >= minScore)
       .withColumn("rank",
         row_number().over(
-          partitionBy(col(s"c.$C_NORM_VAL"), col(s"c.$C_ENTITY_ID"), col(s"c.$C_PARENT_ID"))
-            .orderBy(col("score").desc, col(s"d.$D_NORM_VAL"))
+          partitionBy($"c.$C_NORM_VAL", $"c.$C_ENTITY_ID", $"c.$C_PARENT_ID")
+            .orderBy($"score".desc, $"d.$D_NORM_VAL")
         )
       )
-      .filter(col("rank") === 1)
+      .filter($"rank" === 1)
       .select(
-        col(s"c.$C_ENTITY_ID"),
-        col(s"d.$D_ID").as("dictId")
+        $"c.$C_ENTITY_ID",
+        $"d.$D_ID".as("dictId")
       )
       .distinct()
   }
@@ -157,33 +159,86 @@ class FuzzyMatcher(
   private def selfMatching(candidatesDf: DataFrame): (DataFrame, () => Unit) = {
     val rawValue = C_RAW_VAL
     val normValue = C_NORM_VAL
+    val normStruct = C_NORM_STRUCT
     val parentId = C_PARENT_ID
     val entityId = C_ENTITY_ID
 
     val aV = s"A_$rawValue"
     val aN = s"A_$normValue"
+    val aS = s"A_$normStruct"
     val aPid = s"A_$parentId"
 
     val bId = s"B_$entityId"
     val bN = s"B_$normValue"
+    val bS = s"B_$normStruct"
     val bPid = s"B_$parentId"
+
+    val uniqueNorms = candidatesDf
+      .select(normValue, normStruct, parentId)
+      .distinct()
+      .localCheckpoint()
+
+    val uA = uniqueNorms.select(
+      col(normValue).as(aN),
+      col(normStruct).as(aS),
+      col(parentId).as("A_pid")
+    )
+
+    val uB = uniqueNorms.select(
+      col(normValue).as(bN),
+      col(normStruct).as(bS),
+      col(parentId).as("B_pid")
+    )
+
+    val lenA = length(col(aN))
+    val lenB = length(col(bN))
+    val lengthFilter = abs(lenA - lenB) <= (greatest(lenA, lenB) * lit(0.5))
+
+    val halfPairs = uA
+      .join(uB, col("A_pid") === col("B_pid") && col(aN) < col(bN) && lengthFilter)
+      .withColumn("score", similarityStrategy.calculateScore(col(aS), col(bS)))
+      .filter($"score" >= minScore)
+      .select(col(aN), col(bN), $"A_pid".as(aPid), $"score")
+
+    val flippedPairs = halfPairs.select(
+      col(bN).as(aN),
+      col(aN).as(bN),
+      col(aPid),
+      $"score"
+    )
+
+    val selfPairs = uniqueNorms.select(
+      col(normValue).as(aN),
+      col(normValue).as(bN),
+      col(parentId).as(aPid),
+      lit(1.0).as("score")
+    )
+
+    val allUniquePairs = halfPairs
+      .unionByName(flippedPairs)
+      .unionByName(selfPairs)
+      .cache()
 
     val A = candidatesDf.select(
       col(rawValue).as(aV),
-      col(normValue).as(aN),
-      col(parentId).as(aPid)
+      col(normValue).as("u_aN"),
+      col(parentId).as("u_aPid")
     )
     val B = candidatesDf.select(
       col(entityId).as(bId),
-      col(normValue).as(bN),
-      col(parentId).as(bPid)
+      col(normValue).as("u_bN"),
+      col(parentId).as("u_bPid")
     )
 
-    val pairs = A
-      .join(B, col(aPid) === col(bPid))
-      .withColumn("score", similarityStrategy.calculateScore(col(aN), col(bN)))
-      .filter(col("score") >= minScore)
-      .cache()
+    val pairs = allUniquePairs
+      .join(A, col(aN) === col("u_aN") && col(aPid) === col("u_aPid"))
+      .join(B, col(bN) === col("u_bN") && col(aPid) === col("u_bPid"))
+      .select(
+        col(aV), col(aN), col(aPid),
+        col(bId), col(bN), col("u_bPid").as(bPid),
+        col("score")
+      )
+      .localCheckpoint()
 
     val authority = pairs
       .dropDuplicates(aN, bN)
@@ -234,7 +289,7 @@ class FuzzyMatcher(
       ).distinct()
 
     val unpersistFn = () => {
-      pairs.unpersist(blocking = false)
+      allUniquePairs.unpersist(blocking = false)
       rankedCandidates.unpersist(blocking = false)
       ()
     }
@@ -258,6 +313,8 @@ object FuzzyMatcher {
   private val C_RAW_VAL = "rawValue"
   private val C_NORM_VAL = "normValue"
   private val C_PARENT_ID = "parentId"
+
+  private val C_NORM_STRUCT = "normStruct"
 
   private val D_ID = "id"
   private val D_NORM_VAL = "normValue"

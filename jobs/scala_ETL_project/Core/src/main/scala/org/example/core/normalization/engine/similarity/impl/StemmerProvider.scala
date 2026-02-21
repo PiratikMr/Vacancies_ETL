@@ -25,12 +25,25 @@ object StemmerProvider {
 
   private def getStemmerFor(word: String): SnowballStemmer = {
     if (isRussian(word)) ruStemmerTL.get()
+
     else enStemmerTL.get()
   }
 
 
   private def isRussian(word: String): Boolean = {
-    word.exists(c => c >= '\u0400' && c <= '\u04FF')
+    var i = 0;
+    val len = word.length
+
+    while (i < len) {
+      val c = word.charAt(i)
+
+      if (c >= '\u0400' && c <= '\u04FF')
+        return true
+
+      i += 1
+    }
+
+    false
   }
 
 }

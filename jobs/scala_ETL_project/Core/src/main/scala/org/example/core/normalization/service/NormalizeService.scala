@@ -159,6 +159,7 @@ class NormalizeService(
     if (!withCreate || fuzzyRes.toCreate.isEmpty) {
       val checkPointedRes = matchedResult.localCheckpoint()
       fuzzyRes.clearCache()
+      fullMappingTable.unpersist(blocking = false)
       return returnResult(checkPointedRes)
     }
 
@@ -202,6 +203,8 @@ class NormalizeService(
 
     val checkPointedRes = finalRes.localCheckpoint()
     fuzzyRes.clearCache()
+    fullMappingTable.unpersist(blocking = false)
+    reloadedDims.unpersist(blocking = false)
 
     returnResult(checkPointedRes)
   }

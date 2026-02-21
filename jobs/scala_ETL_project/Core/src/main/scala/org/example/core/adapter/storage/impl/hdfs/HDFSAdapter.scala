@@ -32,7 +32,7 @@ class HDFSAdapter(conf: FSConf) extends StorageAdapter with LazyLogging {
     logger.info(s"Чтение текстового Dataset из HDFS по пути: $path")
 
     try {
-      val ds = spark.read.textFile(path)
+      val ds = spark.read.option("multiLine","true").textFile(path)
       logger.debug(s"Успешно прочитан текстовый Dataset из $path")
       ds
 
