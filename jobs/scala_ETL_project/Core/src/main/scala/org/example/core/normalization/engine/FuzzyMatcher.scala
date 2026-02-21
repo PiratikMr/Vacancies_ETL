@@ -18,8 +18,14 @@ class FuzzyMatcher(
 
   import spark.implicits._
 
-  def normArrayCol(rawCol: Column): Column = {
-    similarityStrategy.normalize(rawCol)
+  private val tagExtractor = new BroadcastTagExtractor(spark, similarityStrategy)
+
+
+  def extractTags(
+                   candidatesDs: Dataset[FuzzyCandidate],
+                   dictionaryDs: Dataset[FuzzyDictionary]
+                 ): Dataset[FuzzyMatch] = {
+    tagExtractor.extractExactTags(candidatesDs, dictionaryDs)
   }
 
   def execute(

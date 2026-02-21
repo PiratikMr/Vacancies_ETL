@@ -89,29 +89,28 @@ class NormalizeService(
       return returnResult(spark.emptyDataFrame)
     }
 
-    val maxN = fullMappingTable
-      .select(size(split(col(normValue), " ")).as("len"))
-      .agg(max("len"))
-      .head()
-      .getInt(0)
+    val dictionaryDs = fullMappingTable
+      .select(
+        col(mappedId).as("id"),
+        col(normValue).as("normValue"),
+        col(parentId).as("parentId")
+      ).as[FuzzyDictionary]
 
-
-    val uniGramsExpr = makeSortedNGrams(col(normValue), 1)
-
-    val allGramsExpr = (2 to maxN)
-      .foldLeft(uniGramsExpr)((res, i) =>
-        concat(res, makeSortedNGrams(col(normValue), i))
+    val rawCandidates = candidates
+      .select(
+        col(entityIdCol).as("entityId"),
+        col(valueCol).as("rawValue"),
+        lit(DEFAULT_PARENT_ID).as("parentId") // Заглушка
       )
+      .as[FuzzyCandidate]
 
-    val finalRes = candidates
-      .withColumn(normValue, fuzzyMatcher.normArrayCol(col(valueCol)))
-      .withColumn("c", allGramsExpr)
-      .select(col(entityIdCol), explode(col("c")).as(normValue))
-      .distinct()
+    val exactMatchesDs = fuzzyMatcher.extractTags(rawCandidates, dictionaryDs)
 
-      .join(fullMappingTable, Seq(normValue))
-      .select(entityIdCol, mappedId)
-      .distinct()
+    val finalRes = exactMatchesDs.toDF()
+      .select(
+        col("entityId").as(entityIdCol),
+        col("dictId").as(mappedId)
+      )
 
     returnResult(finalRes)
   }

@@ -31,7 +31,7 @@ object StemmerProvider {
 
 
   private def isRussian(word: String): Boolean = {
-    var i = 0;
+    var i = 0
     val len = word.length
 
     while (i < len) {

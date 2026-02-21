@@ -7,6 +7,7 @@ import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.config.model.structures.FuzzyMatcherConf
 import org.example.core.config.schema.SchemaRegistry.Internal.RawVacancy
 import org.example.core.etl.Transformer
+import org.example.core.normalization.api.NormalizationTask.ExtractTags
 import org.example.core.normalization.model.NormalizersEnum._
 import org.example.core.normalization.service.NormalizationOrchestrator
 
@@ -85,8 +86,8 @@ class HHTransformer(
         PLATFORM,
         SCHEDULES,
         SKILLS,
-        LANGUAGES
-        /*ExtractTags(GRADES, RawVacancy.description.name)*/
+        LANGUAGES,
+        ExtractTags(GRADES, RawVacancy.description.name)
       ), transformedData)
   }
 }
