@@ -60,10 +60,10 @@ class FinderTransformer(dbAdapter: DataBaseAdapter,
         EXPERIENCE,
         FIELDS,
         LOCATIONS,
-        PLATFORM
-//        ExtractTags(SCHEDULES, RawVacancy.description.name),
-//        ExtractTags(SKILLS, RawVacancy.description.name),
-//        ExtractTags(GRADES, RawVacancy.description.name)
+        PLATFORM,
+        ExtractTags(SCHEDULES, RawVacancy.description.name),
+        ExtractTags(SKILLS, RawVacancy.description.name),
+        ExtractTags(GRADES, RawVacancy.description.name)
       ), transformedData)
   }
 }

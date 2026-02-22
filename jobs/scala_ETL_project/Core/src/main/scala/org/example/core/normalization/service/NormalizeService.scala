@@ -1,12 +1,12 @@
 package org.example.core.normalization.service
 
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.{Column, DataFrame, SparkSession}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.config.model.structures.FuzzyMatchSettings
 import org.example.core.normalization.config.{DimTableConf, MappingDimTableConf}
 import org.example.core.normalization.engine.FuzzyMatcher
-import org.example.core.normalization.engine.model.{FuzzyCandidate, FuzzyDictionary}
+import org.example.core.normalization.engine.model.{FuzzyCandidate, FuzzyDictionary, FuzzyMatch}
 import org.example.core.normalization.model.NormalizeServiceResult
 import org.example.core.normalization.service.NormalizeService._
 
@@ -86,12 +86,17 @@ class NormalizeService(
     val fullMappingTable = loadFullMappingTable().cache() // [id, norm_value, is_canonical, parent_id]
 
     if (fullMappingTable.isEmpty) {
-      return returnResult(spark.emptyDataFrame)
+      val emptyDf = spark.emptyDataset[FuzzyMatch].toDF()
+        .select(
+          col("entityId").as(entityIdCol),
+          col("dictId").as(mappedId)
+        )
+      return returnResult(emptyDf)
     }
 
     val dictionaryDs = fullMappingTable
       .select(
-        col(mappedId).as("id"),
+        col(mappedId).as("dictId"),
         col(normValue).as("normValue"),
         col(parentId).as("parentId")
       ).as[FuzzyDictionary]
@@ -128,7 +133,7 @@ class NormalizeService(
 
     val dictionaryDs = fullMappingTable
       .select(
-        col(mappedId).as("id"),
+        col(mappedId).as("dictId"),
         col(normValue).as("normValue"),
         col(parentId).as("parentId")
       )
@@ -208,19 +213,6 @@ class NormalizeService(
     returnResult(checkPointedRes)
   }
 
-
-  private def makeSortedNGrams(arrC: Column, n: Int): Column = {
-    val arrLen = size(arrC)
-
-    val indices = sequence(lit(1), arrLen - lit(n) + lit(1))
-
-    when(arrLen >= lit(n),
-      transform(indices, i => {
-        val chunk = slice(arrC, i, lit(n))
-        array_join(array_sort(chunk), " ")
-      })
-    ).otherwise(array().cast("array<string>"))
-  }
 
 }
 

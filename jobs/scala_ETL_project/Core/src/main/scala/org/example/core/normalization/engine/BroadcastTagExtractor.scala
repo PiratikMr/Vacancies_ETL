@@ -1,6 +1,8 @@
 package org.example.core.normalization.engine
 
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{Dataset, SparkSession}
+import org.example.core.normalization.engine.model.FuzzyColumns._
 import org.example.core.normalization.engine.model.{FuzzyCandidate, FuzzyDictionary, FuzzyMatch}
 import org.example.core.normalization.engine.similarity.SimilarityStrategy
 
@@ -16,16 +18,16 @@ class BroadcastTagExtractor(
                         dictionaryDs: Dataset[FuzzyDictionary]
                       ): Dataset[FuzzyMatch] = {
 
-    val dictRows = dictionaryDs.select("id", "normValue").collect()
+    val dictRows = dictionaryDs.select(DICT_ID, NORM_VALUE).collect()
 
     if (dictRows.isEmpty) {
       return spark.emptyDataset[FuzzyMatch]
     }
 
     val dictMap = dictRows
-      .groupBy(_.getAs[String]("normValue"))
+      .groupBy(_.getAs[String](NORM_VALUE))
       .map { case (normVal, rows) =>
-        normVal -> rows.map(_.getAs[Long]("id"))
+        normVal -> rows.map(_.getAs[Long](DICT_ID))
       }
 
     val maxN = if (dictMap.isEmpty) 1 else dictMap.keys.map(_.split("\\s").length).max
@@ -35,8 +37,8 @@ class BroadcastTagExtractor(
 
 
     val candidatesWithNorm = candidatesDs
-      .withColumn("normValue", similarityStrategy.normalize($"rawValue"))
-      .select("entityId", "normValue")
+      .withColumn(NORM_VALUE, similarityStrategy.normalize(col(RAW_VALUE)))
+      .select(ENTITY_ID, NORM_VALUE)
       .as[(String, String)]
 
 

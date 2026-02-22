@@ -7,7 +7,7 @@ case class FuzzyCandidate(
                          )
 
 case class FuzzyDictionary(
-                            id: Long,
+                            dictId: Long,
                             normValue: String,
                             parentId: Long
                           )
@@ -30,3 +30,12 @@ case class FuzzyMappingMeta(
                              parentId: Long
                            )
 
+object FuzzyColumns {
+  val ENTITY_ID = "entityId"
+  val RAW_VALUE = "rawValue"
+  val PARENT_ID = "parentId"
+  val NORM_VALUE = "normValue"
+  val DICT_ID = "dictId"
+
+  val IS_CANONICAL = "isCanonical"
+}
