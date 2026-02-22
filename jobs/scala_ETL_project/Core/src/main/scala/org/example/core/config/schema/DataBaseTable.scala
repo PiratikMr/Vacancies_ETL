@@ -1,6 +1,6 @@
 package org.example.core.config.schema
 
-import org.apache.spark.sql.types.{BooleanType, LongType, StringType, StructField}
+import org.apache.spark.sql.types.{BooleanType, DoubleType, LongType, StringType, StructField}
 
 abstract class DataBaseTable(val tableName: String) extends Schema
 

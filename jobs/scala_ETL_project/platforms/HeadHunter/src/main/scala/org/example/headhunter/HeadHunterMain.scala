@@ -1,6 +1,5 @@
 package org.example.headhunter
 
-import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions.col
 import org.example.core.adapter.database.impl.postgres.PostgresAdapter
 import org.example.core.adapter.storage.impl.hdfs.HDFSAdapter

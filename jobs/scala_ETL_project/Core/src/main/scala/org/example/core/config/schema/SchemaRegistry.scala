@@ -40,7 +40,9 @@ object SchemaRegistry {
     object Entities {
       object Platform extends DataBaseOneToManyEntity("platform")
       object Employer extends DataBaseOneToManyEntity("employer")
-      object Currency extends DataBaseOneToManyEntity("currency")
+      object Currency extends DataBaseOneToManyEntity("currency") {
+        val rate = StructField("rate", DoubleType)
+      }
       object Experience extends DataBaseOneToManyEntity("experience")
       object Employments extends DataBaseManyToManyEntity("employment")
       object Schedules extends DataBaseManyToManyEntity("schedule")

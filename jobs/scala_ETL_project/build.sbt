@@ -47,15 +47,16 @@ lazy val Core = (project in file("Core"))
 val platformFolder = "platforms/"
 
 
-//lazy val Currency = (project in file("Currency"))
-//  .settings(
-//    assemblySettings,
-//    assembly / mainClass := Some("org.example.currency.CurrencyMain"),
-//    assembly / assemblyJarName := "Currency-etl.jar"
-//  )
-//  .dependsOn(infra_structure)
-//  .dependsOn(TestUtils % Test)
-//
+lazy val Currency = (project in file("Currency"))
+  .settings(
+    assemblySettings,
+    assembly / mainClass := Some("org.example.currency.CurrencyMain"),
+    assembly / assemblyJarName := "Currency-etl.jar"
+  )
+  .dependsOn(Core)
+  .dependsOn(TestUtils % Test)
+
+
 lazy val Finder = (project in file(s"${platformFolder}Finder"))
   .settings(
     assemblySettings,

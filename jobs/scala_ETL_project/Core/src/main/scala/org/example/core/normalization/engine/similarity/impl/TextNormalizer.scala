@@ -19,6 +19,13 @@ object TextNormalizer {
   private val cleanOperations: Seq[Column => Column] = Seq(
     c => coalesce(c, lit("")),
     c => lower(c),
+
+    c => regexp_replace(c, "<[^>]+>", " "), // HTML tags
+    c => regexp_replace(c, "$[a-z0-9#]+;", " "), // HTML special words
+    c => regexp_replace(c, "\\[(.*?)\\]\\([^)]+\\)", "$1 "), // Markdown [Text](URL)
+    c => regexp_replace(c, "http[s]?://\\S+", " "), // URL
+    c => regexp_replace(c, "(^|\\s)#{1,6}\\s+", " "), // Markdown headers (#)
+
     c => translate(c, "ёй", "еи"),
     c => regexp_replace(c, "[^a-z0-9а-я+#]", " "),
     c => regexp_replace(c, "\\s+", " "),

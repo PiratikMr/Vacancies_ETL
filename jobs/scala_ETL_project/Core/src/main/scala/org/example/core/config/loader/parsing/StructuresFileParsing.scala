@@ -9,48 +9,48 @@ import scala.jdk.CollectionConverters._
 object StructuresFileParsing {
 
   def parseFSConf(config: Config, saveFolder: String): FSConf = {
-      FSConf(
-        url = config.getString("url"),
-        dateFolder = saveFolder,
-        rootPath = config.getString("path"),
-        platform = config.getString("platform")
-      )
-    }
+    FSConf(
+      url = config.getString("url"),
+      dateFolder = saveFolder,
+      rootPath = config.getString("path"),
+      platform = config.getString("platform")
+    )
+  }
 
   def parseDBConf(config: Config): DBConf = {
-      DBConf(
-        name = config.getString("userName"),
-        pass = config.getString("userPassword"),
-        host = config.getString("host"),
-        port = config.getString("port"),
-        base = config.getString("baseName"),
-        maxPartitions = config.getInt("maxPartitions"),
-        batchSize = config.getInt("batchSize")
-      )
-    }
+    DBConf(
+      name = config.getString("userName"),
+      pass = config.getString("userPassword"),
+      host = config.getString("host"),
+      port = config.getString("port"),
+      base = config.getString("baseName"),
+      maxPartitions = config.getInt("maxPartitions"),
+      batchSize = config.getInt("batchSize")
+    )
+  }
 
   def parseSparkConf(config: Config): SparkConf = {
-      SparkConf(
-        name = config.getString("name"),
-        master = config.getString("master"),
-        driverMemory = config.getString("driverMemory"),
-        driverCores = config.getString("driverCores"),
-        executorMemory = config.getString("executorMemory"),
-        executorCores = config.getString("executorCores")
-      )
-    }
+    SparkConf(
+      name = config.getString("name"),
+      master = config.getString("master"),
+      driverMemory = config.getString("driverMemory"),
+      driverCores = config.getString("driverCores"),
+      executorMemory = config.getString("executorMemory"),
+      executorCores = config.getString("executorCores")
+    )
+  }
 
   def parseNetworkConf(config: Config): NetworkConf = {
-      NetworkConf(
-        headers = config.getConfig("headers").entrySet().asScala.map { entry =>
-          val key = entry.getKey
-          val value = config.getConfig("headers").getString(key)
-          key -> value
-        }.toArray,
-        requestsPS = config.getInt("requestsPerSecond"),
-        timeout = config.getInt("timeout")
-      )
-    }
+    NetworkConf(
+      headers = config.getConfig("headers").entrySet().asScala.map { entry =>
+        val key = entry.getKey
+        val value = config.getConfig("headers").getString(key)
+        key -> value
+      }.toArray,
+      requestsPS = config.getInt("requestsPerSecond"),
+      timeout = config.getInt("timeout")
+    )
+  }
 
   def parseFuzzyMatcherConf(config: Config): FuzzyMatcherConf = {
     val defaultConfig = config.getConfig("default")

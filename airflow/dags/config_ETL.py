@@ -15,7 +15,7 @@ class Platform:
                  u = True
                  ):
         self.fileName = f"{CONFIG_DIR_PATH}/{fileName}.conf"
-        self.moduleName = moduleName
+        self.moduleName = f"platforms/{moduleName}"
         self.args = [
             ("savefolder", "Dags.ETL.fileName", False),
             ("conffile", self.fileName, True)
@@ -26,7 +26,6 @@ class Platform:
         
 
 PLATFORMS = [
-    Platform("exchangerate", "Currency", u = False),
     Platform("fn", "Finder"),
     Platform("gm", "GetMatch"),
     Platform("gj", "GeekJob"),
