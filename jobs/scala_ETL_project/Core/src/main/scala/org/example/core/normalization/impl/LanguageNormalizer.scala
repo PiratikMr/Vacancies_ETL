@@ -3,12 +3,10 @@ package org.example.core.normalization.impl
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.example.core.adapter.database.DataBaseAdapter
+import org.example.core.config.database.{DimLanguageDef, DimLanguageLevelDef, MappingLanguageDef, MappingLanguageLevelDef}
 import org.example.core.config.model.structures.FuzzyMatchSettings
-import org.example.core.config.schema.DataBaseOneToManyEntity
-import org.example.core.config.schema.SchemaRegistry.DataBase.Entities
 import org.example.core.config.schema.SchemaRegistry.Internal.NormalizedVacancy
 import org.example.core.normalization.api.Normalizer
-import org.example.core.normalization.config.{DimTableConf, MappingDimTableConf}
 import org.example.core.normalization.model.NormalizeServiceResult
 import org.example.core.normalization.service.NormalizeService
 
@@ -70,26 +68,11 @@ class LanguageNormalizer(spark: SparkSession,
   private val uniqueId = "unique_id_896758"
 
 
-  private val languageNormalizeService = createNormalizer(Entities.Languages)
+  private val languageNormalizeService = new NormalizeService(
+    spark, dbAdapter, languageSettings, DimLanguageDef, MappingLanguageDef
+  )
 
-  private val levelNormalizeService = createNormalizer(Entities.LanguageLevels)
-
-  private def createNormalizer(entity: DataBaseOneToManyEntity): NormalizeService = {
-
-    val dt = entity.dimTable
-    val mdt = entity.mappingDimTable
-
-    val settings = entity match {
-      case Entities.Languages => languageSettings
-      case Entities.LanguageLevels => levelSettings
-    }
-
-    new NormalizeService(
-      spark = spark,
-      dbAdapter = dbAdapter,
-      settings = settings,
-      dt = DimTableConf(dt.tableName, dt.entityId.name, dt.name.name, None),
-      mdt = MappingDimTableConf(mdt.tableName, mdt.entityId.name, mdt.mappedValue.name, mdt.isCanonical.name)
-    )
-  }
+  private val levelNormalizeService = new NormalizeService(
+    spark, dbAdapter, levelSettings, DimLanguageLevelDef, MappingLanguageLevelDef
+  )
 }

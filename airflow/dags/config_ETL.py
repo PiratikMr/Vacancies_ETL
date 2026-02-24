@@ -10,12 +10,13 @@ DEFAULT_ARGS = {
 class Platform:
     def __init__(self, 
                  fileName: str,
-                 moduleName: str,
+                 name: str,
                  args: list[tuple[str, str, bool]] = [],
                  u = True
                  ):
         self.fileName = f"{CONFIG_DIR_PATH}/{fileName}.conf"
-        self.moduleName = f"platforms/{moduleName}"
+        self.name = name
+        self.moduleName = f"platforms/{name}"
         self.args = [
             ("savefolder", "Dags.ETL.fileName", False),
             ("conffile", self.fileName, True)

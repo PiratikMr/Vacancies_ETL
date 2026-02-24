@@ -5,10 +5,11 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
 import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.config.model.structures.FuzzyMatcherConf
-import org.example.core.config.schema.SchemaRegistry.Internal.RawVacancy
 import org.example.core.etl.Transformer
+import org.example.core.etl.model.VacancyColumns._
+import org.example.core.etl.model.{NormalizedVacancy, Vacancy, VacancyColumns}
 import org.example.core.normalization.api.NormalizationTask.ExtractTags
-import org.example.core.normalization.model.NormalizersEnum._
+import org.example.core.normalization.model.NormalizersEnum
 import org.example.core.normalization.service.NormalizationOrchestrator
 
 class HHTransformer(
@@ -20,74 +21,75 @@ class HHTransformer(
   override def toRows(spark: SparkSession, rawDS: Dataset[String]): DataFrame =
     spark.read.schema(HHTransformer.scheme).json(rawDS)
 
-  override def transform(spark: SparkSession, rawDF: DataFrame): DataFrame = {
+  override def transform(spark: SparkSession, df: DataFrame): Dataset[Vacancy] = {
 
-    val dfWithAreas = rawDF.join(
+    val dfWithAreas = df.join(
       areas,
-      rawDF("area.id") === areas("area_id"),
+      df("area.id") === areas("area_id"),
       "left"
     )
+
+    import spark.implicits._
 
     dfWithAreas
       .withColumn("parsed_published_at", to_timestamp(col("published_at"), "yyyy-MM-dd'T'HH:mm:ss+0300"))
 
       .select(
-        col("id").as(RawVacancy.externalId.name),
-        lit("HeadHunter").as(RawVacancy.platform.name),
-        col("employer.name").as(RawVacancy.employer.name),
-        col("salary_range.currency").as(RawVacancy.currency.name),
-        col("experience.name").as(RawVacancy.experience.name),
+        col("id").as(EXTERNAL_ID),
+        col("name").as(VacancyColumns.TITLE),
+        col("description").as(VacancyColumns.DESCRIPTION),
+        col("alternate_url").as(VacancyColumns.URL),
+        lit("HeadHunter").as(VacancyColumns.PLATFORM),
 
-        col("address.lat").as(RawVacancy.latitude.name),
-        col("address.lng").as(RawVacancy.longitude.name),
+        col("address.lat").as(VacancyColumns.LATITUDE),
+        col("address.lng").as(VacancyColumns.LONGITUDE),
 
-        col("salary_range.from").as(RawVacancy.salaryFrom.name),
-        col("salary_range.to").as(RawVacancy.salaryTo.name),
+        col("salary_range.from").as(SALARY_FROM),
+        col("salary_range.to").as(SALARY_TO),
 
-        col("parsed_published_at").as(RawVacancy.publishedAt.name),
-        col("name").as(RawVacancy.title.name),
-        col("description").as(RawVacancy.description.name),
-        col("alternate_url").as(RawVacancy.url.name),
+        col("employer.name").as(VacancyColumns.EMPLOYER),
+        col("salary_range.currency").as(VacancyColumns.CURRENCY),
+        col("experience.name").as(VacancyColumns.EXPERIENCE),
 
-        array(col("employment_form.name")).as(RawVacancy.employments.name),
-        array(col("schedule.name")).as(RawVacancy.schedules.name),
-
-        array(
-          struct(
-            col("country").as(RawVacancy.locationCountry.name),
-            col("region").as(RawVacancy.locationRegion.name)
-          )
-        ).as(RawVacancy.locations.name),
+        array(col("employment_form.name")).as(VacancyColumns.EMPLOYMENTS),
+        array(col("schedule.name")).as(VacancyColumns.SCHEDULES),
+        col("professional_roles.name").as(VacancyColumns.FIELDS),
+        typedLit(Seq.empty[String]).as(VacancyColumns.GRADES),
+        col("key_skills.name").as(VacancyColumns.SKILLS),
 
         functions.transform(
           col("languages"),
           lang => struct(
-            lang.getField("level").getField("name").as(RawVacancy.languageLevel.name),
-            lang.getField("name").as(RawVacancy.languageLanguage.name)
+            lang.getField("level").getField("name").as(VacancyColumns.LEVEL),
+            lang.getField("name").as(VacancyColumns.LANGUAGE)
           )
-        ).as(RawVacancy.languages.name),
+        ).as(VacancyColumns.LANGUAGES),
+        array(
+          struct(
+            col("country").as(VacancyColumns.COUNTRY),
+            col("region").as(VacancyColumns.LOCATION)
+          )
+        ).as(VacancyColumns.LOCATIONS),
 
-        col("professional_roles.name").as(RawVacancy.fields.name),
-        col("key_skills.name").as(RawVacancy.skills.name),
-      )
-      .repartition(10)
+        col("parsed_published_at").as(VacancyColumns.PUBLISHED_AT),
+      ).as[Vacancy]
   }
 
-  override def normalize(spark: SparkSession, transformedData: DataFrame): DataFrame = {
+  override def normalize(spark: SparkSession, transformedData: Dataset[Vacancy]): Dataset[NormalizedVacancy] = {
 
     new NormalizationOrchestrator(spark, dbAdapter, fuzzyConf)
       .normalize(Seq(
-        CURRENCY,
-        EMPLOYER,
-        EMPLOYMENTS,
-        EXPERIENCE,
-        FIELDS,
-        LOCATIONS,
-        PLATFORM,
-        SCHEDULES,
-        SKILLS,
-        LANGUAGES,
-        ExtractTags(GRADES, RawVacancy.description.name)
+        NormalizersEnum.CURRENCY,
+        NormalizersEnum.EMPLOYER,
+        NormalizersEnum.EMPLOYMENTS,
+        NormalizersEnum.EXPERIENCE,
+        NormalizersEnum.FIELDS,
+        NormalizersEnum.LOCATIONS,
+        NormalizersEnum.PLATFORM,
+        NormalizersEnum.SCHEDULES,
+        NormalizersEnum.SKILLS,
+        NormalizersEnum.LANGUAGES,
+        ExtractTags(NormalizersEnum.GRADES, VacancyColumns.DESCRIPTION)
       ), transformedData)
   }
 }

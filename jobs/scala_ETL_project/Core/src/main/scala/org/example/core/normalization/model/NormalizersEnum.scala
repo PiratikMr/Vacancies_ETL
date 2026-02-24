@@ -1,6 +1,6 @@
 package org.example.core.normalization.model
 
-import org.example.core.config.schema.SchemaRegistry.DataBase.{Entities, FactVacancy}
+import org.example.core.config.database._
 
 object NormalizersEnum {
 
@@ -11,24 +11,21 @@ object NormalizersEnum {
   sealed trait GroupNonHierarchical extends NormalizerType
   sealed trait GroupHierarchical extends NormalizerType
 
-  case object CURRENCY    extends GroupNonHierarchical { override def mappedIdCol: String = FactVacancy.currencyId.name }
-  case object EMPLOYER    extends GroupNonHierarchical { override def mappedIdCol: String = FactVacancy.employerId.name }
-  case object EXPERIENCE  extends GroupNonHierarchical { override def mappedIdCol: String = FactVacancy.experienceId.name }
-  case object PLATFORM    extends GroupNonHierarchical { override def mappedIdCol: String = FactVacancy.platformId.name }
-  case object EMPLOYMENTS extends GroupNonHierarchical { override def mappedIdCol: String = Entities.Employments.bridge.entityId.name }
-  case object FIELDS      extends GroupNonHierarchical { override def mappedIdCol: String = Entities.Fields.bridge.entityId.name }
-  case object GRADES      extends GroupNonHierarchical { override def mappedIdCol: String = Entities.Grades.bridge.entityId.name }
-  case object SCHEDULES   extends GroupNonHierarchical { override def mappedIdCol: String = Entities.Schedules.bridge.entityId.name }
-  case object SKILLS      extends GroupNonHierarchical { override def mappedIdCol: String = Entities.Skills.bridge.entityId.name }
+  case object CURRENCY    extends GroupNonHierarchical { override def mappedIdCol: String = FactVacancyDef.currencyId }
+  case object EMPLOYER    extends GroupNonHierarchical { override def mappedIdCol: String = FactVacancyDef.employerId }
+  case object EXPERIENCE  extends GroupNonHierarchical { override def mappedIdCol: String = FactVacancyDef.experienceId }
+  case object PLATFORM    extends GroupNonHierarchical { override def mappedIdCol: String = FactVacancyDef.platformId }
+  case object EMPLOYMENTS extends GroupNonHierarchical { override def mappedIdCol: String = BridgeVacancyEmploymentDef.entityId }
+  case object FIELDS      extends GroupNonHierarchical { override def mappedIdCol: String = BridgeVacancyFieldDef.entityId }
+  case object GRADES      extends GroupNonHierarchical { override def mappedIdCol: String = BridgeVacancyGradeDef.entityId }
+  case object SCHEDULES   extends GroupNonHierarchical { override def mappedIdCol: String = BridgeVacancyScheduleDef.entityId }
+  case object SKILLS      extends GroupNonHierarchical { override def mappedIdCol: String = BridgeVacancySkillDef.entityId }
 
-  case object COUNTRY     extends GroupNonHierarchical { override def mappedIdCol: String = Entities.Locations.dimTable.parentId.name }
-  case object LOCATIONS   extends GroupHierarchical { override def mappedIdCol: String = Entities.Locations.bridge.entityId.name }
+  case object COUNTRY     extends GroupNonHierarchical { override def mappedIdCol: String = DimCountryDef.entityId }
+  case object LOCATIONS   extends GroupHierarchical { override def mappedIdCol: String = BridgeVacancyLocationDef.entityId }
 
-  case object LANGUAGES   extends GroupNonHierarchical { override def mappedIdCol: String = Entities.Languages.bridge.entityId.name }
-  case object LANGUAGES_LEVEL extends GroupNonHierarchical { override def mappedIdCol: String = Entities.Languages.levelId.name }
-
-
-
+  case object LANGUAGES   extends GroupNonHierarchical { override def mappedIdCol: String = BridgeVacancyLanguageDef.entityId }
+  case object LANGUAGES_LEVEL extends GroupNonHierarchical { override def mappedIdCol: String = BridgeVacancyLanguageDef.languageLevelId }
 
   val values: Set[NormalizerType] = Set(
     CURRENCY, EMPLOYER, EXPERIENCE, PLATFORM, EMPLOYMENTS,

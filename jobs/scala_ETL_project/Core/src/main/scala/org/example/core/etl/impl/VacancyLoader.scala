@@ -2,66 +2,83 @@ package org.example.core.etl.impl
 
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.functions.{col, explode}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.example.core.adapter.database.DataBaseAdapter
-import org.example.core.config.schema.SchemaRegistry.DataBase.Entities._
-import org.example.core.config.schema.SchemaRegistry.DataBase.FactVacancy
-import org.example.core.config.schema.SchemaRegistry.Internal.NormalizedVacancy
-import org.example.core.config.schema.{DataBaseBridgeTable, SchemaRegistry}
+import org.example.core.config.database._
 import org.example.core.etl.Loader
-import org.example.core.util.SparkExtensions._
+import org.example.core.etl.model.NormalizedVacancy
+import org.example.core.etl.model.VacancyColumns._
+import org.example.core.util.mapper.VacancyDBMapper
 
 class VacancyLoader(dbAdapter: DataBaseAdapter) extends Loader with LazyLogging {
 
-  override def load(spark: SparkSession, df: DataFrame): Unit = {
+  override def load(spark: SparkSession, ds: Dataset[NormalizedVacancy]): Unit = {
 
-    val mainTableSchema = SchemaRegistry.DataBase.FactVacancy
-
-    val factVacancy = df.smartSelect(mainTableSchema.schema)
-      .drop(mainTableSchema.vacancyId.name)
+    val factVacancy = VacancyDBMapper.toFactVacancyTable(spark, ds)
+      .toDF()
+      .drop(FactVacancyDef.vacancyId)
 
     val returnIds = dbAdapter.saveWithReturn(
-      spark, factVacancy, mainTableSchema.tableName,
-      returns = Seq(mainTableSchema.vacancyId.name, mainTableSchema.externalId.name),
-      conflicts = Seq(mainTableSchema.externalId.name, mainTableSchema.platformId.name)
+      spark, factVacancy, FactVacancyDef.meta.tableName,
+      returns = Seq(FactVacancyDef.vacancyId, FactVacancyDef.externalId),
+      conflicts = FactVacancyDef.meta.conflictKeys
     )
 
-    val dfWithId = df.join(
+    val dfWithId = ds.toDF().join(
       returnIds,
-      Seq(mainTableSchema.externalId.name)
+      ds(EXTERNAL_ID) === returnIds(FactVacancyDef.externalId)
     ).cache()
 
-    Seq(Employments, Fields, Grades, Locations, Schedules, Skills)
-      .foreach(entity => loadBridgeHelper(dfWithId, entity.bridge))
+
+    val simpleBridges = Seq(
+      (BridgeVacancyEmploymentDef, EMPLOYMENT_IDS),
+      (BridgeVacancyFieldDef, FIELD_IDS),
+      (BridgeVacancyGradeDef, GRADE_IDS),
+      (BridgeVacancyLocationDef, LOCATIONS),
+      (BridgeVacancyScheduleDef, SCHEDULE_IDS),
+      (BridgeVacancySkillDef, SKILL_IDS)
+    )
+
+    simpleBridges.foreach { case (bridgeDef, arrayColName) =>
+      loadBridgeHelper(dfWithId, bridgeDef, arrayColName)
+    }
+
 
     val languagesToWrite = dfWithId
-      .withColumn("lang", explode(col(NormalizedVacancy.languages.name)))
+      .withColumn("lang", explode(col(LANGUAGES)))
       .select(
-        col(FactVacancy.vacancyId.name),
-        col(s"lang.${NormalizedVacancy.languageLanguage.name}").as(NormalizedVacancy.languageLanguage.name),
-        col(s"lang.${NormalizedVacancy.languageLevel.name}").as(NormalizedVacancy.languageLevel.name)
+        col(FactVacancyDef.vacancyId),
+        col(s"lang.$LANGUAGE_ID").as(BridgeVacancyLanguageDef.entityId),
+        col(s"lang.$LEVEL_ID").as(BridgeVacancyLanguageDef.languageLevelId)
       )
       .distinct()
       .cache()
 
-    if (!languagesToWrite.isEmpty)
-      dbAdapter.save(languagesToWrite, Languages.bridge.tableName,
-        Seq(FactVacancy.vacancyId.name, NormalizedVacancy.languageLevel.name, NormalizedVacancy.languageLanguage.name)
+    if (!languagesToWrite.isEmpty) {
+      dbAdapter.save(
+        languagesToWrite,
+        BridgeVacancyLanguageDef.meta.tableName,
+        BridgeVacancyLanguageDef.meta.conflictKeys
       )
+    }
 
     languagesToWrite.unpersist(blocking = false)
     dfWithId.unpersist(blocking = false)
   }
 
-  private def loadBridgeHelper(df: DataFrame, bridge: DataBaseBridgeTable): Unit = {
+
+  private def loadBridgeHelper(df: DataFrame, bridge: BridgeDef, arrayColName: String): Unit = {
     val toWrite = df
-      .withColumn(bridge.entityId.name, explode(col(bridge.entityId.name)))
-      .smartSelect(bridge.schema)
+      .withColumn(bridge.entityId, explode(col(arrayColName)))
+      .select(
+        col(FactVacancyDef.vacancyId),
+        col(bridge.entityId)
+      )
       .distinct()
       .cache()
 
     if (!toWrite.isEmpty)
-      dbAdapter.save(toWrite, bridge.tableName, Seq(bridge.vacancyId.name, bridge.entityId.name))
+      dbAdapter.save(toWrite, bridge.meta.tableName, bridge.meta.conflictKeys)
 
     toWrite.unpersist(blocking = false)
   }

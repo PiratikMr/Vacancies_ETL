@@ -3,8 +3,8 @@ package org.example.core.normalization.service
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.example.core.adapter.database.DataBaseAdapter
+import org.example.core.config.database.{DimDef, MappingDimDef}
 import org.example.core.config.model.structures.FuzzyMatchSettings
-import org.example.core.normalization.config.{DimTableConf, MappingDimTableConf}
 import org.example.core.normalization.engine.FuzzyMatcher
 import org.example.core.normalization.engine.model.{FuzzyCandidate, FuzzyDictionary, FuzzyMatch}
 import org.example.core.normalization.model.NormalizeServiceResult
@@ -14,44 +14,36 @@ class NormalizeService(
                         spark: SparkSession,
                         dbAdapter: DataBaseAdapter,
                         settings: FuzzyMatchSettings,
-                        dt: DimTableConf,
-                        mdt: MappingDimTableConf
+                        dimDef: DimDef,
+                        mappingDef: MappingDimDef
                       ) {
 
   import spark.implicits._
 
-  private val fuzzyMatcher = FuzzyMatcher(
-    spark = spark,
-    settings = settings
-  )
+  private val fuzzyMatcher = FuzzyMatcher(spark, settings)
 
 
   // id, value, parent_id
-  private def saveDimTable(
-                            df: DataFrame,
-                            valueCol: String
-                          ): DataFrame = {
+  private def saveDimTable(df: DataFrame, valueCol: String): DataFrame = {
 
-    val colsToWrite = Seq(col(valueCol).as(dt.valueColName)) ++
-      dt.parentIdColName.map(name => col(parentId).as(name))
+    val colsToWrite = Seq(col(valueCol).as(dimDef.entityName)) ++
+      dimDef.parentId.map(name => col(parentId).as(name))
 
-    val returnCols = Seq(dt.idColName, dt.valueColName) ++
-      dt.parentIdColName.toSeq
-    val conflictCols = Seq(dt.valueColName) ++ dt.parentIdColName.toSeq
+    val returnCols = Seq(dimDef.entityId, dimDef.entityName) ++ dimDef.parentId.toSeq
 
     val saved = dbAdapter.saveWithReturn(
       spark = spark,
       df = df.select(colsToWrite: _*),
-      targetTable = dt.tableName,
+      targetTable = dimDef.meta.tableName,
       returns = returnCols,
-      conflicts = conflictCols
+      conflicts = dimDef.meta.conflictKeys
     )
 
     val res = saved
-      .withColumnRenamed(dt.idColName, mappedId)
-      .withColumnRenamed(dt.valueColName, valueCol)
+      .withColumnRenamed(dimDef.entityId, mappedId)
+      .withColumnRenamed(dimDef.entityName, valueCol)
 
-    dt.parentIdColName match {
+    dimDef.parentId match {
       case Some(name) => res.withColumnRenamed(name, parentId)
       case None => res.withColumn(parentId, lit(DEFAULT_PARENT_ID))
     }
@@ -61,16 +53,16 @@ class NormalizeService(
   // [id, norm_value, is_canonical, parent_id]
   private def loadFullMappingTable(): DataFrame = {
 
-    val parentSelect = dt.parentIdColName.map(n => s"d.$n").getOrElse(DEFAULT_PARENT_ID.toString)
+    val parentSelect = dimDef.parentId.map(n => s"d.$n").getOrElse(DEFAULT_PARENT_ID.toString)
 
     val query =
       s"""
-         |SELECT  d.${mdt.idColName} as $mappedId,
-         |        md.${mdt.mappedValueColName} as $normValue,
-         |        md.${mdt.isOrigin} as $isCanonical,
+         |SELECT  d.${dimDef.entityId} as $mappedId,
+         |        md.${mappingDef.mappedValue} as $normValue,
+         |        md.${mappingDef.isCanonical} as $isCanonical,
          |        $parentSelect as $parentId
-         |FROM ${mdt.tableName} as md
-         |JOIN ${dt.tableName} as d on d.${dt.idColName} = md.${mdt.idColName}
+         |FROM ${mappingDef.meta.tableName} as md
+         |JOIN ${dimDef.meta.tableName} as d on d.${dimDef.entityId} = md.${mappingDef.entityId}
          |""".stripMargin
 
     dbAdapter.loadQuery(spark, query)
@@ -195,12 +187,12 @@ class NormalizeService(
             col("parentId") === col(parentId)
         )
         .select(
-          col("normValue").as(mdt.mappedValueColName),
-          col("isCanonical").as(mdt.isOrigin),
-          col(mappedId).as(mdt.idColName)
+          col("normValue").as(mappingDef.mappedValue),
+          col("isCanonical").as(mappingDef.isCanonical),
+          col(mappedId).as(mappingDef.entityId)
         )
 
-      dbAdapter.save(mappingDataToWrite, mdt.tableName, Seq(mdt.mappedValueColName, mdt.idColName))
+      dbAdapter.save(mappingDataToWrite, mappingDef.meta.tableName, mappingDef.meta.conflictKeys)
     }
 
     val finalRes = matchedResult.union(createdMapping).distinct()

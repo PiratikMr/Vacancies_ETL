@@ -5,11 +5,9 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.adapter.storage.StorageAdapter
 import org.example.core.adapter.web.WebAdapter
-import org.example.core.config.schema.SchemaRegistry
 import org.example.core.etl.impl.VacancyLoader
-import org.example.core.etl.model.ETLParts
-import ETLParts.{Extract, TransformLoad, Update}
-import org.example.core.util.SparkExtensions._
+import org.example.core.etl.model.ETLParts.{Extract, TransformLoad, Update}
+import org.example.core.etl.model.{ETLParts, NormalizedVacancy, VacancyColumns}
 
 import scala.util.{Failure, Success}
 
@@ -26,18 +24,16 @@ class ETLUService(
     storageAdapter.writeText(rawDS, folderName)
   }
 
-  private def transform(transformer: Transformer, folderName: String): DataFrame = {
+  private def transform(transformer: Transformer, folderName: String): Dataset[NormalizedVacancy] = {
     val rawDS: Dataset[String] = storageAdapter.readText(spark, folderName)
     val rawDF: DataFrame = transformer.toRows(spark, rawDS)
 
-    val transformed = transformer.transform(spark, rawDF)
-      .smartSelect(SchemaRegistry.Internal.RawVacancy.schema)
-      .dropDuplicates(SchemaRegistry.Internal.RawVacancy.externalId.name)
+    val transformedDs = transformer.transform(spark, rawDF)
+      .dropDuplicates(VacancyColumns.EXTERNAL_ID)
       .localCheckpoint()
 
-    val normalized = transformer.normalize(spark, transformed)
-      .smartSelect(SchemaRegistry.Internal.NormalizedVacancy.schema)
-      .dropDuplicates(SchemaRegistry.Internal.NormalizedVacancy.externalId.name)
+    val normalized = transformer.normalize(spark, transformedDs)
+      .dropDuplicates(VacancyColumns.EXTERNAL_ID)
       .localCheckpoint()
 
     normalized

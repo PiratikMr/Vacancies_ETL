@@ -7,7 +7,7 @@ for config in PLATFORMS:
     confTree = get_config(config.fileName)
     
     @dag(
-        dag_id=f"{config.moduleName}_ETL",
+        dag_id=f"{config.name}_ETL",
         tags=["scala", "etl", config.moduleName],
         default_args=DEFAULT_ARGS,
         schedule=confTree.get_string("Dags.ETL.schedule") or None,
@@ -18,7 +18,7 @@ for config in PLATFORMS:
         
         prevTask = None
         for part in config.parts:
-            currTask = spark_ETLTaskBuild(part, config.moduleName, config.moduleName, args)
+            currTask = spark_ETLTaskBuild(part, config.moduleName, config.name, args)
             if prevTask:
                 prevTask >> currTask
             prevTask = currTask

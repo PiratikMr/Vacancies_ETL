@@ -3,11 +3,9 @@ package org.example.core.normalization.impl
 import org.apache.spark.sql.functions.{col, collect_list, explode, monotonically_increasing_id}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.example.core.adapter.database.DataBaseAdapter
+import org.example.core.config.database.{DimCountryDef, DimLocationDef, MappingCountryDef, MappingLocationDef}
 import org.example.core.config.model.structures.FuzzyMatchSettings
-import org.example.core.config.schema.DataBaseOneToManyEntity
-import org.example.core.config.schema.SchemaRegistry.DataBase.Entities
 import org.example.core.normalization.api.Normalizer
-import org.example.core.normalization.config.{DimTableConf, MappingDimTableConf}
 import org.example.core.normalization.model.NormalizeServiceResult
 import org.example.core.normalization.service.NormalizeService
 
@@ -67,21 +65,12 @@ class HierarchicalNormalizer(spark: SparkSession,
   private val uniqueId = "unique_id_312312"
   private val parentId = "parent_id_214122"
 
-  private val countryNormalizeService = createNormalizer(Entities.Country, isParent = true)
 
-  private val locationNormalizeService = createNormalizer(Entities.Locations, isParent = false)
+  private val countryNormalizeService = new NormalizeService(
+    spark, dbAdapter, parentSettings, DimCountryDef, MappingCountryDef
+  )
 
-  private def createNormalizer(entity: DataBaseOneToManyEntity,
-                               isParent: Boolean): NormalizeService = {
-    val dt = entity.dimTable
-    val mdt = entity.mappingDimTable
-
-    new NormalizeService(
-      spark = spark,
-      dbAdapter = dbAdapter,
-      settings = if (isParent) parentSettings else childSettings,
-      dt = DimTableConf(dt.tableName, dt.entityId.name, dt.name.name, if (isParent) None else Some(dt.parentId.name)),
-      mdt = MappingDimTableConf(mdt.tableName, mdt.entityId.name, mdt.mappedValue.name, mdt.isCanonical.name)
-    )
-  }
+  private val locationNormalizeService = new NormalizeService(
+    spark, dbAdapter, childSettings, DimLocationDef, MappingLocationDef
+  )
 }
