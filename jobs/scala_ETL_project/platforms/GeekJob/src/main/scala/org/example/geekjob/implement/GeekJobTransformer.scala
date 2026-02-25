@@ -8,6 +8,7 @@ import org.example.core.config.model.structures.FuzzyMatcherConf
 import org.example.core.config.schema.SchemaRegistry.DataBase.Entities
 import org.example.core.config.schema.SchemaRegistry.Internal.RawVacancy
 import org.example.core.etl.Transformer
+import org.example.core.etl.model.Vacancy
 import org.example.core.normalization.factory.NormalizerFactory
 import org.example.core.normalization.model.NormalizersEnum._
 import org.example.core.normalization.api.NormalizationTask.Exact
@@ -39,7 +40,7 @@ class GeekJobTransformer(currDate: String,
       .repartition(transformPartition)
   }
 
-  override def transform(spark: SparkSession, df: DataFrame): DataFrame = {
+  override def transform(spark: SparkSession, df: DataFrame): Dataset[Vacancy] = {
     df
       .select(
         col("id").as(RawVacancy.externalId.name),

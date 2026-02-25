@@ -1,76 +1,56 @@
 package org.example.core.normalization.impl
 
-import org.apache.spark.sql.functions.{col, collect_list, explode, monotonically_increasing_id}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{Dataset, SparkSession}
 import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.config.database.{DimCountryDef, DimLocationDef, MappingCountryDef, MappingLocationDef}
 import org.example.core.config.model.structures.FuzzyMatchSettings
-import org.example.core.normalization.api.Normalizer
-import org.example.core.normalization.model.NormalizeServiceResult
+import org.example.core.etl.model.{Vacancy, VacancyColumns}
+import org.example.core.normalization.model.{NormCandidate, NormMatch, NormalizationColumns}
 import org.example.core.normalization.service.NormalizeService
 
 class HierarchicalNormalizer(spark: SparkSession,
                              dbAdapter: DataBaseAdapter,
                              childSettings: FuzzyMatchSettings,
-                             parentSettings: FuzzyMatchSettings,
-                             entityIdCol: String,
-                             arrayCol: String,
-                             childCol: String,
-                             parentCol: String
-                            ) extends Normalizer {
+                             parentSettings: FuzzyMatchSettings) {
 
-  override def extractTags(data: DataFrame, valueCol: String): NormalizeServiceResult = ???
+  import spark.implicits._
 
-  override def matchExactData(data: DataFrame): NormalizeServiceResult = ???
+  def normalize(vacancies: Dataset[Vacancy]): Dataset[NormMatch] = {
 
-  override def normalize(data: DataFrame): NormalizeServiceResult = {
-
-    val rawData = data.select(col(entityIdCol), explode(col(arrayCol)).as(arrayCol))
-      .withColumn(uniqueId, monotonically_increasing_id())
+    val rawData = vacancies.toDF()
+      .select(
+        col(VacancyColumns.EXTERNAL_ID),
+        explode_outer(col(VacancyColumns.LOCATIONS)).as("loc_struct")
+      )
+      .filter(col("loc_struct").isNotNull)
+      .withColumn("uniqueId", monotonically_increasing_id().cast("string"))
       .cache()
 
-    val countriesData = rawData.select(col(uniqueId), col(arrayCol).getField(parentCol).as(parentCol))
-    val normalizedCountriesResult = countryNormalizeService.mapSimple(
-      candidates = countriesData,
-      entityIdCol = uniqueId,
-      valueCol = parentCol,
-      parentIdCol = None,
-      withCreate = true
-    )
-    val normalizedCountries = normalizedCountriesResult.mappedDf.localCheckpoint()
+    // 1. Страны
+    val countriesData = rawData.select(
+      col("uniqueId").as(NormalizationColumns.ENTITY_ID),
+      col("loc_struct").getField(VacancyColumns.COUNTRY).cast("string").as(NormalizationColumns.RAW_VALUE),
+      lit(null).cast("string").as(NormalizationColumns.PARENT_ID)
+    ).filter(col(NormalizationColumns.RAW_VALUE).isNotNull).as[NormCandidate]
 
+    val normalizedCountries = countryNormalizeService.mapSimple(countriesData, withCreate = true)
 
+    // 2. Локации
     val locationsData = rawData
-      .join(normalizedCountries, Seq(uniqueId))
+      .join(normalizedCountries.toDF(), col("uniqueId") === col(NormalizationColumns.ENTITY_ID), "inner")
       .select(
-        col(entityIdCol),
-        col(arrayCol).getField(childCol).as(childCol),
-        col(normalizedCountriesResult.mappedIdCol).as(parentId)
-      )
-    val normalizedLocationsResult = locationNormalizeService.mapSimple(
-      candidates = locationsData,
-      entityIdCol = entityIdCol,
-      valueCol = childCol,
-      parentIdCol = Some(parentId),
-      withCreate = true
-    )
+        col(VacancyColumns.EXTERNAL_ID).as(NormalizationColumns.ENTITY_ID), // Сразу возвращаем ID вакансии!
+        col("loc_struct").getField(VacancyColumns.LOCATION).cast("string").as(NormalizationColumns.RAW_VALUE),
+        col(NormalizationColumns.MAPPED_ID).as(NormalizationColumns.PARENT_ID) // ID страны как parent
+      ).filter(col(NormalizationColumns.RAW_VALUE).isNotNull).as[NormCandidate]
 
-    val finalRes = normalizedLocationsResult.mappedDf
-      .groupBy(entityIdCol)
-      .agg(collect_list(normalizedLocationsResult.mappedIdCol).as(normalizedLocationsResult.mappedIdCol))
+    val normalizedLocations = locationNormalizeService.mapSimple(locationsData, withCreate = true)
 
-    NormalizeServiceResult(finalRes, normalizedLocationsResult.mappedIdCol)
+    rawData.unpersist(blocking = false)
+    normalizedLocations
   }
 
-  private val uniqueId = "unique_id_312312"
-  private val parentId = "parent_id_214122"
-
-
-  private val countryNormalizeService = new NormalizeService(
-    spark, dbAdapter, parentSettings, DimCountryDef, MappingCountryDef
-  )
-
-  private val locationNormalizeService = new NormalizeService(
-    spark, dbAdapter, childSettings, DimLocationDef, MappingLocationDef
-  )
+  private val countryNormalizeService = new NormalizeService(spark, dbAdapter, parentSettings, DimCountryDef, MappingCountryDef)
+  private val locationNormalizeService = new NormalizeService(spark, dbAdapter, childSettings, DimLocationDef, MappingLocationDef)
 }

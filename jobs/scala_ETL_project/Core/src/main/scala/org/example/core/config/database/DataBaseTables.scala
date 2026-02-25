@@ -6,44 +6,72 @@ import java.sql.Timestamp
 case object DimCurrencyDef extends DimDef("currency") {
   val rate = "rate"
 }
+
 case object DimEmployerDef extends DimDef("employer")
+
 case object DimEmploymentDef extends DimDef("employment")
+
 case object DimExperienceDef extends DimDef("experience")
+
 case object DimFieldDef extends DimDef("field")
+
 case object DimGradeDef extends DimDef("grade")
+
 case object DimLanguageLevelDef extends DimDef("language_level")
+
 case object DimLanguageDef extends DimDef("language")
+
 case object DimCountryDef extends DimDef("country") {
   val iso = "iso"
 }
+
 case object DimLocationDef extends DimDef("location", Some("country_id"))
+
 case object DimPlatformDef extends DimDef("platform")
+
 case object DimScheduleDef extends DimDef("schedule")
+
 case object DimSkillDef extends DimDef("skill")
 
 // --- Mapping Definitions ---
 case object MappingCurrencyDef extends MappingDimDef("currency")
+
 case object MappingEmployerDef extends MappingDimDef("employer")
+
 case object MappingEmploymentDef extends MappingDimDef("employment")
+
 case object MappingExperienceDef extends MappingDimDef("experience")
+
 case object MappingFieldDef extends MappingDimDef("field")
+
 case object MappingGradeDef extends MappingDimDef("grade")
+
 case object MappingLanguageLevelDef extends MappingDimDef("language_level")
+
 case object MappingLanguageDef extends MappingDimDef("language")
+
 case object MappingCountryDef extends MappingDimDef("country")
+
 case object MappingLocationDef extends MappingDimDef("location")
+
 case object MappingPlatformDef extends MappingDimDef("platform")
+
 case object MappingScheduleDef extends MappingDimDef("schedule")
+
 case object MappingSkillDef extends MappingDimDef("skill")
 
 // --- Bridge Definitions ---
 case object BridgeVacancySkillDef extends BridgeDef("skill")
-case object BridgeVacancyScheduleDef extends BridgeDef("schedule")
-case object BridgeVacancyLocationDef extends BridgeDef("location")
-case object BridgeVacancyFieldDef extends BridgeDef("field")
-case object BridgeVacancyGradeDef extends BridgeDef("grade")
-case object BridgeVacancyEmploymentDef extends BridgeDef("employment")
 
+case object BridgeVacancyScheduleDef extends BridgeDef("schedule")
+
+case object BridgeVacancyLocationDef extends BridgeDef("location")
+
+case object BridgeVacancyFieldDef extends BridgeDef("field")
+
+case object BridgeVacancyGradeDef extends BridgeDef("grade")
+
+case object BridgeVacancyEmploymentDef extends BridgeDef("employment")
 
 
 case object BridgeVacancyLanguageDef extends BridgeDef("language") {

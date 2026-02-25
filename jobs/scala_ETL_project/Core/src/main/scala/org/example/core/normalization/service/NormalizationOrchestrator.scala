@@ -6,9 +6,9 @@ import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.config.model.structures.FuzzyMatcherConf
 import org.example.core.config.schema.SchemaRegistry.Internal.{NormalizedVacancy => SchemaNormalizedVacancy}
 import org.example.core.etl.model.{NormalizedLanguage, NormalizedVacancy, Vacancy, VacancyColumns}
-import org.example.core.normalization.api.{NormalizationTask, Normalizer}
+import org.example.core.normalization.api.NormalizationTask
 import org.example.core.normalization.factory.NormalizerFactory
-import org.example.core.normalization.model.NormalizersEnum
+import org.example.core.normalization.model.{NormCandidate, NormalizationColumns, NormalizersEnum}
 import org.example.core.normalization.model.NormalizersEnum._
 
 class NormalizationOrchestrator(spark: SparkSession,
@@ -21,39 +21,92 @@ class NormalizationOrchestrator(spark: SparkSession,
 
     val initialDf = ds.toDF()
 
-    val enrichedDf = tasks.foldLeft(initialDf)((resDf, task) => {
-      val normalizer = getNormalizer(task.nType)
+    val enrichedDf = tasks.foldLeft(initialDf) { (resDf, task) =>
+      val nType = task.nType
 
-      val mappedResult = task match {
-        case NormalizationTask.Standard(_) => normalizer.normalize(initialDf)
-        case NormalizationTask.Exact(_) => normalizer.matchExactData(initialDf)
-        case NormalizationTask.ExtractTags(_, sourceCol) => normalizer.extractTags(initialDf, sourceCol)
+      val mappedDf = nType match {
+
+        // --- 1. ЯЗЫКИ (сложный объект) ---
+        case LANGUAGES =>
+          val languageNormalizer = NormalizerFactory.getLanguageNormalizer(spark, dbAdapter, conf.get(LANGUAGES_LEVEL), conf.get(LANGUAGES))
+          val normalized = languageNormalizer.normalize(ds)
+          // Группируем языки в массив структур для джоина
+          normalized.toDF()
+            .groupBy(NormalizationColumns.ENTITY_ID)
+            .agg(collect_list(
+              struct(
+                col("languageId").as(SchemaNormalizedVacancy.languageLanguage.name),
+                col("levelId").as(SchemaNormalizedVacancy.languageLevel.name)
+              )
+            ).as("mapped_languages"))
+
+        // --- 2. ЛОКАЦИИ (иерархия) ---
+        case LOCATIONS =>
+          val locNormalizer = NormalizerFactory.getLocationsNormalizer(spark, dbAdapter, conf.get(LOCATIONS), conf.get(COUNTRY))
+          val normalized = locNormalizer.normalize(ds)
+          // Так как LOCATIONS - это массив, агрегируем flat-результат в массив
+          normalized.toDF()
+            .groupBy(NormalizationColumns.ENTITY_ID)
+            .agg(collect_list(NormalizationColumns.MAPPED_ID).as(nType.mappedIdCol))
+
+        // --- 3. ПРОСТЫЕ СПРАВОЧНИКИ ---
+        case simple: GroupNonHierarchical =>
+          val service = NormalizerFactory.getNormalizeService(spark, dbAdapter, conf.get(simple), simple)
+
+          // Шаг А: Извлекаем сырых кандидатов прямо в оркестраторе!
+          val rawCandidates = if (simple.isArray) {
+            initialDf.select(
+              col(VacancyColumns.EXTERNAL_ID).as(NormalizationColumns.ENTITY_ID),
+              explode_outer(col(simple.sourceCol)).as(NormalizationColumns.RAW_VALUE),
+              lit(null).cast("string").as(NormalizationColumns.PARENT_ID) // Добавлено
+            )
+          } else {
+            initialDf.select(
+              col(VacancyColumns.EXTERNAL_ID).as(NormalizationColumns.ENTITY_ID),
+              col(simple.sourceCol).cast("string").as(NormalizationColumns.RAW_VALUE),
+              lit(null).cast("string").as(NormalizationColumns.PARENT_ID) // Добавлено
+            )
+          }
+
+          val cleanCandidates = rawCandidates
+            .filter(col(NormalizationColumns.RAW_VALUE).isNotNull)
+            .as[NormCandidate]
+
+          // Шаг Б: Нормализуем через сервис
+          val normalizedDs = task match {
+            case NormalizationTask.Standard(_) => service.mapSimple(cleanCandidates, withCreate = true)
+            case NormalizationTask.Exact(_)    => service.mapSimple(cleanCandidates, withCreate = false)
+            case NormalizationTask.ExtractTags(_, _) => service.extractTags(cleanCandidates) // sourceCol из таски пока игнорим, так как всё есть в enum
+          }
+
+          // Шаг В: Агрегируем результаты
+          if (simple.isArray) {
+            normalizedDs.toDF()
+              .groupBy(NormalizationColumns.ENTITY_ID)
+              .agg(collect_list(NormalizationColumns.MAPPED_ID).as(simple.mappedIdCol))
+          } else {
+            normalizedDs.toDF()
+              .select(
+                col(NormalizationColumns.ENTITY_ID),
+                col(NormalizationColumns.MAPPED_ID).as(simple.mappedIdCol)
+              )
+          }
       }
 
-      val mappedDf = task.nType match {
-        case NormalizersEnum.LANGUAGES =>
-          mappedResult.mappedDf
-            .withColumnRenamed(SchemaNormalizedVacancy.languages.name, "mapped_languages")
-        case _ =>
-          mappedResult.mappedDf
-            .withColumnRenamed(mappedResult.mappedIdCol, task.nType.mappedIdCol)
-      }
+      // Джоиним результат текущей таски к общей таблице
+      resDf.join(mappedDf.withColumnRenamed(NormalizationColumns.ENTITY_ID, VacancyColumns.EXTERNAL_ID), Seq(VacancyColumns.EXTERNAL_ID), "left")
+    }
 
-      resDf.join(mappedDf, Seq(VacancyColumns.EXTERNAL_ID), "left")
-    })
-
+    // Финальная сборка контракта (остается без изменений)
     enrichedDf.select(
       col(VacancyColumns.EXTERNAL_ID),
       col(VacancyColumns.TITLE),
       col(VacancyColumns.URL),
-
       col(VacancyColumns.LATITUDE),
       col(VacancyColumns.LONGITUDE),
-
       col(VacancyColumns.SALARY_FROM),
       col(VacancyColumns.SALARY_TO),
 
-      // ИСПРАВЛЕНИЕ: Берем колонки по mappedIdCol (platform_id и т.д.) и переименовываем их под контракт
       col(NormalizersEnum.PLATFORM.mappedIdCol).as(VacancyColumns.PLATFORM_ID),
       col(NormalizersEnum.EMPLOYER.mappedIdCol).as(VacancyColumns.EMPLOYER_ID),
       col(NormalizersEnum.CURRENCY.mappedIdCol).as(VacancyColumns.CURRENCY_ID),
@@ -81,13 +134,4 @@ class NormalizationOrchestrator(spark: SparkSession,
       col(VacancyColumns.PUBLISHED_AT)
     ).as[NormalizedVacancy]
   }
-
-  private def getNormalizer(nType: NormalizerType): Normalizer = {
-    nType match {
-      case LANGUAGES => NormalizerFactory.getLanguageNormalizer(spark, dbAdapter, conf.get(LANGUAGES_LEVEL), conf.get(LANGUAGES))
-      case v: GroupNonHierarchical => NormalizerFactory.getNonHierarchicalNormalizer(spark, dbAdapter, conf.get(nType), v)
-      case LOCATIONS => NormalizerFactory.getLocationsNormalizer(spark, dbAdapter, conf.get(LOCATIONS), conf.get(COUNTRY))
-    }
-  }
-
 }
