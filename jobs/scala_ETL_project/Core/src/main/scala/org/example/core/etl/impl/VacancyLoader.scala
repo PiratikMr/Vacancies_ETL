@@ -10,6 +10,8 @@ import org.example.core.etl.model.NormalizedVacancy
 import org.example.core.etl.model.VacancyColumns._
 import org.example.core.util.mapper.VacancyDBMapper
 
+import scala.collection.parallel.CollectionConverters._
+
 class VacancyLoader(dbAdapter: DataBaseAdapter) extends Loader with LazyLogging {
 
   override def load(spark: SparkSession, ds: Dataset[NormalizedVacancy]): Unit = {
@@ -39,7 +41,7 @@ class VacancyLoader(dbAdapter: DataBaseAdapter) extends Loader with LazyLogging 
       (BridgeVacancySkillDef, SKILL_IDS)
     )
 
-    simpleBridges.foreach { case (bridgeDef, arrayColName) =>
+    simpleBridges.par.foreach { case (bridgeDef, arrayColName) =>
       loadBridgeHelper(dfWithId, bridgeDef, arrayColName)
     }
 
@@ -77,8 +79,7 @@ class VacancyLoader(dbAdapter: DataBaseAdapter) extends Loader with LazyLogging 
       .distinct()
       .cache()
 
-    if (!toWrite.isEmpty)
-      dbAdapter.save(toWrite, bridge.meta.tableName, bridge.meta.conflictKeys)
+    dbAdapter.save(toWrite, bridge.meta.tableName, bridge.meta.conflictKeys)
 
     toWrite.unpersist(blocking = false)
   }

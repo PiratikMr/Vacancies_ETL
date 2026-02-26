@@ -1,7 +1,7 @@
 package org.example.core.normalization.service
 
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.{Dataset, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.config.model.structures.FuzzyMatcherConf
 import org.example.core.etl.model.{NormalizedLanguage, NormalizedVacancy, Vacancy, VacancyColumns}
@@ -19,13 +19,29 @@ class NormalizationOrchestrator(spark: SparkSession,
   def normalize(tasks: Seq[NormalizationTask], ds: Dataset[Vacancy]): Dataset[NormalizedVacancy] = {
 
     val initialDf = ds.toDF()
+      .repartition(col(VacancyColumns.EXTERNAL_ID))
 
-    val enrichedDf = tasks.foldLeft(initialDf) { (resDf, task) =>
-      val command = NormalizerFactory.createCommand(task, spark, dbAdapter, conf)
-      val mappedDf = command.execute(ds)
-      resDf.join(mappedDf.withColumnRenamed(NormalizationColumns.ENTITY_ID, VacancyColumns.EXTERNAL_ID), Seq(VacancyColumns.EXTERNAL_ID), "left")
+    if (tasks.isEmpty) {
+      return buildFinalContract(initialDf)
     }
 
+    val mappingDfs: Seq[DataFrame] = tasks.map { task =>
+      val command = NormalizerFactory.createCommand(task, spark, dbAdapter, conf)
+
+      command.execute(ds)
+        .withColumnRenamed(NormalizationColumns.ENTITY_ID, VacancyColumns.EXTERNAL_ID)
+    }
+
+    val combinedMappings = mappingDfs.reduce { (df1, df2) =>
+      df1.join(df2, Seq(VacancyColumns.EXTERNAL_ID), "full_outer")
+    }
+
+    val enrichedDf = initialDf.join(combinedMappings, Seq(VacancyColumns.EXTERNAL_ID), "left")
+
+    buildFinalContract(enrichedDf)
+  }
+
+  private def buildFinalContract(enrichedDf: DataFrame): Dataset[NormalizedVacancy] = {
     def safeCol(colName: String) = {
       if (enrichedDf.columns.contains(colName)) col(colName) else lit(null)
     }

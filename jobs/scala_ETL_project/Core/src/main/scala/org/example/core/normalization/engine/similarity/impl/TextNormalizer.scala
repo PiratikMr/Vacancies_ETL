@@ -1,38 +1,33 @@
 package org.example.core.normalization.engine.similarity.impl
 
 import org.apache.spark.sql.Column
-import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
+
+import java.util.regex.Pattern
 
 object TextNormalizer {
 
-  def normalize(c: Column): Column = {
-    val cleaned = cleanOperations.foldLeft(c)((res, op) => op(res))
+  private val GarbagePattern = Pattern.compile("http[s]?://\\S+|<[^>]+>|&[a-z0-9#]+;|\\[(.*?)\\]\\([^)]+\\)")
+  private val KeepPattern = Pattern.compile("[^a-z0-9а-я+#]")
 
-    val nonEmptyWords = filter(split(cleaned, " "), w => length(w) > 0)
+  private val normalizeUdf = udf((text: String) => {
+    if (text == null || text.trim.isEmpty) {
+      Seq.empty[String]
+    } else {
+      var cleaned = text.toLowerCase.replace("ё", "е").replace("й", "и")
 
-    transform(nonEmptyWords, w => {
-      concat(lit("_"), stemmerUdf(w), lit("_"))
-    })
-  }
+      cleaned = GarbagePattern.matcher(cleaned).replaceAll(" ")
 
-  private val cleanOperations: Seq[Column => Column] = Seq(
-    c => coalesce(c, lit("")),
-    c => lower(c),
+      cleaned = KeepPattern.matcher(cleaned).replaceAll(" ")
 
-    c => regexp_replace(c, "<[^>]+>", " "), // HTML tags
-    c => regexp_replace(c, "$[a-z0-9#]+;", " "), // HTML special words
-    c => regexp_replace(c, "\\[(.*?)\\]\\([^)]+\\)", "$1 "), // Markdown [Text](URL)
-    c => regexp_replace(c, "http[s]?://\\S+", " "), // URL
-    c => regexp_replace(c, "(^|\\s)#{1,6}\\s+", " "), // Markdown headers (#)
-
-    c => translate(c, "ёй", "еи"),
-    c => regexp_replace(c, "[^a-z0-9а-я+#]", " "),
-    c => regexp_replace(c, "\\s+", " "),
-    c => trim(c)
-  )
-
-  private val stemmerUdf: UserDefinedFunction = udf((word: String) => {
-    StemmerProvider.stem(word)
+      cleaned.split("\\s+").filter(_.nonEmpty).map { word =>
+        val stemmed = StemmerProvider.stem(word)
+        s"_${stemmed}_"
+      }.toSeq
+    }
   })
+
+  def normalize(c: Column): Column = {
+    normalizeUdf(c)
+  }
 }

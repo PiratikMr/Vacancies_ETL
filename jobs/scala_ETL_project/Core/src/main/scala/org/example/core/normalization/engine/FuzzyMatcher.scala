@@ -9,7 +9,6 @@ import org.example.core.normalization.engine.model.FuzzyColumns._
 import org.example.core.normalization.engine.model._
 import org.example.core.normalization.engine.similarity.SimilarityStrategy
 import org.example.core.normalization.engine.similarity.impl.DefaultSimilarityStrategy
-import org.example.core.util.CacheTracker
 
 class FuzzyMatcher(
                     spark: SparkSession,
@@ -35,13 +34,10 @@ class FuzzyMatcher(
                dictionaryDs: Dataset[FuzzyDictionary]
              ): FuzzyMatcherResult = {
 
-    val cache = new CacheTracker()
-
-    val candidatesDf = cache.register(
-        candidatesDs.filter(col(RAW_VALUE).isNotNull)
-          .withColumn(NORM_VALUE, similarityStrategy.normalize(col(RAW_VALUE)))
-      )
+    val candidatesDf = candidatesDs.filter(col(RAW_VALUE).isNotNull)
+      .withColumn(NORM_VALUE, similarityStrategy.normalize(col(RAW_VALUE)))
       .select(ENTITY_ID, RAW_VALUE, PARENT_ID, NORM_VALUE)
+      .localCheckpoint()
 
     val dictDf = dictionaryDs.toDF()
       .select(DICT_ID, NORM_VALUE, PARENT_ID)
@@ -51,23 +47,20 @@ class FuzzyMatcher(
     val exactMatches = candidatesDf.join(dictDf, Seq(NORM_VALUE, PARENT_ID))
       .select(ENTITY_ID, NORM_VALUE, DICT_ID)
 
-    val candidatesForFuzzy = cache.register(
-        candidatesDf.join(exactMatches, Seq(ENTITY_ID, NORM_VALUE), "left_anti")
-      )
+    val candidatesForFuzzy = candidatesDf.join(exactMatches, Seq(ENTITY_ID, NORM_VALUE), "left_anti")
       .select(ENTITY_ID, RAW_VALUE, PARENT_ID, NORM_VALUE)
+      .localCheckpoint()
 
     if (candidatesForFuzzy.isEmpty) {
-      cache.clearAll()
       return emptyResult(exactMatches)
     }
     // === Точные совпадения ===
 
 
     // === 2. Векторизация ===
-    val fuzzyCandidatesWithFeatures = cache.register(
-        candidatesForFuzzy.withColumn(NORM_STRUCT, similarityStrategy.buildFeatures(col(NORM_VALUE)))
-      )
+    val fuzzyCandidatesWithFeatures = candidatesForFuzzy.withColumn(NORM_STRUCT, similarityStrategy.buildFeatures(col(NORM_VALUE)))
       .select(ENTITY_ID, RAW_VALUE, PARENT_ID, NORM_VALUE, NORM_STRUCT)
+      .localCheckpoint()
 
     val dictWithFeatures = dictDf.withColumn(NORM_STRUCT, similarityStrategy.buildFeatures(col(NORM_VALUE)))
       .select(DICT_ID, NORM_VALUE, PARENT_ID, NORM_STRUCT)
@@ -75,31 +68,30 @@ class FuzzyMatcher(
 
 
     // === 3. Fuzzy matching со словарями ===
-    val fuzzyDictMatches = cache.register(
-      matchDictionary(fuzzyCandidatesWithFeatures, dictWithFeatures)
-    ).select(ENTITY_ID, DICT_ID)
+    val fuzzyDictMatches = matchDictionary(fuzzyCandidatesWithFeatures, dictWithFeatures)
+      .select(ENTITY_ID, DICT_ID)
+      .localCheckpoint()
 
     val allDictMatches = exactMatches.select(ENTITY_ID, DICT_ID)
       .unionByName(fuzzyDictMatches)
       .distinct()
 
-    val remainingCandidates = cache.register(
-        fuzzyCandidatesWithFeatures.join(fuzzyDictMatches, Seq(ENTITY_ID), "left_anti")
-      )
-      .select(ENTITY_ID, RAW_VALUE, PARENT_ID, NORM_VALUE, NORM_STRUCT)
+    val remainingCandidates = {
+      fuzzyCandidatesWithFeatures.join(fuzzyDictMatches, Seq(ENTITY_ID), "left_anti")
+        .select(ENTITY_ID, RAW_VALUE, PARENT_ID, NORM_VALUE, NORM_STRUCT)
+        .localCheckpoint()
+    }
 
     if (remainingCandidates.isEmpty) {
-      cache.clearAll()
       return emptyResult(allDictMatches)
     }
     // === Fuzzy matching со словарями ===
 
 
     // === 4. Self fuzzy matching ===
-    val selfMatches = cache.register(
-        selfMatching(remainingCandidates, cache)
-      )
+    val selfMatches = selfMatching(remainingCandidates)
       .select(RAW_VALUE, NORM_VALUE, IS_CANONICAL, ENTITY_ID, PARENT_ID)
+      .localCheckpoint()
 
 
     val toCreate = selfMatches.select(ENTITY_ID, RAW_VALUE, PARENT_ID)
@@ -113,12 +105,15 @@ class FuzzyMatcher(
     val matchedResult = allDictMatches.as[FuzzyMatch]
     // === Self fuzzy matching ===
 
-    FuzzyMatcherResult(matchedResult, toCreate, newMappingData, () => cache.clearAll())
+    FuzzyMatcherResult(matchedResult, toCreate, newMappingData, () => {})
   }
 
 
   private def matchDictionary(candidates: DataFrame, dictionaries: DataFrame): DataFrame = {
-    candidates.alias("c").join(dictionaries.alias("d"), $"c.$PARENT_ID" === $"d.$PARENT_ID")
+    candidates.alias("c").join(dictionaries.alias("d"),
+        $"c.$PARENT_ID" === $"d.$PARENT_ID" &&
+          arrays_overlap($"c.$NORM_STRUCT.ngrams", $"d.$NORM_STRUCT.ngrams")
+      )
       .withColumn("score", similarityStrategy.calculateScore($"c.$NORM_STRUCT", $"d.$NORM_STRUCT"))
       .filter($"score" >= minScore)
       .withColumn("rank",
@@ -135,7 +130,7 @@ class FuzzyMatcher(
       .distinct()
   }
 
-  private def selfMatching(candidatesDf: DataFrame, cache: CacheTracker): DataFrame = {
+  private def selfMatching(candidatesDf: DataFrame): DataFrame = {
     val rawValue = RAW_VALUE
     val normValue = NORM_VALUE
     val normStruct = NORM_STRUCT
@@ -174,7 +169,12 @@ class FuzzyMatcher(
     val lengthFilter = abs(lenA - lenB) <= (greatest(lenA, lenB) * lit(0.5))
 
     val halfPairs = uA
-      .join(uB, col("A_pid") === col("B_pid") && col(aN) < col(bN) && lengthFilter)
+      .join(uB,
+        col("A_pid") === col("B_pid") &&
+          col(aN) < col(bN) &&
+          lengthFilter &&
+          arrays_overlap($"$aS.ngrams", $"$bS.ngrams")
+      )
       .withColumn("score", similarityStrategy.calculateScore(col(aS), col(bS)))
       .filter($"score" >= minScore)
       .select(col(aN), col(bN), $"A_pid".as(aPid), $"score")
@@ -224,20 +224,19 @@ class FuzzyMatcher(
       .groupBy(col(aN).as("auth_norm"), col(aPid).as("auth_parent"))
       .agg(sum("score").as("auth_score"))
 
-    val rankedCandidates = cache.register(
-      pairs
-        .join(
-          authority,
-          col(aN) === col("auth_norm") &&
-            col(aPid) === col("auth_parent")
+    val rankedCandidates = pairs
+      .join(
+        authority,
+        col(aN) === col("auth_norm") &&
+          col(aPid) === col("auth_parent")
+      )
+      .withColumn("rank1",
+        row_number().over(
+          partitionBy(bN, aPid)
+            .orderBy(col("auth_score").desc, length(col(aV)).asc, col(aN).asc)
         )
-        .withColumn("rank1",
-          row_number().over(
-            partitionBy(bN, aPid)
-              .orderBy(col("auth_score").desc, length(col(aV)).asc, col(aN).asc)
-          )
-        )
-    )
+      )
+      .localCheckpoint()
 
     val activeHubs = rankedCandidates
       .filter(col("rank1") === 1)
