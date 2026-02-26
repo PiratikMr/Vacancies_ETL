@@ -93,39 +93,29 @@ lazy val HeadHunter = (project in file(s"${platformFolder}HeadHunter"))
   .dependsOn(Core)
   .dependsOn(TestUtils % Test)
 
-//lazy val Dictionaries = (project in file(s"${platformFolder}HeadHunter/Dictionaries"))
-//  .settings(
-//    assemblySettings,
-//    assembly / mainClass := Some("org.example.headhunter.dictionaries.DictionariesMain"),
-//    assembly / assemblyJarName := "Dictionaries-etl.jar"
-//  )
-//  .dependsOn(HeadHunter)
+lazy val HabrCareer = (project in file(s"${platformFolder}HabrCareer"))
+  .settings(
+    assemblySettings,
+    assembly / mainClass := Some("org.example.habrcareer.HabrCareerMain"),
+    assembly / assemblyJarName := "HabrCareer-etl.jar"
+  )
+  .dependsOn(Core)
 
-//
-//lazy val HabrCareer = (project in file("HabrCareer"))
-//  .settings(
-//    assemblySettings,
-//    assembly / mainClass := Some("org.example.habrcareer.HabrCareerMain"),
-//    assembly / assemblyJarName := "HabrCareer-etl.jar"
-//  )
-//  .dependsOn(infra_structure)
-//
-//lazy val Adzuna = (project in file("Adzuna"))
-//  .settings(
-//    assemblySettings,
-//    assembly / mainClass := Some("org.example.adzuna.AdzunaMain"),
-//    assembly / assemblyJarName := "Adzuna-etl.jar"
-//  )
-//  .dependsOn(infra_structure)
-//
-//addCommandAlias("buildAllPlatforms",
-//  "; clean" +
-//    "; Currency/assembly" +
-//    "; Finder/assembly" +
-//    "; GeekJob/assembly" +
-//    "; GetMatch/assembly" +
-//    "; HeadHunter/assembly" +
-//    "; HeadHunterDictionaries/assembly" +
-//    "; HabrCareer/assembly" +
-//    "; Adzuna/assembly"
-//)
+lazy val Adzuna = (project in file(s"${platformFolder}Adzuna"))
+  .settings(
+    assemblySettings,
+    assembly / mainClass := Some("org.example.adzuna.AdzunaMain"),
+    assembly / assemblyJarName := "Adzuna-etl.jar"
+  )
+  .dependsOn(Core)
+
+addCommandAlias("buildAllPlatforms",
+  "; clean" +
+    "; Currency/assembly" +
+    "; Finder/assembly" +
+    "; GeekJob/assembly" +
+    "; GetMatch/assembly" +
+    "; HeadHunter/assembly" +
+    "; HabrCareer/assembly" +
+    "; Adzuna/assembly"
+)

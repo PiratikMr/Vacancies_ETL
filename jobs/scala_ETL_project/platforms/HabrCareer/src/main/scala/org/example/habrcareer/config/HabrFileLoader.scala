@@ -1,7 +1,7 @@
 package org.example.habrcareer.config
 
-import org.example.config.Loaders.FileLoader
-import org.example.config.Loaders.modules.{WithCommonFileConfig, WithStandardStructures}
+import org.example.core.config.loader.FileLoader
+import org.example.core.config.loader.module.{WithCommonFileConfig, WithStandardStructures}
 
 class HabrFileLoader(confPath: String, currDate: String)
   extends FileLoader(confPath)

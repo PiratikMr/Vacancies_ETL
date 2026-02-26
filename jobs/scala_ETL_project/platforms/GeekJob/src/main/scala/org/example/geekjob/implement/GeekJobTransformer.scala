@@ -5,10 +5,8 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql._
 import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.config.model.structures.FuzzyMatcherConf
-import org.example.core.config.schema.SchemaRegistry.DataBase.Entities
-import org.example.core.config.schema.SchemaRegistry.Internal.RawVacancy
+import org.example.core.etl.model.{NormalizedVacancy, Vacancy, VacancyColumns}
 import org.example.core.etl.Transformer
-import org.example.core.etl.model.Vacancy
 import org.example.core.normalization.factory.NormalizerFactory
 import org.example.core.normalization.model.NormalizersEnum._
 import org.example.core.normalization.api.NormalizationTask.Exact
@@ -41,39 +39,45 @@ class GeekJobTransformer(currDate: String,
   }
 
   override def transform(spark: SparkSession, df: DataFrame): Dataset[Vacancy] = {
+    import spark.implicits._
+
     df
       .select(
-        col("id").as(RawVacancy.externalId.name),
-        lit("GeekJob").as(RawVacancy.platform.name),
-        col("employer").as(RawVacancy.employer.name),
-        col("currency").as(RawVacancy.currency.name),
-        col("experience").as(RawVacancy.experience.name),
+        col("id").as(VacancyColumns.EXTERNAL_ID),
+        lit("GeekJob").as(VacancyColumns.PLATFORM),
+        col("employer").as(VacancyColumns.EMPLOYER),
+        col("currency").as(VacancyColumns.CURRENCY),
+        col("experience").as(VacancyColumns.EXPERIENCE),
 
-        col("salary_from").cast(DoubleType).as(RawVacancy.salaryFrom.name),
-        col("salary_to").cast(DoubleType).as(RawVacancy.salaryTo.name),
+        col("salary_from").cast(DoubleType).as(VacancyColumns.SALARY_FROM),
+        col("salary_to").cast(DoubleType).as(VacancyColumns.SALARY_TO),
+        lit(null).cast(DoubleType).as(VacancyColumns.LATITUDE),
+        lit(null).cast(DoubleType).as(VacancyColumns.LONGITUDE),
 
-        col("publish_date").as(RawVacancy.publishedAt.name),
-        col("title").as(RawVacancy.title.name),
-        concat(lit("https://geekjob.ru/vacancy/"), col("id")).as(RawVacancy.url.name),
+        col("publish_date").as(VacancyColumns.PUBLISHED_AT),
+        col("title").as(VacancyColumns.TITLE),
+        lit(null).cast(StringType).as(VacancyColumns.DESCRIPTION),
+        concat(lit("https://geekjob.ru/vacancy/"), col("id")).as(VacancyColumns.URL),
 
-        col("job_format").as(RawVacancy.employments.name),
-        col("job_format").as(RawVacancy.schedules.name),
+        col("job_format").as(VacancyColumns.EMPLOYMENTS),
+        col("job_format").as(VacancyColumns.SCHEDULES),
 
         functions.transform(
           col("locations"),
           loc => struct(
-            loc.as(RawVacancy.locationRegion.name),
-            loc.as(RawVacancy.locationCountry.name)
+            loc.as(VacancyColumns.LOCATION),
+            loc.as(VacancyColumns.COUNTRY)
           )
-        ).as(RawVacancy.locations.name),
+        ).as(VacancyColumns.LOCATIONS),
 
-        col("fields").as(RawVacancy.fields.name),
-        col("specs").as(RawVacancy.skills.name),
-        col("level").as(RawVacancy.grades.name)
-      )
+        col("fields").as(VacancyColumns.FIELDS),
+        col("specs").as(VacancyColumns.SKILLS),
+        col("level").as(VacancyColumns.GRADES),
+        typedLit(Seq.empty[org.example.core.etl.model.Language]).as(VacancyColumns.LANGUAGES)
+      ).as[Vacancy]
   }
 
-  override def normalize(spark: SparkSession, transformedData: DataFrame): DataFrame = {
+  override def normalize(spark: SparkSession, transformedData: Dataset[Vacancy]): Dataset[NormalizedVacancy] = {
 
     new NormalizationOrchestrator(spark, dbAdapter, fuzzyConf)
       .normalize(Seq(
@@ -84,8 +88,7 @@ class GeekJobTransformer(currDate: String,
         PLATFORM,
         SKILLS,
         GRADES,
-        Exact(EMPLOYMENTS),
-//      Exact(SCHEDULES)
+        Exact(EMPLOYMENTS)
       ), transformedData)
   }
 

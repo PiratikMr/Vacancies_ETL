@@ -4,7 +4,6 @@ object NormalizationColumns {
   val ENTITY_ID = "entityId"
   val RAW_VALUE = "rawValue"
   val MAPPED_ID = "mappedId"
-  val MAPPED_IDS = "mappedIds"
   val PARENT_ID = "parentId"
 }
 

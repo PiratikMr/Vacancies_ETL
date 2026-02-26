@@ -1,43 +1,48 @@
 package org.example.core.normalization.factory
 
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{Dataset, SparkSession}
 import org.example.core.adapter.database.DataBaseAdapter
-import org.example.core.config.database._
-import org.example.core.config.model.structures.FuzzyMatchSettings
-import org.example.core.normalization.impl.{HierarchicalNormalizer, LanguageNormalizer}
+import org.example.core.config.model.structures.FuzzyMatcherConf
+import org.example.core.etl.model.Vacancy
+import org.example.core.normalization.api.{BaseNormalizer, NormalizationCommand, NormalizationTask, TagExtractor}
+import org.example.core.normalization.impl.{HierarchicalNormalizer, LanguageNormalizer, SimpleNormalizer}
 import org.example.core.normalization.model.NormalizersEnum._
 import org.example.core.normalization.service.NormalizeService
 
 object NormalizerFactory {
 
-  // Теперь возвращает просто NormalizeService!
-  def getNormalizeService(spark: SparkSession,
-                          dbAdapter: DataBaseAdapter,
-                          settings: FuzzyMatchSettings,
-                          normalizerType: GroupNonHierarchical
-                         ): NormalizeService = {
-    normalizerType match {
-      case CURRENCY => new NormalizeService(spark, dbAdapter, settings, DimCurrencyDef, MappingCurrencyDef)
-      case EMPLOYER => new NormalizeService(spark, dbAdapter, settings, DimEmployerDef, MappingEmployerDef)
-      case EXPERIENCE => new NormalizeService(spark, dbAdapter, settings, DimExperienceDef, MappingExperienceDef)
-      case PLATFORM => new NormalizeService(spark, dbAdapter, settings, DimPlatformDef, MappingPlatformDef)
-      case EMPLOYMENTS => new NormalizeService(spark, dbAdapter, settings, DimEmploymentDef, MappingEmploymentDef)
-      case FIELDS => new NormalizeService(spark, dbAdapter, settings, DimFieldDef, MappingFieldDef)
-      case GRADES => new NormalizeService(spark, dbAdapter, settings, DimGradeDef, MappingGradeDef)
-      case SCHEDULES => new NormalizeService(spark, dbAdapter, settings, DimScheduleDef, MappingScheduleDef)
-      case SKILLS => new NormalizeService(spark, dbAdapter, settings, DimSkillDef, MappingSkillDef)
-      case COUNTRY => new NormalizeService(spark, dbAdapter, settings, DimCountryDef, MappingCountryDef)
-      case LANGUAGES | LANGUAGES_LEVEL => throw new IllegalArgumentException("Для языков используйте getLanguageNormalizer")
+  def createCommand(task: NormalizationTask, spark: SparkSession, dbAdapter: DataBaseAdapter, conf: FuzzyMatcherConf): NormalizationCommand = task match {
+
+    case NormalizationTask.Standard(nType) =>
+      val normalizer = getBaseNormalizer(nType, spark, dbAdapter, conf)
+      (ds: Dataset[Vacancy]) => normalizer.process(ds, withCreate = true)
+
+    case NormalizationTask.Exact(nType) =>
+      val normalizer = getBaseNormalizer(nType, spark, dbAdapter, conf)
+      (ds: Dataset[Vacancy]) => normalizer.process(ds, withCreate = false)
+
+    case NormalizationTask.ExtractTags(nType, sourceCol) =>
+      val extractor: TagExtractor = getSimpleNormalizer(nType, spark, dbAdapter, conf)
+      (ds: Dataset[Vacancy]) => extractor.extractTags(ds, sourceCol)
+  }
+
+  private def getBaseNormalizer(nType: NormalizerType, spark: SparkSession, dbAdapter: DataBaseAdapter, conf: FuzzyMatcherConf): BaseNormalizer = {
+    nType match {
+      case simple: GroupNonHierarchical => getSimpleNormalizer(simple, spark, dbAdapter, conf)
+      case LOCATIONS => new HierarchicalNormalizer(spark, dbAdapter, conf.get(LOCATIONS), conf.get(COUNTRY))
+      case LANGUAGES => new LanguageNormalizer(spark, dbAdapter, conf.get(LANGUAGES), conf.get(LANGUAGES_LEVEL))
     }
   }
 
-  def getLocationsNormalizer(spark: SparkSession, dbAdapter: DataBaseAdapter,
-                             locationSettings: FuzzyMatchSettings, countrySettings: FuzzyMatchSettings): HierarchicalNormalizer = {
-    new HierarchicalNormalizer(spark, dbAdapter, locationSettings, countrySettings)
-  }
+  private def getSimpleNormalizer(simple: GroupNonHierarchical, spark: SparkSession, dbAdapter: DataBaseAdapter, conf: FuzzyMatcherConf): SimpleNormalizer = {
+    val coreService = new NormalizeService(
+      spark,
+      dbAdapter,
+      conf.get(simple),
+      simple.dimDef,
+      simple.mappingDef
+    )
 
-  def getLanguageNormalizer(spark: SparkSession, dbAdapter: DataBaseAdapter,
-                            levelSettings: FuzzyMatchSettings, languageSettings: FuzzyMatchSettings): LanguageNormalizer = {
-    new LanguageNormalizer(spark, dbAdapter, languageSettings, levelSettings)
+    new SimpleNormalizer(spark, coreService, simple)
   }
 }

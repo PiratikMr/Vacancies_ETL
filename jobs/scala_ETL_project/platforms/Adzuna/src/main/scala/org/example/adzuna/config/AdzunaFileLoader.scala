@@ -1,7 +1,7 @@
 package org.example.adzuna.config
 
-import org.example.config.Loaders.FileLoader
-import org.example.config.Loaders.modules.{WithCommonFileConfig, WithStandardStructures}
+import org.example.core.config.loader.FileLoader
+import org.example.core.config.loader.module.{WithCommonFileConfig, WithStandardStructures}
 
 class AdzunaFileLoader(confPath: String, currDate: String, locationIndex: Int)
   extends FileLoader(confPath)

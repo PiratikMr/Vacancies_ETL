@@ -1,7 +1,7 @@
 package org.example.adzuna.config
 
-import org.example.config.Loaders.ArgsLoader
-import org.example.config.Loaders.modules.WithCommonArgsConfig
+import org.example.core.config.loader.ArgsLoader
+import org.example.core.config.loader.module.WithCommonArgsConfig
 import org.rogach.scallop.ScallopOption
 
 class AdzunaArgsLoader(args: Array[String])

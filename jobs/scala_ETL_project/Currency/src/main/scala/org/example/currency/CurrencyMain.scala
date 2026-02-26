@@ -5,7 +5,6 @@ import org.apache.spark.sql.types.{DoubleType, MapType, StringType}
 import org.example.core.adapter.database.impl.postgres.PostgresAdapter
 import org.example.core.adapter.web.impl.sttp.STTPAdapter
 import org.example.core.config.model.structures.SparkConf
-import org.example.core.config.schema.SchemaRegistry
 import org.example.core.normalization.engine.similarity.impl.DefaultSimilarityStrategy
 import org.example.core.normalization.model.NormalizersEnum
 import org.example.core.util.SparkJob
@@ -24,7 +23,13 @@ object CurrencyMain extends App with SparkJob {
   private val dbAdapter = new PostgresAdapter(fileConfig.structures.dbConf)
   private val sttpAdapter = STTPAdapter(fileConfig.structures.netConf)
 
-  private val entity = SchemaRegistry.DataBase.Entities.Currency
+  private val currencyCol = "currency"
+  private val rateCol = "rate"
+  private val currencyTableName = "dim_currency"
+  private val currencyIdCol = "currency_id"
+  private val mappingTableName = "mapping_currency"
+  private val mappedValueCol = "mapped_value"
+  private val isCanonicalCol = "is_canonical"
 
 
   private val body = sttpAdapter.readBodyOrThrow(
@@ -42,34 +47,34 @@ object CurrencyMain extends App with SparkJob {
       to_json(col("data.conversion_rates")),
       MapType(StringType, DoubleType)
     )
-  ).as(Seq(entity.dimTable.name.name, entity.rate.name)))
+  ).as(Seq(currencyCol, rateCol)))
 
   private val savedDimDf = dbAdapter.saveWithReturn(
     spark = spark,
     df = transformedDf,
-    targetTable = entity.dimTable.tableName,
-    returns = Seq(entity.dimTable.entityId.name, entity.dimTable.name.name),
-    conflicts = Seq(entity.dimTable.name.name),
-    updates = Some(Seq(entity.rate.name))
+    targetTable = currencyTableName,
+    returns = Seq(currencyIdCol, currencyCol),
+    conflicts = Seq(currencyCol),
+    updates = Some(Seq(rateCol))
   ).cache()
 
   private val fuzzySettings = fileConfig.structures.fuzzyMatcherConf.get(NormalizersEnum.CURRENCY)
   private val similarityStrategy = new DefaultSimilarityStrategy(fuzzySettings)
 
   private val mappingDf = savedDimDf
-    .withColumn(entity.mappingDimTable.mappedValue.name, similarityStrategy.normalize(col(entity.dimTable.name.name)))
-    .withColumn(entity.mappingDimTable.isCanonical.name, lit(true))
+    .withColumn(mappedValueCol, similarityStrategy.normalize(col(currencyCol)))
+    .withColumn(isCanonicalCol, lit(true))
     .select(
-      entity.mappingDimTable.entityId.name,
-      entity.mappingDimTable.mappedValue.name,
-      entity.mappingDimTable.isCanonical.name
+      currencyIdCol,
+      mappedValueCol,
+      isCanonicalCol
     )
 
   dbAdapter.save(
     df = mappingDf,
-    targetTable = entity.mappingDimTable.tableName,
-    conflicts = Seq(entity.mappingDimTable.mappedValue.name, entity.mappingDimTable.entityId.name),
-    updates = Some(Seq(entity.mappingDimTable.isCanonical.name))
+    targetTable = mappingTableName,
+    conflicts = Seq(mappedValueCol, currencyIdCol),
+    updates = Some(Seq(isCanonicalCol))
   )
 
   savedDimDf.unpersist(blocking = false)

@@ -2,26 +2,29 @@ package org.example.adzuna
 
 import org.example.adzuna.config.{AdzunaArgsLoader, AdzunaFileLoader}
 import org.example.adzuna.implement.{AdzunaExtractor, AdzunaTransformer}
-import org.example.config.FolderName.{CustomDomain, FolderName, Raw, Stage}
-import org.example.config.TableConfig.TableRegistry
-import org.example.core.implement.HDFS.HDFSService
-import org.example.core.implement.Network.{STTPBackendContext, STTPBackends, STTPService}
-import org.example.core.implement.Postgres.PostgresService
-import org.example.core.objects.LoadDefinition
-import org.example.core.{ETLCycle, SparkApp}
+import org.example.core.adapter.database.impl.postgres.PostgresAdapter
+import org.example.core.adapter.storage.impl.hdfs.HDFSAdapter
+import org.example.core.adapter.web.impl.sttp.STTPAdapter
+import org.example.core.config.model.structures.SparkConf
+import org.example.core.etl.ETLUService
+import org.example.core.util.SparkJob
 
-object AdzunaMain extends App {
+object AdzunaMain extends App with SparkJob {
 
   private val argsConfig = new AdzunaArgsLoader(args)
   private val fileConfig = new AdzunaFileLoader(argsConfig.common.confFile, argsConfig.common.saveFolder, argsConfig.locationIndex())
 
-  private val spark = SparkApp.defineSession(fileConfig.structures.sparkConf, argsConfig.common.etlPart)
+  override def sparkConf: SparkConf = fileConfig.structures.sparkConf
 
-  private val etl = new ETLCycle(
+  override def sparkName: String = s"Adzuna_${argsConfig.common.etlPart}"
+
+  private val dbAdapter = new PostgresAdapter(fileConfig.structures.dbConf)
+
+  private val ec = new ETLUService(
     spark,
-    new PostgresService(fileConfig.structures.dbConf),
-    new HDFSService(fileConfig.structures.fsConf),
-    new STTPService(fileConfig.structures.netConf, () => STTPBackendContext.getBackend(STTPBackends.DEFAULT))
+    dbAdapter,
+    new HDFSAdapter(fileConfig.structures.fsConf),
+    STTPAdapter(fileConfig.structures.netConf)
   )
 
   private val extractor = new AdzunaExtractor(
@@ -30,22 +33,16 @@ object AdzunaMain extends App {
   )
 
   private val transformer = new AdzunaTransformer(
+    dbAdapter,
+    fileConfig.structures.fuzzyMatcherConf,
     fileConfig.currency, fileConfig.urlDomain, fileConfig.apiParams.locationTag,
     fileConfig.common.transformPartitions
   )
 
-  etl.run(
+  ec.run(
     argsConfig.common.etlPart,
-    Some(extractor),
-    Some(transformer),
-    Some(() => Seq(
-      LoadDefinition(
-        FolderName(Stage, CustomDomain(fileConfig.apiParams.locationTag), "Vacancies"),
-        TableRegistry.Vacancies.config
-      )
-    )),
-    rawFolder = FolderName(Raw, CustomDomain(fileConfig.apiParams.locationTag), "Vacancies")
+    extractor = extractor,
+    transformer = transformer,
+    updater = Some(() => fileConfig.common.updateLimit)
   )
-
-  spark.stop()
 }

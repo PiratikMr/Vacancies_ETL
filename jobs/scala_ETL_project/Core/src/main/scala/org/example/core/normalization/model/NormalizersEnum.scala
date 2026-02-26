@@ -5,38 +5,55 @@ import org.example.core.etl.model.VacancyColumns
 
 object NormalizersEnum {
 
-  sealed trait NormalizerType {
-    def mappedIdCol: String
-    def sourceCol: String // Колонка в сырой Vacancy, откуда берем данные
-    def isArray: Boolean  // Флаг, нужно ли группировать результат в массив
-  }
+  sealed abstract class NormalizerType(
+                                        val mappedIdCol: String,
+                                        val sourceCol: String,
+                                        val isArray: Boolean
+                                      )
 
-  sealed trait GroupNonHierarchical extends NormalizerType
-  sealed trait GroupHierarchical extends NormalizerType
+  sealed abstract class GroupNonHierarchical(
+                                              mappedIdCol: String,
+                                              sourceCol: String,
+                                              isArray: Boolean,
+                                              val dimDef: DimDef,
+                                              val mappingDef: MappingDimDef
+                                            ) extends NormalizerType(mappedIdCol, sourceCol, isArray)
 
-  case object CURRENCY    extends GroupNonHierarchical { override def mappedIdCol: String = FactVacancyDef.currencyId; override def sourceCol: String = VacancyColumns.CURRENCY; override def isArray: Boolean = false }
-  case object EMPLOYER    extends GroupNonHierarchical { override def mappedIdCol: String = FactVacancyDef.employerId; override def sourceCol: String = VacancyColumns.EMPLOYER; override def isArray: Boolean = false }
-  case object EXPERIENCE  extends GroupNonHierarchical { override def mappedIdCol: String = FactVacancyDef.experienceId; override def sourceCol: String = VacancyColumns.EXPERIENCE; override def isArray: Boolean = false }
-  case object PLATFORM    extends GroupNonHierarchical { override def mappedIdCol: String = FactVacancyDef.platformId; override def sourceCol: String = VacancyColumns.PLATFORM; override def isArray: Boolean = false }
+  sealed abstract class GroupHierarchical(
+                                           mappedIdCol: String,
+                                           sourceCol: String,
+                                           isArray: Boolean
+                                         ) extends NormalizerType(mappedIdCol, sourceCol, isArray)
 
-  case object EMPLOYMENTS extends GroupNonHierarchical { override def mappedIdCol: String = BridgeVacancyEmploymentDef.entityId; override def sourceCol: String = VacancyColumns.EMPLOYMENTS; override def isArray: Boolean = true }
-  case object FIELDS      extends GroupNonHierarchical { override def mappedIdCol: String = BridgeVacancyFieldDef.entityId; override def sourceCol: String = VacancyColumns.FIELDS; override def isArray: Boolean = true }
-  case object GRADES      extends GroupNonHierarchical { override def mappedIdCol: String = BridgeVacancyGradeDef.entityId; override def sourceCol: String = VacancyColumns.GRADES; override def isArray: Boolean = true }
-  case object SCHEDULES   extends GroupNonHierarchical { override def mappedIdCol: String = BridgeVacancyScheduleDef.entityId; override def sourceCol: String = VacancyColumns.SCHEDULES; override def isArray: Boolean = true }
-  case object SKILLS      extends GroupNonHierarchical { override def mappedIdCol: String = BridgeVacancySkillDef.entityId; override def sourceCol: String = VacancyColumns.SKILLS; override def isArray: Boolean = true }
+  case object CURRENCY extends GroupNonHierarchical(FactVacancyDef.currencyId, VacancyColumns.CURRENCY, false, DimCurrencyDef, MappingCurrencyDef)
 
-  case object COUNTRY     extends GroupNonHierarchical { override def mappedIdCol: String = DimCountryDef.entityId; override def sourceCol: String = ""; override def isArray: Boolean = false }
-  case object LOCATIONS   extends GroupHierarchical { override def mappedIdCol: String = BridgeVacancyLocationDef.entityId; override def sourceCol: String = VacancyColumns.LOCATIONS; override def isArray: Boolean = true }
+  case object EMPLOYER extends GroupNonHierarchical(FactVacancyDef.employerId, VacancyColumns.EMPLOYER, false, DimEmployerDef, MappingEmployerDef)
 
-  case object LANGUAGES   extends GroupNonHierarchical { override def mappedIdCol: String = BridgeVacancyLanguageDef.entityId; override def sourceCol: String = VacancyColumns.LANGUAGES; override def isArray: Boolean = true }
-  case object LANGUAGES_LEVEL extends GroupNonHierarchical { override def mappedIdCol: String = BridgeVacancyLanguageDef.languageLevelId; override def sourceCol: String = ""; override def isArray: Boolean = false }
+  case object EXPERIENCE extends GroupNonHierarchical(FactVacancyDef.experienceId, VacancyColumns.EXPERIENCE, false, DimExperienceDef, MappingExperienceDef)
+
+  case object PLATFORM extends GroupNonHierarchical(FactVacancyDef.platformId, VacancyColumns.PLATFORM, false, DimPlatformDef, MappingPlatformDef)
+
+  case object EMPLOYMENTS extends GroupNonHierarchical(BridgeVacancyEmploymentDef.entityId, VacancyColumns.EMPLOYMENTS, true, DimEmploymentDef, MappingEmploymentDef)
+
+  case object FIELDS extends GroupNonHierarchical(BridgeVacancyFieldDef.entityId, VacancyColumns.FIELDS, true, DimFieldDef, MappingFieldDef)
+
+  case object GRADES extends GroupNonHierarchical(BridgeVacancyGradeDef.entityId, VacancyColumns.GRADES, true, DimGradeDef, MappingGradeDef)
+
+  case object SCHEDULES extends GroupNonHierarchical(BridgeVacancyScheduleDef.entityId, VacancyColumns.SCHEDULES, true, DimScheduleDef, MappingScheduleDef)
+
+  case object SKILLS extends GroupNonHierarchical(BridgeVacancySkillDef.entityId, VacancyColumns.SKILLS, true, DimSkillDef, MappingSkillDef)
+
+  case object COUNTRY extends GroupNonHierarchical(DimCountryDef.entityId, "", false, DimCountryDef, MappingCountryDef)
+
+  case object LOCATIONS extends GroupHierarchical(BridgeVacancyLocationDef.entityId, VacancyColumns.LOCATIONS, true)
+
+  case object LANGUAGES extends GroupHierarchical("mapped_languages", VacancyColumns.LANGUAGES, true)
+
+  case object LANGUAGES_LEVEL extends GroupHierarchical(BridgeVacancyLanguageDef.languageLevelId, "", false)
 
   val values: Set[NormalizerType] = Set(
     CURRENCY, EMPLOYER, EXPERIENCE, PLATFORM, EMPLOYMENTS,
     FIELDS, GRADES, SCHEDULES, SKILLS, COUNTRY, LOCATIONS, LANGUAGES,
     LANGUAGES_LEVEL
   )
-
-  lazy val nonHierarchical: Set[GroupNonHierarchical] = values.collect { case x: GroupNonHierarchical => x }
-  lazy val hierarchical: Set[GroupHierarchical] = values.collect { case x: GroupHierarchical => x }
 }

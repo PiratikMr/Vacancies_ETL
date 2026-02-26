@@ -2,63 +2,84 @@ package org.example.habrcareer.implement
 
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
-import org.example.config.FolderName.FolderName
-import org.example.core.Interfaces.ETL.Transformer
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
+import org.example.core.adapter.database.DataBaseAdapter
+import org.example.core.config.model.structures.FuzzyMatcherConf
+import org.example.core.etl.model.{Language, NormalizedVacancy, Vacancy, VacancyColumns}
+import org.example.core.etl.Transformer
+import org.example.core.normalization.model.NormalizersEnum._
+import org.example.core.normalization.service.NormalizationOrchestrator
 
 class HabrTransformer(
-                     transformPartition: Int
+                       dbAdapter: DataBaseAdapter,
+                       fuzzyConf: FuzzyMatcherConf,
+                       transformPartition: Int
                      ) extends Transformer {
 
   override def toRows(spark: SparkSession, rawDS: Dataset[String]): DataFrame =
     spark.read.schema(StructType(Seq(StructField("list", ArrayType(HabrTransformer.scheme))))).json(rawDS)
 
-  override def transform(spark: SparkSession, rawDF: DataFrame): Map[FolderName, DataFrame] =
-    {
+  override def transform(spark: SparkSession, rawDF: DataFrame): Dataset[Vacancy] = {
+    import spark.implicits._
 
-      val transformedDF = rawDF.select(explode(col("list")).as("lst")).select("lst.*")
-        .withColumn("remote_work", col("remoteWork"))
-        .withColumn("grade", col("salaryQualification.title"))
-        .withColumn("published_at", to_timestamp(col("publishedDate.date"), "yyyy-MM-dd'T'HH:mm:ssXXX"))
-        .withColumn("employer", col("company.title"))
-        .withColumn("employment_type", col("employment"))
-        .withColumn("salary_from", col("salary.from"))
-        .withColumn("salary_to", col("salary.to"))
-        .withColumn("salary_currency_id",
-          when(upper(col("salary.currency")) === "RUR", lit("RUB"))
-            .when(upper(col("salary.currency")) === "BYR", lit("BYN"))
-            .otherwise(upper(col("salary.currency")))
-        )
-        .withColumn("url", concat(lit("https://career.habr.com/vacancies/"), col("id")))
-        .withColumn("closed_at", lit(null).cast(TimestampType))
-        .dropDuplicates("id")
+    rawDF.select(explode(col("list")).as("lst")).select("lst.*")
+      .select(
+        col("id").cast(StringType).as(VacancyColumns.EXTERNAL_ID),
+        lit("HabrCareer").as(VacancyColumns.PLATFORM),
+        col("company.title").as(VacancyColumns.EMPLOYER),
+        when(upper(col("salary.currency")) === "RUR", lit("RUB"))
+          .when(upper(col("salary.currency")) === "BYR", lit("BYN"))
+          .otherwise(upper(col("salary.currency"))).as(VacancyColumns.CURRENCY),
+        lit(null).cast(StringType).as(VacancyColumns.EXPERIENCE),
 
-      val vacanciesDF: DataFrame = transformedDF.select("id", "title", "remote_work", "grade", "published_at",
-          "employer", "employment_type", "salary_from", "salary_to", "salary_currency_id", "url", "closed_at")
-        .repartition(transformPartition)
+        col("salary.from").cast(DoubleType).as(VacancyColumns.SALARY_FROM),
+        col("salary.to").cast(DoubleType).as(VacancyColumns.SALARY_TO),
 
-      val fieldsDF: DataFrame = transformedDF
-        .select(col("id"), explode(col("divisions")).as("fields"))
-        .select(col("id"), col("fields.title").as("name"))
-        .repartition(1)
+        lit(null).cast(DoubleType).as(VacancyColumns.LATITUDE),
+        lit(null).cast(DoubleType).as(VacancyColumns.LONGITUDE),
 
-      val skillsDF: DataFrame = transformedDF
-        .select(col("id"), explode(col("skills")).as("skill"))
-        .select(col("id"), col("skill.title").as("name"))
-        .repartition(1)
+        to_timestamp(col("publishedDate.date"), "yyyy-MM-dd'T'HH:mm:ssXXX").as(VacancyColumns.PUBLISHED_AT),
+        col("title").as(VacancyColumns.TITLE),
+        lit(null).cast(StringType).as(VacancyColumns.DESCRIPTION),
+        concat(lit("https://career.habr.com/vacancies/"), col("id")).as(VacancyColumns.URL),
 
-      val locationsDF: DataFrame = transformedDF
-        .select(col("id"), explode(col("locations")).as("mlocations"))
-        .select(col("id"), col("mlocations.title").as("name"))
-        .repartition(1)
+        array(
+          when(col("remoteWork") === true, lit("Удаленная работа")).otherwise(lit(null)),
+          when(col("employment").isNotNull, col("employment")).otherwise(lit(null))
+        ).as(VacancyColumns.EMPLOYMENTS),
+        typedLit(Seq.empty[String]).as(VacancyColumns.SCHEDULES),
 
-      Map(
-        FolderName.Vacancies -> vacanciesDF,
-        FolderName.Fields -> fieldsDF,
-        FolderName.Skills -> skillsDF,
-        FolderName.Locations -> locationsDF
-      )
-    }
+        functions.transform(
+          col("locations"),
+          loc => struct(
+            loc.getField("title").as(VacancyColumns.LOCATION),
+            lit(null).cast(StringType).as(VacancyColumns.COUNTRY)
+          )
+        ).as(VacancyColumns.LOCATIONS),
+
+        functions.transform(col("divisions"), f => f.getField("title")).as(VacancyColumns.FIELDS),
+        functions.transform(col("skills"), s => s.getField("title")).as(VacancyColumns.SKILLS),
+        array(col("salaryQualification.title")).as(VacancyColumns.GRADES),
+        typedLit(Seq.empty[Language]).as(VacancyColumns.LANGUAGES)
+
+      ).as[Vacancy]
+  }
+
+  override def normalize(spark: SparkSession, transformedData: Dataset[Vacancy]): Dataset[NormalizedVacancy] = {
+    new NormalizationOrchestrator(spark, dbAdapter, fuzzyConf)
+      .normalize(Seq(
+        CURRENCY,
+        EMPLOYER,
+        EMPLOYMENTS,
+        EXPERIENCE,
+        FIELDS,
+        LOCATIONS,
+        PLATFORM,
+        SCHEDULES,
+        SKILLS,
+        GRADES
+      ), transformedData)
+  }
 }
 
 object HabrTransformer {
@@ -72,7 +93,6 @@ object HabrTransformer {
     StructField("publishedDate", StructType(Seq(
       StructField("date", StringType)
     ))),
-    // location
     StructField("company", StructType(Seq(
       StructField("title", StringType)
     ))),

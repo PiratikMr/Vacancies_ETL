@@ -1,7 +1,7 @@
 package org.example.habrcareer.config
 
-import org.example.config.Loaders.ArgsLoader
-import org.example.config.Loaders.modules.WithCommonArgsConfig
+import org.example.core.config.loader.ArgsLoader
+import org.example.core.config.loader.module.WithCommonArgsConfig
 
 class HabrArgsLoader(args: Array[String])
   extends ArgsLoader(args)

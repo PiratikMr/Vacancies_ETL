@@ -1,59 +1,85 @@
 package org.example.adzuna.implement
 
-import org.apache.spark.sql.functions.{col, concat, element_at, explode, lit, size, to_timestamp, when}
-import org.apache.spark.sql.types.{ArrayType, DoubleType, LongType, StringType, StructField, StructType, TimestampType}
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
 import org.example.adzuna.implement.AdzunaTransformer.schema
-import org.example.config.FolderName.{CustomDomain, FolderName, Stage}
-import org.example.core.Interfaces.ETL.Transformer
+import org.example.core.adapter.database.DataBaseAdapter
+import org.example.core.config.model.structures.FuzzyMatcherConf
+import org.example.core.etl.model.{Language, NormalizedVacancy, Vacancy, VacancyColumns}
+import org.example.core.etl.Transformer
+import org.example.core.normalization.model.NormalizersEnum._
+import org.example.core.normalization.service.NormalizationOrchestrator
 
 class AdzunaTransformer(
-                       currency: String,
-                       urlDomain: String,
-                       locationTag: String,
-                       transformPartition: Int
+                         dbAdapter: DataBaseAdapter,
+                         fuzzyConf: FuzzyMatcherConf,
+                         currency: String,
+                         urlDomain: String,
+                         locationTag: String,
+                         transformPartition: Int
                        ) extends Transformer {
 
   override def toRows(spark: SparkSession, rawDS: Dataset[String]): DataFrame =
     spark.read.schema(StructType(Seq(StructField("results", ArrayType(schema))))).json(rawDS)
 
-  override def transform(spark: SparkSession, rawDF: DataFrame): Map[FolderName, DataFrame] = {
+  override def transform(spark: SparkSession, rawDF: DataFrame): Dataset[Vacancy] = {
+    import spark.implicits._
 
     val _currency = currency
     val _urlDomain = urlDomain
 
-    val transformedDF = rawDF.select(explode(col("results")).as("rslt")).select("rslt.*")
-      .withColumn("id", col("id").cast(LongType))
-      .withColumn("published_at", to_timestamp(col("created")))
-      .withColumn("closed_at", lit(null).cast(TimestampType))
+    rawDF.select(explode(col("results")).as("rslt")).select("rslt.*")
+      .select(
+        col("id").cast(StringType).as(VacancyColumns.EXTERNAL_ID),
+        lit("Adzuna").as(VacancyColumns.PLATFORM),
+        col("company.display_name").as(VacancyColumns.EMPLOYER),
+        lit(_currency).as(VacancyColumns.CURRENCY),
+        lit(null).cast(StringType).as(VacancyColumns.EXPERIENCE),
 
-      .withColumn("address_lat", col("latitude"))
-      .withColumn("address_lng", col("longitude"))
+        col("salary_min").cast(DoubleType).as(VacancyColumns.SALARY_FROM),
+        col("salary_max").cast(DoubleType).as(VacancyColumns.SALARY_TO),
 
-      .withColumn("country", col("location.area").getItem(0))
-      .withColumn("region",
-        when(size(col("location.area")) > 1, element_at(col("location.area"), -1))
-          .otherwise(lit(null).cast(StringType))
-      )
+        col("latitude").cast(DoubleType).as(VacancyColumns.LATITUDE),
+        col("longitude").cast(DoubleType).as(VacancyColumns.LONGITUDE),
 
-      .withColumn("employer", col("company.display_name"))
+        to_timestamp(col("created")).as(VacancyColumns.PUBLISHED_AT),
+        col("title").as(VacancyColumns.TITLE),
+        lit(null).cast(StringType).as(VacancyColumns.DESCRIPTION),
+        concat(lit("https://www.adzuna."), lit(_urlDomain), lit("/details/"), col("id")).as(VacancyColumns.URL),
 
-      .withColumn("url", concat(lit("https://www.adzuna."), lit(_urlDomain), lit("/details/"), col("id")))
+        array(col("contract_time")).as(VacancyColumns.EMPLOYMENTS),
+        typedLit(Seq.empty[String]).as(VacancyColumns.SCHEDULES),
+        typedLit(Seq.empty[String]).as(VacancyColumns.FIELDS),
+        typedLit(Seq.empty[String]).as(VacancyColumns.SKILLS),
+        typedLit(Seq.empty[String]).as(VacancyColumns.GRADES),
+        typedLit(Seq.empty[Language]).as(VacancyColumns.LANGUAGES),
 
-      .withColumn("salary_from", col("salary_min"))
-      .withColumn("salary_to",col("salary_max"))
-      .withColumn("salary_currency_id", lit(_currency))
+        array(
+          struct(
+            when(size(col("location.area")) > 1, element_at(col("location.area"), -1))
+              .otherwise(lit(null).cast(StringType)).as(VacancyColumns.LOCATION),
+            col("location.area").getItem(0).as(VacancyColumns.COUNTRY)
+          )
+        ).as(VacancyColumns.LOCATIONS)
 
-      .withColumn("employment_type", col("contract_time"))
+      ).as[Vacancy]
+  }
 
-      .repartition(transformPartition)
-
-    val vacanciesDF = transformedDF.dropDuplicates("id").select("id", "title", "published_at", "closed_at", "address_lat", "address_lng",
-    "country", "region", "employer", "url", "salary_from", "salary_to", "salary_currency_id", "employment_type")
-
-    Map(
-      FolderName(Stage, CustomDomain(locationTag), "Vacancies") -> vacanciesDF
-    )
+  override def normalize(spark: SparkSession, transformedData: Dataset[Vacancy]): Dataset[NormalizedVacancy] = {
+    new NormalizationOrchestrator(spark, dbAdapter, fuzzyConf)
+      .normalize(Seq(
+        CURRENCY,
+        EMPLOYER,
+        EMPLOYMENTS,
+        EXPERIENCE,
+        FIELDS,
+        LOCATIONS,
+        PLATFORM,
+        SCHEDULES,
+        SKILLS,
+        GRADES
+      ), transformedData)
   }
 }
 

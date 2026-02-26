@@ -146,8 +146,8 @@ class NormalizeService(
 
     val newDimsToWrite = fuzzyRes.toCreate.toDF()
       .select(
-        col("rawValue").as(NormalizationColumns.RAW_VALUE),
-        col("parentId").as(parentId)
+        col(FuzzyColumns.RAW_VALUE).as(NormalizationColumns.RAW_VALUE),
+        col(FuzzyColumns.PARENT_ID).as(parentId)
       )
 
     val reloadedDims = saveDimTable(newDimsToWrite, NormalizationColumns.RAW_VALUE).cache()

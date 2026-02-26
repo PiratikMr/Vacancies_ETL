@@ -1,25 +1,30 @@
 package org.example.habrcareer
 
-import org.example.config.TableConfig.TableRegistry
-import org.example.core.implement.HDFS.HDFSService
-import org.example.core.implement.Network.{STTPBackendContext, STTPBackends, STTPService}
-import org.example.core.implement.Postgres.PostgresService
-import org.example.core.{ETLCycle, SparkApp}
+import org.example.core.adapter.database.impl.postgres.PostgresAdapter
+import org.example.core.adapter.storage.impl.hdfs.HDFSAdapter
+import org.example.core.adapter.web.impl.sttp.STTPAdapter
+import org.example.core.config.model.structures.SparkConf
+import org.example.core.etl.ETLUService
+import org.example.core.util.SparkJob
 import org.example.habrcareer.config.{HabrArgsLoader, HabrFileLoader}
 import org.example.habrcareer.implement.{HabrExtractor, HabrTransformer}
 
-object HabrCareerMain extends App {
+object HabrCareerMain extends App with SparkJob {
 
   private val argsConfig = new HabrArgsLoader(args)
   private val fileConfig = new HabrFileLoader(argsConfig.common.confFile, argsConfig.common.saveFolder)
 
-  private val spark = SparkApp.defineSession(fileConfig.structures.sparkConf, argsConfig.common.etlPart)
+  override def sparkConf: SparkConf = fileConfig.structures.sparkConf
 
-  private val ec = new ETLCycle(
+  override def sparkName: String = s"HabrCareer_${argsConfig.common.etlPart}"
+
+  private val dbAdapter = new PostgresAdapter(fileConfig.structures.dbConf)
+
+  private val ec = new ETLUService(
     spark,
-    new PostgresService(fileConfig.structures.dbConf),
-    new HDFSService(fileConfig.structures.fsConf),
-    new STTPService(fileConfig.structures.netConf, () => STTPBackendContext.getBackend(STTPBackends.DEFAULT))
+    dbAdapter,
+    new HDFSAdapter(fileConfig.structures.fsConf),
+    STTPAdapter(fileConfig.structures.netConf)
   )
 
   private val extractor = new HabrExtractor(
@@ -31,21 +36,15 @@ object HabrCareerMain extends App {
   )
 
   private val transformer = new HabrTransformer(
+    dbAdapter,
+    fileConfig.structures.fuzzyMatcherConf,
     fileConfig.common.transformPartitions
   )
 
   ec.run(
     argsConfig.common.etlPart,
-    extractor = Some(extractor),
-    transformer = Some(transformer),
-    loader = Some(() => Seq(
-      TableRegistry.Vacancies,
-      TableRegistry.Fields,
-      TableRegistry.Skills,
-      TableRegistry.Locations
-    )),
-    updater = Some(() => 10_000)
+    extractor = extractor,
+    transformer = transformer,
+    updater = Some(() => fileConfig.common.updateLimit)
   )
-
-  spark.stop()
 }

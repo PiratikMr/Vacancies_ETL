@@ -5,7 +5,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
 import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.config.model.structures.FuzzyMatcherConf
-import org.example.core.config.schema.SchemaRegistry.Internal.RawVacancy
+import org.example.core.etl.model.{NormalizedVacancy, Vacancy, VacancyColumns}
 import org.example.core.etl.Transformer
 import org.example.core.normalization.api.NormalizationTask.ExtractTags
 import org.example.core.normalization.service.NormalizationOrchestrator
@@ -17,41 +17,47 @@ class FinderTransformer(dbAdapter: DataBaseAdapter,
   override def toRows(spark: SparkSession, rawDS: Dataset[String]): DataFrame =
     spark.read.schema(FinderTransformer.schema).json(rawDS)
 
-  override def transform(spark: SparkSession, rawDF: DataFrame): DataFrame = {
+  override def transform(spark: SparkSession, rawDF: DataFrame): Dataset[Vacancy] = {
+    import spark.implicits._
+
     rawDF
       .select(
-        col("id").cast(StringType).as(RawVacancy.externalId.name),
-        lit("Finder").as(RawVacancy.platform.name),
-        col("company.title").as(RawVacancy.employer.name),
-        col("currency_symbol").as(RawVacancy.currency.name),
-        col("experience").as(RawVacancy.experience.name),
+        col("id").cast(StringType).as(VacancyColumns.EXTERNAL_ID),
+        lit("Finder").as(VacancyColumns.PLATFORM),
+        col("company.title").as(VacancyColumns.EMPLOYER),
+        col("currency_symbol").as(VacancyColumns.CURRENCY),
+        col("experience").as(VacancyColumns.EXPERIENCE),
 
-        col("place.lat").cast(DoubleType).as(RawVacancy.latitude.name),
-        col("place.lon").cast(DoubleType).as(RawVacancy.longitude.name),
+        col("place.lat").cast(DoubleType).as(VacancyColumns.LATITUDE),
+        col("place.lon").cast(DoubleType).as(VacancyColumns.LONGITUDE),
 
-        col("salary_from").cast(DoubleType).as(RawVacancy.salaryFrom.name),
-        col("salary_to").cast(DoubleType).as(RawVacancy.salaryTo.name),
+        col("salary_from").cast(DoubleType).as(VacancyColumns.SALARY_FROM),
+        col("salary_to").cast(DoubleType).as(VacancyColumns.SALARY_TO),
 
-        to_timestamp(col("publication_at")).as(RawVacancy.publishedAt.name),
-        col("title").as(RawVacancy.title.name),
-        col("description").as(RawVacancy.description.name),
-        concat(lit("https://finder.work/vacancies/"), col("id")).as(RawVacancy.url.name),
+        to_timestamp(col("publication_at")).as(VacancyColumns.PUBLISHED_AT),
+        col("title").as(VacancyColumns.TITLE),
+        col("description").as(VacancyColumns.DESCRIPTION),
+        concat(lit("https://finder.work/vacancies/"), col("id")).as(VacancyColumns.URL),
 
-        array(col("employment_type")).as(RawVacancy.employments.name),
+        array(col("employment_type")).as(VacancyColumns.EMPLOYMENTS),
+        typedLit(Seq.empty[String]).as(VacancyColumns.SCHEDULES),
+        typedLit(Seq.empty[String]).as(VacancyColumns.GRADES),
+        typedLit(Seq.empty[String]).as(VacancyColumns.SKILLS),
+        typedLit(Seq.empty[org.example.core.etl.model.Language]).as(VacancyColumns.LANGUAGES),
 
         functions.transform(
           col("locations"),
           loc => struct(
-            loc.getField("name").as(RawVacancy.locationRegion.name),
-            loc.getField("country").getField("name").as(RawVacancy.locationCountry.name)
+            loc.getField("name").as(VacancyColumns.LOCATION),
+            loc.getField("country").getField("name").as(VacancyColumns.COUNTRY)
           )
-        ).as(RawVacancy.locations.name),
+        ).as(VacancyColumns.LOCATIONS),
 
-        col("professions.title").as(RawVacancy.fields.name)
-      )
+        col("professions.title").as(VacancyColumns.FIELDS)
+      ).as[Vacancy]
   }
 
-  override def normalize(spark: SparkSession, transformedData: DataFrame): DataFrame = {
+  override def normalize(spark: SparkSession, transformedData: Dataset[Vacancy]): Dataset[NormalizedVacancy] = {
     new NormalizationOrchestrator(spark, dbAdapter, fuzzyConf)
       .normalize(Seq(
         CURRENCY,
@@ -61,9 +67,9 @@ class FinderTransformer(dbAdapter: DataBaseAdapter,
         FIELDS,
         LOCATIONS,
         PLATFORM,
-        ExtractTags(SCHEDULES, RawVacancy.description.name),
-        ExtractTags(SKILLS, RawVacancy.description.name),
-        ExtractTags(GRADES, RawVacancy.description.name)
+        ExtractTags(SCHEDULES, VacancyColumns.DESCRIPTION),
+        ExtractTags(SKILLS, VacancyColumns.DESCRIPTION),
+        ExtractTags(GRADES, VacancyColumns.DESCRIPTION)
       ), transformedData)
   }
 }

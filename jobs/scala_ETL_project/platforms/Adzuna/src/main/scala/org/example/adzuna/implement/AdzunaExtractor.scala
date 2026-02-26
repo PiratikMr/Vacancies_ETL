@@ -3,8 +3,8 @@ package org.example.adzuna.implement
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.example.adzuna.config.AdzunaApiParams
 import org.example.adzuna.implement.AdzunaExtractor.clusterURL
-import org.example.core.Interfaces.ETL.Extractor
-import org.example.core.Interfaces.Services.WebService
+import org.example.core.adapter.web.WebAdapter
+import org.example.core.etl.Extractor
 
 class AdzunaExtractor(
                      apiBaseUrl: String,
@@ -14,7 +14,7 @@ class AdzunaExtractor(
                      rawPartition: Int
                      ) extends Extractor {
 
-  override def extract(spark: SparkSession, webService: WebService): Dataset[String] =
+  override def extract(spark: SparkSession, webService: WebAdapter): Dataset[String] =
     {
       import spark.implicits._
 
@@ -23,11 +23,11 @@ class AdzunaExtractor(
         .toDS().repartition(netPartition)
 
       clusterURLs
-        .mapPartitions(part => part.flatMap(url => webService.readOrNone(url)))
+        .mapPartitions(part => part.flatMap(url => webService.readBodyOrNone(url)))
         .repartition(rawPartition)
     }
 
-  override def filterUnActiveVacancies(spark: SparkSession, idsDF: DataFrame, webService: WebService): DataFrame = ???
+  override def filterUnActiveVacancies(spark: SparkSession, idsDF: DataFrame, webService: WebAdapter): DataFrame = ???
 }
 
 object AdzunaExtractor {

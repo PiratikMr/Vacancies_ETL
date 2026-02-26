@@ -1,8 +1,8 @@
 package org.example.habrcareer.implement
 
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
-import org.example.core.Interfaces.ETL.Extractor
-import org.example.core.Interfaces.Services.WebService
+import org.example.core.adapter.web.WebAdapter
+import org.example.core.etl.Extractor
 
 class HabrExtractor(
                    apiBaseUrl: String,
@@ -12,14 +12,14 @@ class HabrExtractor(
                    rawPartition: Int
                    ) extends Extractor {
 
-  override def extract(spark: SparkSession, webService: WebService): Dataset[String] =
+  override def extract(spark: SparkSession, webService: WebAdapter): Dataset[String] =
     {
       import spark.implicits._
 
       val totalVacs: Int = math.min(vacsPageLimit * vacsPerPage, {
-        val body: String = webService.readOrDefault(
-          HabrExtractor.vacanciesURL(apiBaseUrl, 1, 0), """"totalPages":0"""
-        )
+        val body: String = webService.readBodyOrNone(
+          HabrExtractor.vacanciesURL(apiBaseUrl, 1, 0)
+        ).getOrElse(s"""{"totalPages":0}""")
         """"totalPages"\s*:\s*(\d+)""".r.findFirstMatchIn(body).get.group(1).toInt
       })
 
@@ -29,11 +29,11 @@ class HabrExtractor(
         .repartition(netRepartition)
 
       urlsDS.mapPartitions(part => part.flatMap(url => {
-        webService.readOrNone(url)
+        webService.readBodyOrNone(url)
       })).repartition(rawPartition)
     }
 
-  override def filterUnActiveVacancies(spark: SparkSession, idsDF: DataFrame, webService: WebService): DataFrame =
+  override def filterUnActiveVacancies(spark: SparkSession, idsDF: DataFrame, webService: WebAdapter): DataFrame =
     idsDF
 }
 
