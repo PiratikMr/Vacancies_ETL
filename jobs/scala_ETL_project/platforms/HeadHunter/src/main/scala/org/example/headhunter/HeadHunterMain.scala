@@ -28,14 +28,14 @@ object HeadHunterMain extends App with SparkJob /*with LazyLogging*/ {
   import spark.implicits._
 
 
-  private val dictionariesMissingOrEmpty = Try {
+  private lazy val dictionariesMissingOrEmpty = Try {
     val areas = hdfsAdapter.read(spark, FolderNames.areas, withDate = false)
     val roles = hdfsAdapter.read(spark, FolderNames.roles, withDate = false)
 
     areas.isEmpty || roles.isEmpty
   }.getOrElse(true)
 
-  if (dictionariesMissingOrEmpty || fileConfig.forceDict) {
+  if (fileConfig.forceDict || dictionariesMissingOrEmpty) {
     DictionaryLoader.update(spark, sttpAdapter, hdfsAdapter, fileConfig.common.apiBaseUrl)
   }
 

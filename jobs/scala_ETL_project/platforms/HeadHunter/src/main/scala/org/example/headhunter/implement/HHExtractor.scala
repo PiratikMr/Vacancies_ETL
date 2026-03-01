@@ -70,7 +70,6 @@ class HHExtractor(
     })).toDF("id")
   }
 
-
 }
 
 private object HHExtractor {
