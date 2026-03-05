@@ -1,8 +1,8 @@
-from config_ETL import PLATFORMS, DEFAULT_ARGS, Platform
-from utils import spark_ETLTaskBuild, get_config, parse_args
+from config_ETL import DEFAULT_ARGS, Platform
+from utils import build_spark_etl_task, get_config, parse_args
 from airflow.decorators import dag
 
-config = Platform("currency", "Currency")
+config = Platform("currency", "Currency", module_path="Currency")
 
 confTree = get_config(config.fileName)
     
@@ -16,6 +16,11 @@ confTree = get_config(config.fileName)
 def create_dag():    
     args = parse_args(confTree, config.args)
 
-    spark_ETLTaskBuild("part", "Currency", "Currency", args, "task")
+    build_spark_etl_task(
+        platform=config,
+        part="part",
+        args=args,
+        task_name="task"
+    )
 
 create_dag()

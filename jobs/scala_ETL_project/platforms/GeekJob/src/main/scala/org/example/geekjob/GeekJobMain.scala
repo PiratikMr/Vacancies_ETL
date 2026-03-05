@@ -39,8 +39,7 @@ object GeekJobMain extends App with SparkJob {
   private val transformer = new GeekJobTransformer(
     argsConfig.common.saveFolder,
     dbAdapter,
-    fileConfig.structures.fuzzyMatcherConf,
-    fileConfig.common.transformPartitions
+    fileConfig.structures.fuzzyMatcherConf
   )
 
   ec.run(

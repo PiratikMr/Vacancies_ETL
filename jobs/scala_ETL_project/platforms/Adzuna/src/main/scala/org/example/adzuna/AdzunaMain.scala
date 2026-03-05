@@ -35,14 +35,14 @@ object AdzunaMain extends App with SparkJob {
   private val transformer = new AdzunaTransformer(
     dbAdapter,
     fileConfig.structures.fuzzyMatcherConf,
-    fileConfig.currency, fileConfig.urlDomain, fileConfig.apiParams.locationTag,
-    fileConfig.common.transformPartitions
+    fileConfig.currency, fileConfig.urlDomain
   )
 
   ec.run(
     argsConfig.common.etlPart,
     extractor = extractor,
     transformer = transformer,
-    updater = Some(() => fileConfig.common.updateLimit)
+    updater = Some(() => fileConfig.common.updateLimit),
+    folderName = s"Vacancies/${fileConfig.apiParams.locationTag}"
   )
 }

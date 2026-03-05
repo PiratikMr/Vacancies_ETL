@@ -37,8 +37,7 @@ object HabrCareerMain extends App with SparkJob {
 
   private val transformer = new HabrTransformer(
     dbAdapter,
-    fileConfig.structures.fuzzyMatcherConf,
-    fileConfig.common.transformPartitions
+    fileConfig.structures.fuzzyMatcherConf
   )
 
   ec.run(

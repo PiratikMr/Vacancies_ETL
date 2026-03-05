@@ -12,8 +12,7 @@ import org.example.core.normalization.service.NormalizationOrchestrator
 
 class HabrTransformer(
                        dbAdapter: DataBaseAdapter,
-                       fuzzyConf: FuzzyMatcherConf,
-                       transformPartition: Int
+                       fuzzyConf: FuzzyMatcherConf
                      ) extends Transformer {
 
   override def toRows(spark: SparkSession, rawDS: Dataset[String]): DataFrame =

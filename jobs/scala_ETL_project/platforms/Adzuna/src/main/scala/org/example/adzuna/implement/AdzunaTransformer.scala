@@ -15,9 +15,7 @@ class AdzunaTransformer(
                          dbAdapter: DataBaseAdapter,
                          fuzzyConf: FuzzyMatcherConf,
                          currency: String,
-                         urlDomain: String,
-                         locationTag: String,
-                         transformPartition: Int
+                         urlDomain: String
                        ) extends Transformer {
 
   override def toRows(spark: SparkSession, rawDS: Dataset[String]): DataFrame =

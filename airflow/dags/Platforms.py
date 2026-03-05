@@ -1,26 +1,32 @@
 from config_ETL import PLATFORMS, DEFAULT_ARGS
-from utils import spark_ETLTaskBuild, get_config, parse_args
+from utils import build_spark_etl_task, get_config, parse_args
 from airflow.decorators import dag
 
-for config in PLATFORMS:
+def generate_platform_dag(platform_cfg):
+    conf_tree = get_config(platform_cfg.fileName)
     
-    confTree = get_config(config.fileName)
+    raw_schedule = conf_tree.get_string("Dags.ETL.schedule")
+    dag_schedule = raw_schedule if raw_schedule else None
     
     @dag(
-        dag_id=f"{config.name}_ETL",
-        tags=["scala", "etl", config.moduleName],
+        dag_id=f"{platform_cfg.name}_ETL",
+        tags=["scala", "etl", platform_cfg.moduleName],
         default_args=DEFAULT_ARGS,
-        schedule=confTree.get_string("Dags.ETL.schedule") or None,
+        schedule=dag_schedule,
         catchup=False 
     )
-    def create_dag():
-        args = parse_args(confTree, config.args)
+    def platform_dag():
+        args = parse_args(conf_tree, platform_cfg.args)
         
-        prevTask = None
-        for part in config.parts:
-            currTask = spark_ETLTaskBuild(part, config.moduleName, config.name, args)
-            if prevTask:
-                prevTask >> currTask
-            prevTask = currTask
-    
-    create_dag()
+        prev_task = None
+        for part in platform_cfg.parts:
+            curr_task = build_spark_etl_task(platform=platform_cfg, part=part, args=args)
+            if prev_task:
+                prev_task >> curr_task
+            prev_task = curr_task
+            
+    return platform_dag()
+
+for platform_config in PLATFORMS:
+    dag_instance = generate_platform_dag(platform_config)
+    globals()[dag_instance.dag_id] = dag_instance

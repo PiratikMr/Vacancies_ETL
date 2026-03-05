@@ -1,12 +1,10 @@
-from config_ETL import Platform
-
 from pathlib import Path
 from pyhocon import ConfigFactory, ConfigTree
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
+from config_ETL import Platform
 
-
-def get_config(filePath: str) -> ConfigTree:
-    return ConfigFactory.parse_file(Path(filePath))
+def get_config(file_path: str) -> ConfigTree:
+    return ConfigFactory.parse_file(Path(file_path))
 
 def parse_args(config: ConfigTree, args: list[tuple[str, str, bool]]) -> list[str]:
     cli_args = []
@@ -22,15 +20,15 @@ def parse_args(config: ConfigTree, args: list[tuple[str, str, bool]]) -> list[st
         
     return cli_args
 
-def spark_ETLTaskBuild(part: str, moduleName: str, jarName: str, args: list[str], task_name: str = None):
+def build_spark_etl_task(platform: Platform, part: str, args: list[str], task_name: str = None) -> SparkSubmitOperator:
     log_conf_path = '/opt/airflow/scalaProject/Core/src/main/resources/log4j2.properties'
     
     return SparkSubmitOperator(
         task_id=task_name or part,
         conn_id="SPARK_CONN",
         application=(
-            f'/opt/airflow/scalaProject/{moduleName}/'
-            f"target/scala-2.13/{jarName}-etl.jar"
+            f'/opt/airflow/scalaProject/{platform.moduleName}/'
+            f"target/scala-2.13/{platform.name}-etl.jar"
         ),
         files=log_conf_path,
         application_args=args + ["--etlpart", part],

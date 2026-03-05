@@ -21,8 +21,7 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 class GeekJobTransformer(currDate: String,
                          dbAdapter: DataBaseAdapter,
-                         fuzzyConf: FuzzyMatcherConf,
-                         transformPartition: Int) extends Transformer {
+                         fuzzyConf: FuzzyMatcherConf) extends Transformer {
 
   override def toRows(spark: SparkSession, rawDS: Dataset[String]): DataFrame = {
 
@@ -35,7 +34,6 @@ class GeekJobTransformer(currDate: String,
     }
 
     spark.createDataFrame(rowsRDD, GeekJobTransformer.schema)
-      .repartition(transformPartition)
   }
 
   override def transform(spark: SparkSession, df: DataFrame): Dataset[Vacancy] = {

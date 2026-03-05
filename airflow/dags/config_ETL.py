@@ -6,21 +6,27 @@ DEFAULT_ARGS = {
     'start_date': pendulum.datetime(2025, 10, 1, 0, 0, 0, tz="Asia/Krasnoyarsk")
 }
 
-
 class Platform:
     def __init__(self, 
                  fileName: str,
                  name: str,
-                 args: list[tuple[str, str, bool]] = [],
-                 u = True
+                 args: list[tuple[str, str, bool]] = None,
+                 u: bool = True,
+                 module_path: str = None
                  ):
+        
+        if args is None:
+            args = []
+            
         self.fileName = f"{CONFIG_DIR_PATH}/{fileName}.conf"
         self.name = name
-        self.moduleName = f"platforms/{name}"
+        self.moduleName = module_path if module_path else f"platforms/{name}"
+        
         self.args = [
             ("savefolder", "Dags.ETL.fileName", False),
             ("conffile", self.fileName, True)
         ] + args 
+        
         # self.parts = ["update"] if u else []
         # self.parts.extend(["extract", "transform", "load"])
         self.parts = ["extract", "transform-load"]
@@ -31,6 +37,5 @@ PLATFORMS = [
     Platform("gm", "GetMatch"),
     Platform("gj", "GeekJob"),
     Platform("hc", "HabrCareer"),
-    Platform("hh", "HeadHunterDictionaries", u = False),
-    Platform("hh", "HeadHunter", args = [("datefrom", "Dags.ETL.dateFrom", False)])
+    Platform("hh", "HeadHunter", args=[("datefrom", "Dags.ETL.dateFrom", False)])
 ]
