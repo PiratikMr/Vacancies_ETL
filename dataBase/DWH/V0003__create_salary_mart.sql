@@ -1,5 +1,3 @@
-create schema interactive;
-
 create materialized view salary as
     select
         f.vacancy_id,
