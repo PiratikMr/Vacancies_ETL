@@ -38,8 +38,7 @@ object GetMatchMain extends App with SparkJob {
 
   private val transformer = new GetMatchTransformer(
     dbAdapter,
-    fileConfig.structures.fuzzyMatcherConf,
-    fileConfig.common.transformPartitions
+    fileConfig.structures.fuzzyMatcherConf
   )
 
   ec.run(

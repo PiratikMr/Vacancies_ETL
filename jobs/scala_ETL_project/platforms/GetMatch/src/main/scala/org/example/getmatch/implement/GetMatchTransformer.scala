@@ -13,8 +13,7 @@ import org.example.core.normalization.model.NormalizersEnum._
 import org.example.getmatch.implement.GetMatchTransformer._
 
 class GetMatchTransformer(dbAdapter: DataBaseAdapter,
-                          fuzzyConf: FuzzyMatcherConf,
-                          transformPartition: Int) extends Transformer {
+                          fuzzyConf: FuzzyMatcherConf) extends Transformer {
 
 
   override def toRows(spark: SparkSession, rawDS: Dataset[String]): DataFrame =
