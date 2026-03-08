@@ -52,7 +52,7 @@ class HHTransformer(
         col("experience.name").as(VacancyColumns.EXPERIENCE),
 
         array(col("employment_form.name")).as(VacancyColumns.EMPLOYMENTS),
-        array(col("schedule.name")).as(VacancyColumns.SCHEDULES),
+        col("work_format.name").as(VacancyColumns.SCHEDULES),
         col("professional_roles.name").as(VacancyColumns.FIELDS),
         typedLit(Seq.empty[String]).as(VacancyColumns.GRADES),
         col("key_skills.name").as(VacancyColumns.SKILLS),
@@ -169,8 +169,8 @@ object HHTransformer {
       StructField("to", DoubleType)
     ))),
 
-    StructField("schedule", StructType(Seq(
+    StructField("work_format", ArrayType(StructType(Seq(
       StructField("name", StringType)
-    )))
+    ))))
   ))
 }

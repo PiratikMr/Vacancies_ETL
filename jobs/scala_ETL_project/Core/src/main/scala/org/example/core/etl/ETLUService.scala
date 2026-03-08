@@ -5,7 +5,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.adapter.storage.StorageAdapter
 import org.example.core.adapter.web.WebAdapter
-import org.example.core.etl.impl.VacancyLoader
+import org.example.core.etl.impl.{VacancyLoader, VacancyUpdater}
 import org.example.core.etl.model.ETLParts.{Extract, TransformLoad, Update}
 import org.example.core.etl.model.{ETLParts, NormalizedVacancy, VacancyColumns}
 
@@ -17,6 +17,9 @@ class ETLUService(
                    storageAdapter: StorageAdapter,
                    webAdapter: WebAdapter
                  ) extends LazyLogging {
+
+
+  private val vacancyUpdater = new VacancyUpdater(spark, dbAdapter)
 
 
   private def extract(extractor: Extractor, folderName: String): Unit = {
@@ -39,14 +42,13 @@ class ETLUService(
     normalized
   }
 
+  private def update(extractor: Extractor, updateLimit: Int, platformName: String): Unit = {
 
-  private def update(extractor: Extractor, updater: Updater): Unit = {
-    //    val activeIds: DataFrame = dbService
-    //      .getActiveVacancies(spark, updater.updateLimit())
-    //
-    //    val unActiveIds: DataFrame = extractor.filterUnActiveVacancies(spark, activeIds, webService)
-    //
-    //    dbService.updateActiveVacancies(unActiveIds)
+    val activeIds = vacancyUpdater.getActiveVacancies(updateLimit, platformName)
+
+    val unActiveIds = extractor.filterActiveVacancies(spark, activeIds, webAdapter)
+
+    vacancyUpdater.updateVacancies(unActiveIds, platformName)
   }
 
 
@@ -55,7 +57,8 @@ class ETLUService(
            extractor: Extractor,
            transformer: Transformer,
            loader: Option[Loader] = None,
-           updater: Option[Updater] = None,
+           updateLimit: Option[Int] = None,
+           platformName: String,
            folderName: String = "Vacancies"
          ): Unit = {
 
@@ -68,10 +71,10 @@ class ETLUService(
         loader.getOrElse(new VacancyLoader(dbAdapter)).load(spark, df)
 
       case Success(Update) =>
-        updater match {
-          case Some(upd) => update(extractor, upd)
+        updateLimit match {
+          case Some(limit) => update(extractor, limit, platformName)
           case None =>
-            logger.error(s"Ошибка запуска ETL: Update не поддерживается")
+            logger.error("Ошибка запуска ETL: Не передан updateLimit для процесса Update")
         }
 
       case Failure(e) =>

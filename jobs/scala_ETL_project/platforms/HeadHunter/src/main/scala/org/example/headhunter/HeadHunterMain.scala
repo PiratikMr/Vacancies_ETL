@@ -69,6 +69,7 @@ object HeadHunterMain extends App with SparkJob /*with LazyLogging*/ {
     argsConfig.common.etlPart,
     extractor = extractor,
     transformer = new HHTransformer(areas, dbService, fileConfig.structures.fuzzyMatcherConf),
-    updater = Some(() => fileConfig.common.updateLimit)
+    updateLimit = Some(fileConfig.common.updateLimit),
+    platformName = fileConfig.structures.fsConf.platform
   )
 }

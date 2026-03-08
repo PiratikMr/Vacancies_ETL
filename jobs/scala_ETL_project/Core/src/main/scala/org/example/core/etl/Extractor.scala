@@ -7,6 +7,6 @@ trait Extractor {
 
   def extract(spark: SparkSession, webService: WebAdapter): Dataset[String]
 
-  def filterUnActiveVacancies(spark: SparkSession, idsDF: DataFrame, webService: WebAdapter): DataFrame
+  def filterActiveVacancies(spark: SparkSession, activeIds: Dataset[String], webService: WebAdapter): Dataset[String]
 
 }

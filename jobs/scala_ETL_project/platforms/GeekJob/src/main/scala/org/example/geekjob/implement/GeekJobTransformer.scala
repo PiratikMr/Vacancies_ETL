@@ -86,7 +86,8 @@ class GeekJobTransformer(currDate: String,
         PLATFORM,
         SKILLS,
         GRADES,
-        Exact(EMPLOYMENTS)
+        Exact(EMPLOYMENTS),
+        Exact(SCHEDULES)
       ), transformedData)
   }
 

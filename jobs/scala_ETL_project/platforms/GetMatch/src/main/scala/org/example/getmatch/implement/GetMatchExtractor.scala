@@ -46,25 +46,25 @@ class GetMatchExtractor(
 
 
     vacancyIdsDF.mapPartitions(part => part.flatMap(row => {
-      webAdapter.readBodyOrNone(GetMatchExtractor.vacancyURL(_apiBaseUrl, row.getLong(0)))
+      webAdapter.readBodyOrNone(GetMatchExtractor.vacancyURL(_apiBaseUrl, row.getLong(0).toString))
     })).repartition(rawPartition)
   }
 
-  override def filterUnActiveVacancies(spark: SparkSession, idsDF: DataFrame, webAdapter: WebAdapter): DataFrame = {
+  override def filterActiveVacancies(spark: SparkSession, activeIds: Dataset[String], webAdapter: WebAdapter): Dataset[String] = {
 
     import spark.implicits._
 
     val _apiBaseUrl = apiBaseUrl
 
-    idsDF.repartition(netPartition).mapPartitions(part => part.flatMap(row => {
+    activeIds.repartition(netPartition).mapPartitions(part => part.flatMap(id => {
       val body: String = webAdapter.readBody(
-        GetMatchExtractor.vacancyURL(_apiBaseUrl, row.getLong(0))
+        GetMatchExtractor.vacancyURL(_apiBaseUrl, id)
       ).getOrElse(""""is_active":true""")
       """\s*"is_active":\s*false\s*""".r.findFirstMatchIn(body) match {
-        case Some(_) => Some(row.getLong(0))
+        case Some(_) => Some(id)
         case _ => None
       }
-    })).toDF("id")
+    }))
   }
 }
 
@@ -78,6 +78,6 @@ object GetMatchExtractor {
     s"$apiBaseUrl/offers?pa=${conf.inDays}&limit=$l&offset=$offset"
   }
 
-  private def vacancyURL(apiBaseUrl: String, id: Long): String = s"$apiBaseUrl/offers/$id"
+  private def vacancyURL(apiBaseUrl: String, id: String): String = s"$apiBaseUrl/offers/$id"
 
 }

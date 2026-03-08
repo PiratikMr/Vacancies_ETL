@@ -14,21 +14,24 @@ import scala.collection.parallel.CollectionConverters._
 
 class VacancyLoader(dbAdapter: DataBaseAdapter) extends Loader with LazyLogging {
 
+  private val factDef = FactVacancyDef
+
   override def load(spark: SparkSession, ds: Dataset[NormalizedVacancy]): Unit = {
 
     val factVacancy = VacancyDBMapper.toFactVacancyTable(spark, ds)
       .toDF()
-      .drop(FactVacancyDef.vacancyId)
+      .drop(factDef.vacancyId)
 
     val returnIds = dbAdapter.saveWithReturn(
-      spark, factVacancy, FactVacancyDef.meta.tableName,
-      returns = Seq(FactVacancyDef.vacancyId, FactVacancyDef.externalId),
-      conflicts = FactVacancyDef.meta.conflictKeys
+      spark, factVacancy, factDef.meta.tableName,
+      returns = Seq(factDef.vacancyId, factDef.externalId),
+      conflicts = factDef.meta.conflictKeys,
+      updates = Some(Seq(factDef.closedAt))
     )
 
     val dfWithId = ds.toDF().join(
       returnIds,
-      ds(EXTERNAL_ID) === returnIds(FactVacancyDef.externalId)
+      ds(EXTERNAL_ID) === returnIds(factDef.externalId)
     ).cache()
 
 
@@ -49,7 +52,7 @@ class VacancyLoader(dbAdapter: DataBaseAdapter) extends Loader with LazyLogging 
     val languagesToWrite = dfWithId
       .withColumn("lang", explode(col(LANGUAGES)))
       .select(
-        col(FactVacancyDef.vacancyId),
+        col(factDef.vacancyId),
         col(s"lang.$LANGUAGE_ID").as(BridgeVacancyLanguageDef.entityId),
         col(s"lang.$LEVEL_ID").as(BridgeVacancyLanguageDef.languageLevelId)
       )
@@ -73,7 +76,7 @@ class VacancyLoader(dbAdapter: DataBaseAdapter) extends Loader with LazyLogging 
     val toWrite = df
       .withColumn(bridge.entityId, explode(col(arrayColName)))
       .select(
-        col(FactVacancyDef.vacancyId),
+        col(factDef.vacancyId),
         col(bridge.entityId)
       )
       .distinct()

@@ -159,7 +159,7 @@ create table dim_country (
 
     unique (country)
 );
-insert into dim_country (country_id, country) values (0, 'Неизвестно');
+-- insert into dim_country (country_id, country) values (0, 'Неизвестно');
 
 create table mapping_dim_country (
     country_id                          bigint                  not null references dim_country(country_id),

@@ -99,6 +99,8 @@ object FactVacancyDef {
   val title = "title"
   val url = "url"
 
+  val closedAt = "closed_at"
+
   val meta: TableMeta = TableMeta(
     "fact_vacancy",
     Seq(externalId, platformId)

@@ -27,9 +27,8 @@ class Platform:
             ("conffile", self.fileName, True)
         ] + args 
         
-        # self.parts = ["update"] if u else []
-        # self.parts.extend(["extract", "transform", "load"])
-        self.parts = ["extract", "transform-load"]
+        self.parts = ["update"] if u else []
+        self.parts.extend(["extract", "transform-load"])
         
 
 PLATFORMS = [

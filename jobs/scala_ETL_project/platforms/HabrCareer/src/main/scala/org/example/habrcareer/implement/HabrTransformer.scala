@@ -5,8 +5,8 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
 import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.config.model.structures.FuzzyMatcherConf
-import org.example.core.etl.model.{Language, NormalizedVacancy, Vacancy, VacancyColumns}
 import org.example.core.etl.Transformer
+import org.example.core.etl.model.{Language, NormalizedVacancy, Vacancy, VacancyColumns}
 import org.example.core.normalization.model.NormalizersEnum._
 import org.example.core.normalization.service.NormalizationOrchestrator
 
@@ -45,8 +45,8 @@ class HabrTransformer(
         array(
           when(col("remoteWork") === true, lit("Удаленная работа")).otherwise(lit(null)),
           when(col("employment").isNotNull, col("employment")).otherwise(lit(null))
-        ).as(VacancyColumns.EMPLOYMENTS),
-        typedLit(Seq.empty[String]).as(VacancyColumns.SCHEDULES),
+        ).as(VacancyColumns.SCHEDULES),
+        typedLit(Seq.empty[String]).as(VacancyColumns.EMPLOYMENTS),
 
         functions.transform(
           col("locations"),

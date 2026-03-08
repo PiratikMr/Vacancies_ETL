@@ -1,6 +1,6 @@
 package org.example.geekjob.implement
 
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.{Dataset, SparkSession}
 import org.example.core.adapter.web.WebAdapter
 import org.example.core.etl.Extractor
 
@@ -47,18 +47,17 @@ class GeekJobExtractor(apiBaseUrl: String,
 
   }
 
-  override def filterUnActiveVacancies(spark: SparkSession, idsDF: DataFrame, webAdapter: WebAdapter): DataFrame = {
+  override def filterActiveVacancies(spark: SparkSession, activeIds: Dataset[String], webAdapter: WebAdapter): Dataset[String] = {
     import spark.implicits._
 
     val _apiBaseUrl = apiBaseUrl
 
-    idsDF.repartition(netPartition)
-      .mapPartitions(part => part.flatMap(row =>
-        webAdapter.readBodyOrNone(GeekJobExtractor.vacURL(_apiBaseUrl, row.getString(0))) match {
-          case Some(body) if body.contains("Эта вакансия была перемещена в архив.") => Some(row.getString(0))
-          case _ => None
-        }
-      )).toDF("id")
+    activeIds.repartition(netPartition).mapPartitions(part => part.flatMap(id =>
+      webAdapter.readBodyOrNone(GeekJobExtractor.vacURL(_apiBaseUrl, id)) match {
+        case Some(body) if body.contains("Эта вакансия была перемещена в архив.") => Some(id)
+        case _ => None
+      }
+    ))
   }
 }
 

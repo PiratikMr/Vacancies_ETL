@@ -22,6 +22,11 @@ class PostgresAdapter(conf: DBConf) extends DataBaseAdapter with LazyLogging {
     PostgresUtils.save(conf, df, targetTable, conflicts, updates)
   }
 
+  override def update(df: DataFrame, targetTable: String, joinColumns: Seq[String], updateColumns: Seq[String]): Unit = {
+    logger.debug(s"PostgresAdapter: вызов update для таблицы $targetTable")
+    PostgresUtils.update(conf, df, targetTable, joinColumns, updateColumns)
+  }
+
   override def saveWithReturn(spark: SparkSession, df: DataFrame, targetTable: String, returns: Seq[String], conflicts: Seq[String], updates: Option[Seq[String]] = None): DataFrame = {
     logger.debug(s"PostgresAdapter: вызов saveWithReturn для таблицы $targetTable")
     PostgresUtils.saveWithReturn(spark, conf, df, targetTable, returns, conflicts, updates)

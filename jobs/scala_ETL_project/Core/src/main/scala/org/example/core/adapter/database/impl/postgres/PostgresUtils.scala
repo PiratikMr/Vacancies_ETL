@@ -77,6 +77,34 @@ object PostgresUtils extends LazyLogging {
     }
   }
 
+  def update(conf: DBConf,
+             df: DataFrame,
+             targetTable: String,
+             joinColumns: Seq[String],
+             updateColumns: Seq[String]): Unit = {
+
+    logger.info(s"Старт операции UPDATE для таблицы $targetTable. Join ключи: ${joinColumns.mkString(", ")}")
+
+    withStaging(conf, df.dropDuplicates(joinColumns)) { stagingTable =>
+      executeInTransaction(conf) { conn =>
+        val setClause = updateColumns.map(c => s"$c = s.$c").mkString(", ")
+        val whereClause = joinColumns.map(c => s"t.$c = s.$c").mkString(" AND ")
+
+        val sql =
+          s"""
+             |UPDATE $targetTable as t
+             |SET $setClause
+             |FROM $stagingTable as s
+             |WHERE $whereClause
+             |""".stripMargin
+
+        executeSql(conn, sql)
+      }
+    }
+
+    logger.info(s"Операция UPDATE для таблицы $targetTable успешно завершена")
+  }
+
 
   private def withStaging[T](conf: DBConf, df: DataFrame)(block: String => T): T = {
     val stagingTable = s"staging_${UUID.randomUUID().toString.replace("-", "")}"

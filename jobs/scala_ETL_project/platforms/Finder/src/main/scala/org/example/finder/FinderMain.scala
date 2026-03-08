@@ -33,10 +33,11 @@ object FinderMain extends App with SparkJob {
   private val transformer = new FinderTransformer(dbAdapter, fileConfig.structures.fuzzyMatcherConf)
 
   pc.run(
-    argsConfig.common.etlPart,
-    extractor,
-    transformer,
-    updater = Some(() => fileConfig.common.updateLimit)
+    etlPart = argsConfig.common.etlPart,
+    extractor = extractor,
+    transformer = transformer,
+    updateLimit = Some(fileConfig.common.updateLimit),
+    platformName = fileConfig.structures.fsConf.platform
   )
 
 }

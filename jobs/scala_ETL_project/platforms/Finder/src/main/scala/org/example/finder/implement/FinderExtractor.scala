@@ -48,19 +48,19 @@ class FinderExtractor(
       ))).json(clustersDS).select(explode(col("items")).as("item"))
       .select(col("item.id").as("id")).repartition(netRepartition)
 
-    vacancyIdsDF.mapPartitions(part => part.map(row => FinderExtractor.vacancyURL(_apiBaseUrl, row.getLong(0))))
+    vacancyIdsDF.mapPartitions(part => part.map(row => FinderExtractor.vacancyURL(_apiBaseUrl, row.getLong(0).toString)))
       .mapPartitions(part => {
         part.flatMap(url => webAdapter.readBodyOrNone(url)).map(body => body.replace("\n", ""))
       }).repartition(rawPartition)
   }
 
-  override def filterUnActiveVacancies(spark: SparkSession, idsDF: DataFrame, webService: WebAdapter): DataFrame = {
+  override def filterActiveVacancies(spark: SparkSession, activeIds: Dataset[String], webService: WebAdapter): Dataset[String] = {
     val _apiBaseUrl = apiBaseUrl
 
     import spark.implicits._
 
-    idsDF.repartition(netRepartition).mapPartitions(part => part.flatMap(row => {
-      val id: Long = row.getLong(0)
+    activeIds.repartition(netRepartition).mapPartitions(part => part.flatMap(id => {
+
       val body = webService.readBody(FinderExtractor.vacancyURL(_apiBaseUrl, id))
         .getOrElse("""{"status": "pupu"}""")
 
@@ -68,13 +68,13 @@ class FinderExtractor(
         case Some(_) => None
         case None => Some(id)
       }
-    })).toDF("id")
+    }))
   }
 }
 
 object FinderExtractor {
 
-  private def vacancyURL(apiBaseUrl: String, id: Long): String =
+  private def vacancyURL(apiBaseUrl: String, id: String): String =
     s"$apiBaseUrl/vacancies/$id"
 
   private def clusterURL(

@@ -42,7 +42,7 @@ object AdzunaMain extends App with SparkJob {
     argsConfig.common.etlPart,
     extractor = extractor,
     transformer = transformer,
-    updater = Some(() => fileConfig.common.updateLimit),
+    platformName = fileConfig.structures.fsConf.platform,
     folderName = s"Vacancies/${fileConfig.apiParams.locationTag}"
   )
 }

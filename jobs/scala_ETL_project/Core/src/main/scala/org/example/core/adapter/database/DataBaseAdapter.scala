@@ -21,6 +21,13 @@ trait DataBaseAdapter {
             updates: Option[Seq[String]] = None
           ): Unit
 
+  def update(
+              df: DataFrame,
+              targetTable: String,
+              joinColumns: Seq[String],
+              updateColumns: Seq[String]
+            ): Unit
+
   def saveWithReturn(
                       spark: SparkSession,
                       df: DataFrame,

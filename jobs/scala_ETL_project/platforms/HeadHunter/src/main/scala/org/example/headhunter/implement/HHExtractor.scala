@@ -2,7 +2,7 @@ package org.example.headhunter.implement
 
 import org.apache.spark.sql.functions.{col, explode}
 import org.apache.spark.sql.types.{ArrayType, StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.{Dataset, SparkSession}
 import org.example.core.adapter.web.WebAdapter
 import org.example.core.adapter.web.impl.sttp.model.HttpError
 import org.example.core.etl.Extractor
@@ -54,20 +54,19 @@ class HHExtractor(
     )).repartition(rawPartition)
   }
 
-  override def filterUnActiveVacancies(spark: SparkSession, idsDF: DataFrame, webService: WebAdapter): DataFrame = {
+  override def filterActiveVacancies(spark: SparkSession, activeIds: Dataset[String], webService: WebAdapter): Dataset[String] = {
     import spark.implicits._
 
     val _apiBaseUrl = apiBaseUrl
 
-    idsDF.repartition(netPartition).mapPartitions(part => part.flatMap(row => {
-      val id: Long = row.getLong(0)
+    activeIds.repartition(netPartition).mapPartitions(part => part.flatMap(id => {
 
-      webService.execute(HHExtractor.vacancyURL(_apiBaseUrl, s"$id")) match {
+      webService.execute(HHExtractor.vacancyURL(_apiBaseUrl, id)) match {
         case Right(response) if response.body.contains(""""archived":true""") => Some(id)
         case Left(HttpError(404, _)) => Some(id)
         case _ => None
       }
-    })).toDF("id")
+    }))
   }
 
 }
