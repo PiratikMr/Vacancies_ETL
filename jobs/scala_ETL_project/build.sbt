@@ -12,6 +12,15 @@ ThisBuild / libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-sql" % sparkVersion % "provided",
 )
 
+ThisBuild / Test / fork := true
+ThisBuild / Test / javaOptions ++= Seq(
+  "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+  "--add-opens=java.base/java.lang=ALL-UNNAMED",
+  "--add-opens=java.base/java.util=ALL-UNNAMED",
+  "-Djava.security.manager=allow",
+  "-Dnet.bytebuddy.experimental=true"
+)
+
 lazy val assemblySettings = Seq(
   assembly / assemblyMergeStrategy := {
     case PathList("module-info.class") => MergeStrategy.discard

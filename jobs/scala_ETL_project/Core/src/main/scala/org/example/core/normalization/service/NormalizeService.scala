@@ -15,12 +15,13 @@ class NormalizeService(
                         dbAdapter: DataBaseAdapter,
                         settings: FuzzyMatchSettings,
                         dimDef: DimDef,
-                        mappingDef: MappingDimDef
+                        mappingDef: MappingDimDef,
+                        fuzzyMatcherOpt: Option[FuzzyMatcher] = None
                       ) {
 
   import spark.implicits._
 
-  private val fuzzyMatcher = FuzzyMatcher(spark, settings)
+  private val fuzzyMatcher = fuzzyMatcherOpt.getOrElse(FuzzyMatcher(spark, settings))
 
 
   // id, value, parent_id
