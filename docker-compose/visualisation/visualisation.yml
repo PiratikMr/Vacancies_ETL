@@ -11,8 +11,33 @@ services:
       - SUPERSET_CONFIG_PATH=/superset-mount/conf/superset_config.py
     command: [ "/bin/bash", "/superset-mount/conf/start-superset.sh" ]
     depends_on:
-      app-postgres:
+      superset-postgres:
         condition: service_healthy
+
+  superset-postgres:
+    image: postgres:17
+    container_name: superset-postgres
+    environment:
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: superset
+      POSTGRES_DB: superset
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "effective_cache_size=256MB"
+      - "-c"
+      - "work_mem=8MB"
+    volumes:
+      - superset-postgres-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "superset", "-d", "superset"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
 
   grafana:
     image: grafana/grafana-enterprise:11.6.1
@@ -31,4 +56,5 @@ services:
 
 volumes:
   superset-volume:
+  superset-postgres-volume:
   grafana-volume:

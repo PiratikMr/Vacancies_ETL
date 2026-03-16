@@ -8,77 +8,123 @@ def get_sql_array(values):
     clean_values = [str(x).replace("'", "''") for x in values]
     return "ARRAY[" + ", ".join([f"'{x}'" for x in clean_values]) + "]"
 
-def get_in_clause(values):
-    if not values:
-        return "NULL"
-    if not isinstance(values, list):
-        values = [values]
-    clean_values = [str(x).replace("'", "''") for x in values]
-    return ", ".join([f"'{x}'" for x in clean_values])
-
 @pass_context
-def apply_universal_filters(context):
+def get_filtered_vacancies(context, table_alias='v'):
     filters = context.get('filter_values')
     get_filters = context.get('get_filters')
     
-    where_clauses = []
+    params = {
+        'p_from_dttm': 'NULL::timestamp',
+        'p_to_dttm': 'NULL::timestamp',
+        'p_salary_min': 'NULL::integer',
+        'p_salary_max': 'NULL::integer',
+        'p_has_range': 'NULL::boolean',
+        'p_platforms': 'NULL::text[]',
+        'p_employers': 'NULL::text[]',
+        'p_currencies': 'NULL::text[]',
+        'p_experiences': 'NULL::text[]',
+        'p_skills': 'NULL::text[]',
+        'p_schedules': 'NULL::text[]',
+        'p_locations': 'NULL::text[]',
+        'p_countries': 'NULL::text[]',
+        'p_fields': 'NULL::text[]',
+        'p_grades': 'NULL::text[]',
+        'p_employments': 'NULL::text[]',
+        'p_languages': 'NULL::text[]',
+        'p_language_levels': 'NULL::text[]'
+    }
+
+    has_filters_applied = False
 
     published_from = context.get('from_dttm')
     published_to = context.get('to_dttm')  
     
     if published_from:
-        where_clauses.append(f"published_at >= '{published_from}'")
+        params['p_from_dttm'] = f"'{published_from}'::timestamp"
+        has_filters_applied = True
     if published_to:
-        where_clauses.append(f"published_at <= '{published_to}'")
+        params['p_to_dttm'] = f"'{published_to}'::timestamp"
+        has_filters_applied = True
+
+    salary_has_range = filters('has_range')
+    if salary_has_range:
+        val = str(salary_has_range[0]).lower()
+        if val in ['true', 'false']:
+            params['p_has_range'] = val
+            has_filters_applied = True
 
     salary_filters = get_filters('salary')
     if salary_filters:
         for f in salary_filters:
             val = f.get('val')
             op = f.get('op')
-            if op == '>=':
-                where_clauses.append(f"salary >= {val}")
-            elif op == '<=':
-                where_clauses.append(f"salary <= {val}")
+            try:
+                int_val = int(float(val))
+                if op == '>=':
+                    params['p_salary_min'] = f"{int_val}::integer"
+                    has_filters_applied = True
+                elif op == '<=':
+                    params['p_salary_max'] = f"{int_val}::integer"
+                    has_filters_applied = True
+            except (ValueError, TypeError):
+                pass
 
-    salary_has_range = filters('has_range')
-    if salary_has_range:
-        val = str(salary_has_range[0]).lower()
-        where_clauses.append(f"has_range = {val}")
-
-    # Скалярные колонки (названия совпадают: фильтр platform -> колонка platform)
-    scalar_columns = [
-        'platform', 
-        'employer', 
-        'currency', 
-        'experience'
-    ]
-    
-    for col in scalar_columns:
-        vals = filters(col)
-        if vals:
-            where_clauses.append(f"{col} IN ({get_in_clause(vals)})")
-
-    # Маппинг массивов: 'имя_фильтра_из_dim_таблицы': 'название_колонки_с_массивом_в_БД'
-    array_mappings = {
-        'skill': 'skills', 
-        'schedule': 'schedules', 
-        'location': 'locations', 
-        'country': 'countries', 
-        'field': 'fields', 
-        'grade': 'grades', 
-        'employment': 'employments', 
-        'language': 'languages', 
-        'language_level': 'language_levels'
+    scalar_mappings = {
+        'platform': 'p_platforms',
+        'employer': 'p_employers',
+        'currency': 'p_currencies',
+        'experience': 'p_experiences'
     }
     
-    for filter_name, db_column in array_mappings.items():
+    for filter_name, param_name in scalar_mappings.items():
         vals = filters(filter_name)
         if vals:
-            # Теперь Superset передает 'grade', а скрипт подставляет 'grades && ARRAY[...]'
-            where_clauses.append(f"{db_column} @> {get_sql_array(vals)}")
+            params[param_name] = f"{get_sql_array(vals)}::text[]"
+            has_filters_applied = True
 
-    if not where_clauses:
+    array_mappings = {
+        'skill': 'p_skills', 
+        'schedule': 'p_schedules', 
+        'location': 'p_locations', 
+        'country': 'p_countries', 
+        'field': 'p_fields', 
+        'grade': 'p_grades', 
+        'employment': 'p_employments', 
+        'language': 'p_languages', 
+        'language_level': 'p_language_levels'
+    }
+    
+    for filter_name, param_name in array_mappings.items():
+        vals = filters(filter_name)
+        if vals:
+            params[param_name] = f"{get_sql_array(vals)}::text[]"
+            has_filters_applied = True
+
+    if not has_filters_applied:
         return ""
+    
+    args_list = [
+        f"p_from_dttm => {params['p_from_dttm']}",
+        f"p_to_dttm => {params['p_to_dttm']}",
+        f"p_salary_min => {params['p_salary_min']}",
+        f"p_salary_max => {params['p_salary_max']}",
+        f"p_has_range => {params['p_has_range']}",
+        f"p_platforms => {params['p_platforms']}",
+        f"p_employers => {params['p_employers']}",
+        f"p_currencies => {params['p_currencies']}",
+        f"p_experiences => {params['p_experiences']}",
+        f"p_skills => {params['p_skills']}",
+        f"p_schedules => {params['p_schedules']}",
+        f"p_locations => {params['p_locations']}",
+        f"p_countries => {params['p_countries']}",
+        f"p_fields => {params['p_fields']}",
+        f"p_grades => {params['p_grades']}",
+        f"p_employments => {params['p_employments']}",
+        f"p_languages => {params['p_languages']}",
+        f"p_language_levels => {params['p_language_levels']}"
+    ]
 
-    return " AND " + " AND ".join(where_clauses)
+    args_list_str = ",\n".join(args_list)
+    func_call = f"internal.get_filtered_vacancies(\n{args_list_str}\n)".format(args_list_str=args_list_str)
+    
+    return f"JOIN {func_call} f ON {table_alias}.vacancy_id = f.vacancy_id"
