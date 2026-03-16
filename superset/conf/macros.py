@@ -1,90 +1,84 @@
 from jinja2 import pass_context
 
-def get_array(values):
+def get_sql_array(values):
     if not values:
         return "NULL"
     if not isinstance(values, list):
         values = [values]
-    return "array[" + ", ".join([f"'{str(x).replace(chr(39), chr(39)*2)}'" for x in values]) + "]"
+    clean_values = [str(x).replace("'", "''") for x in values]
+    return "ARRAY[" + ", ".join([f"'{x}'" for x in clean_values]) + "]"
 
+def get_in_clause(values):
+    if not values:
+        return "NULL"
+    if not isinstance(values, list):
+        values = [values]
+    clean_values = [str(x).replace("'", "''") for x in values]
+    return ", ".join([f"'{x}'" for x in clean_values])
 
 @pass_context
-def generate_db_function_sql(context, joinTable: str):
-
+def apply_universal_filters(context):
     filters = context.get('filter_values')
     get_filters = context.get('get_filters')
+    
+    where_clauses = []
 
     published_from = context.get('from_dttm')
     published_to = context.get('to_dttm')  
+    
+    if published_from:
+        where_clauses.append(f"published_at >= '{published_from}'")
+    if published_to:
+        where_clauses.append(f"published_at <= '{published_to}'")
 
-    sources = filters('source')
-    salary = get_filters('salary')
+    salary_filters = get_filters('salary')
+    if salary_filters:
+        for f in salary_filters:
+            val = f.get('val')
+            op = f.get('op')
+            if op == '>=':
+                where_clauses.append(f"salary >= {val}")
+            elif op == '<=':
+                where_clauses.append(f"salary <= {val}")
+
     salary_has_range = filters('has_range')
-    salary_currency = filters('currency')
-    employers = filters('employer')
-    employments = filters('employment')
-    experiences = filters('experience')
-    languages = filters('language')
-    language_levels = filters('level')
-    countries = filters('country')
-    regions = filters('region')
-    fields = filters('field')
-    grades = filters('grade')
-    schedules = filters('schedule')
-    skills = filters('skill')
+    if salary_has_range:
+        val = str(salary_has_range[0]).lower()
+        where_clauses.append(f"has_range = {val}")
 
-    all_raw_inputs = [
-        sources, published_from, published_to, salary, salary_has_range,
-        salary_currency, employers, employments, experiences, languages,
-        language_levels, countries, regions, fields, grades, schedules, skills
+    # Скалярные колонки (названия совпадают: фильтр platform -> колонка platform)
+    scalar_columns = [
+        'platform', 
+        'employer', 
+        'currency', 
+        'experience'
     ]
+    
+    for col in scalar_columns:
+        vals = filters(col)
+        if vals:
+            where_clauses.append(f"{col} IN ({get_in_clause(vals)})")
 
-    if not any(all_raw_inputs):
+    # Маппинг массивов: 'имя_фильтра_из_dim_таблицы': 'название_колонки_с_массивом_в_БД'
+    array_mappings = {
+        'skill': 'skills', 
+        'schedule': 'schedules', 
+        'location': 'locations', 
+        'country': 'countries', 
+        'field': 'fields', 
+        'grade': 'grades', 
+        'employment': 'employments', 
+        'language': 'languages', 
+        'language_level': 'language_levels'
+    }
+    
+    for filter_name, db_column in array_mappings.items():
+        vals = filters(filter_name)
+        if vals:
+            # Теперь Superset передает 'grade', а скрипт подставляет 'grades && ARRAY[...]'
+            where_clauses.append(f"{db_column} @> {get_sql_array(vals)}")
+
+    if not where_clauses:
         return ""
 
-
-    sql_published_from = "NULL"
-    if published_from:
-        sql_published_from = f"'{published_from}'"
-
-    sql_published_to = "NULL"
-    if published_to:
-        sql_published_to = f"'{published_to}'"
-
-
-    sql_salary_from = "NULL"
-    sql_salary_to = "NULL"
-    for salary_filter in salary:
-        val = salary_filter.get('val')
-        if salary_filter.get('op') == '>=':
-            sql_salary_from = val
-        else:
-            sql_salary_to = val
-
-
-    tableName = "idsAfterFiltering"
-
-    sql_function = f"""
-        interactive_active.get_filters_ids(
-            p_sources => {get_array(sources)},
-            p_published_from => {sql_published_from},
-            p_published_to => {sql_published_to},
-            p_salary_from => {sql_salary_from},
-            p_salary_to => {sql_salary_to},
-            p_salary_has_range => {"NULL" if not salary_has_range else f"'{salary_has_range[0]}'"},
-            p_currencies => {get_array(salary_currency)},
-            p_employers => {get_array(employers)},
-            p_employments => {get_array(employments)},
-            p_experiences => {get_array(experiences)},
-            p_languages => {get_array(languages)},
-            p_language_levels => {get_array(language_levels)},
-            p_location_regions => {get_array(regions)},
-            p_location_countries => {get_array(countries)},
-            p_fields => {get_array(fields)},
-            p_grades => {get_array(grades)},
-            p_schedules => {get_array(schedules)},
-            p_skills => {get_array(skills)}
-        ) as {tableName}
-    """
-
-    return f"JOIN {sql_function} on {tableName}.id = {joinTable}.id"
+    return " AND " + " AND ".join(where_clauses)

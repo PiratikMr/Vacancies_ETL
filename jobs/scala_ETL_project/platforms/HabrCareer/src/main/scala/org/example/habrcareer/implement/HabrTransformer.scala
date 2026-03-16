@@ -43,10 +43,11 @@ class HabrTransformer(
         concat(lit("https://career.habr.com/vacancies/"), col("id")).as(VacancyColumns.URL),
 
         array(
-          when(col("remoteWork") === true, lit("Удаленная работа")).otherwise(lit(null)),
-          when(col("employment").isNotNull, col("employment")).otherwise(lit(null))
+          when(col("remoteWork") === true, lit("Удаленная работа")).otherwise(lit(null))
         ).as(VacancyColumns.SCHEDULES),
-        typedLit(Seq.empty[String]).as(VacancyColumns.EMPLOYMENTS),
+        array(
+          when(col("employment").isNotNull, col("employment")).otherwise(lit(null))
+        ).as(VacancyColumns.EMPLOYMENTS),
 
         functions.transform(
           col("locations"),
