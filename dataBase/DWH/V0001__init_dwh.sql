@@ -234,9 +234,18 @@ create unique index uq_canonical_per_schedule
 on mapping_dim_schedule (schedule_id)
 where (is_canonical = true);
 
+
+create table dim_skill_category (
+    category_id                      bigserial               primary key,
+    category_name                    text                    not null,
+
+    unique(category_name)
+);
+
 create table dim_skill (
     skill_id                         bigserial               primary key,
     skill                            text                    not null,
+    category_id                      bigint                  references dim_skill_category(category_id),
 
     unique(skill)
 );

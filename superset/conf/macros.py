@@ -70,10 +70,10 @@ def get_filtered_vacancies(context, table_alias='v'):
                 pass
 
     scalar_mappings = {
-        'platform': 'p_platforms',
-        'employer': 'p_employers',
-        'currency': 'p_currencies',
-        'experience': 'p_experiences'
+        'filter_platform': 'p_platforms',
+        'filter_employer': 'p_employers',
+        'filter_currency': 'p_currencies',
+        'filter_experience': 'p_experiences'
     }
     
     for filter_name, param_name in scalar_mappings.items():
@@ -83,15 +83,15 @@ def get_filtered_vacancies(context, table_alias='v'):
             has_filters_applied = True
 
     array_mappings = {
-        'skill': 'p_skills', 
-        'schedule': 'p_schedules', 
-        'location': 'p_locations', 
-        'country': 'p_countries', 
-        'field': 'p_fields', 
-        'grade': 'p_grades', 
-        'employment': 'p_employments', 
-        'language': 'p_languages', 
-        'language_level': 'p_language_levels'
+        'filter_skill': 'p_skills', 
+        'filter_schedule': 'p_schedules', 
+        'filter_location': 'p_locations', 
+        'filter_country': 'p_countries', 
+        'filter_field': 'p_fields', 
+        'filter_grade': 'p_grades', 
+        'filter_employment': 'p_employments', 
+        'filter_language': 'p_languages', 
+        'filter_language_level': 'p_language_levels'
     }
     
     for filter_name, param_name in array_mappings.items():

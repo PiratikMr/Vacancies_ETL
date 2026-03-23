@@ -8,6 +8,7 @@ import org.example.core.adapter.web.WebAdapter
 import org.example.core.etl.impl.{VacancyLoader, VacancyUpdater}
 import org.example.core.etl.model.ETLParts.{Extract, TransformLoad, Update}
 import org.example.core.etl.model.{ETLParts, NormalizedVacancy, VacancyColumns}
+import org.example.core.etl.utils.DataTransformer
 
 import scala.util.{Failure, Success}
 
@@ -35,7 +36,9 @@ class ETLUService(
       .dropDuplicates(VacancyColumns.EXTERNAL_ID)
       .localCheckpoint()
 
-    val normalized = transformer.normalize(spark, transformedDs)
+    val formattedSkillsDs = DataTransformer.normalizeSkills(transformedDs)
+
+    val normalized = transformer.normalize(spark, formattedSkillsDs)
       .dropDuplicates(VacancyColumns.EXTERNAL_ID)
       .localCheckpoint()
 

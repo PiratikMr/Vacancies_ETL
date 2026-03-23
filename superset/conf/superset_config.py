@@ -20,7 +20,16 @@ SQLALCHEMY_ENGINE_OPTIONS = {
 SUPERSET_WEBSERVER_TIMEOUT = 300
 SQLLAB_ASYNC_TIME_LIMIT_SEC = 300
 
-HTML_SANITIZATION = False
+HTML_SANITIZATION = True
+
+HTML_SANITIZATION_SCHEMA_EXTENSIONS = {
+    "attributes": {
+        "span": ["style", "class", "className"],
+        "a": ["href", "target", "rel"]
+    },
+    "tags": ["span", "a"]
+}
+
 TALISMAN_ENABLED = False
 
 PUBLIC_ROLE_LIKE = "Gamma"
