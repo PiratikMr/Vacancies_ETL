@@ -147,6 +147,8 @@ create index idx_mv_core_vacancy_currency on internal.mv_core_vacancy (currency)
 create index idx_mv_core_vacancy_salary on internal.mv_core_vacancy (salary);
 create index idx_mv_core_vacancy_has_range on internal.mv_core_vacancy (has_range);
 
+create unique index idx_mv_core_vacancy_id on internal.mv_core_vacancy (vacancy_id);
+
 
 CREATE OR REPLACE FUNCTION internal.get_filtered_vacancies(
     p_from_dttm TIMESTAMP DEFAULT NULL,
