@@ -11,6 +11,7 @@ import org.example.core.etl.model.{NormalizedVacancy, Vacancy, VacancyColumns}
 import org.example.core.normalization.api.NormalizationTask.ExtractTags
 import org.example.core.normalization.model.NormalizersEnum
 import org.example.core.normalization.service.NormalizationOrchestrator
+import org.example.headhunter.implement.HHTransformer.normalizedSalary
 
 class HHTransformer(
                      areas: DataFrame,
@@ -44,8 +45,8 @@ class HHTransformer(
         col("address.lat").as(VacancyColumns.LATITUDE),
         col("address.lng").as(VacancyColumns.LONGITUDE),
 
-        col("salary_range.from").as(SALARY_FROM),
-        col("salary_range.to").as(SALARY_TO),
+        normalizedSalary(col("salary_range.from"), col("salary_range.mode.id")).as(SALARY_FROM),
+        normalizedSalary(col("salary_range.to"), col("salary_range.mode.id")).as(SALARY_TO),
 
         col("employer.name").as(VacancyColumns.EMPLOYER),
         col("salary_range.currency").as(VacancyColumns.CURRENCY),
@@ -95,6 +96,16 @@ class HHTransformer(
 }
 
 object HHTransformer {
+
+  private val AVG_WORK_HOURS_PER_MONTH: Int = 166
+
+  import org.apache.spark.sql.Column
+  import org.apache.spark.sql.functions.when
+
+  private def normalizedSalary(salaryCol: Column, modeIdCol: Column): Column =
+    when(salaryCol.isNotNull && modeIdCol === "HOUR", salaryCol * AVG_WORK_HOURS_PER_MONTH)
+      .otherwise(salaryCol)
+
   private val scheme = StructType(Seq(
 
     StructField("address", StructType(Seq(
