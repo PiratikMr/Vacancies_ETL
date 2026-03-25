@@ -1,9 +1,9 @@
 from utils import get_config
-from config_ETL import CONFIG_DIR_PATH, DEFAULT_ARGS
+from config_ETL import DAGS_CONFIG_PATH, DEFAULT_ARGS
 from airflow.decorators import dag
 from airflow.operators.bash import BashOperator
 
-conf_tree = get_config(f"{CONFIG_DIR_PATH}/common.conf")
+conf_tree = get_config(DAGS_CONFIG_PATH)
 
 hdfs_path = conf_tree.get_string("FileSystem.path")
 raw_data_expires_in = conf_tree.get_string("Dags.DeleteData.rawData")

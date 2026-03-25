@@ -1,11 +1,9 @@
-import os
-from config_ETL import DEFAULT_ARGS
+from config_ETL import DAGS_CONFIG_PATH, DEFAULT_ARGS
 from airflow.decorators import dag, task, task_group
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from utils import get_config
 
-config_path = os.getenv('CONFIG_PATH', '/opt/airflow/conf/common.conf')
-config = get_config(config_path)
+config = get_config(DAGS_CONFIG_PATH)
 dag_schedule = config.get('Dags.RefreshMatViews.schedule')
 
 schemas = [

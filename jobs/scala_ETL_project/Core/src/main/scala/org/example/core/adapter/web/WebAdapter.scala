@@ -6,7 +6,6 @@ trait WebAdapter extends AutoCloseable with Serializable {
 
   def execute(url: String): Either[WebError, WebResponse]
 
-
   def readBody(url: String): Either[WebError, String]
 
   def readBodyOrNone(url: String): Option[String]

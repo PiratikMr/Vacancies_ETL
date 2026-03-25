@@ -1,9 +1,16 @@
 import pendulum
+from pathlib import Path
+from pyhocon import ConfigFactory
 
-CONFIG_DIR_PATH = "/opt/airflow/conf"
+CONFIG_DIR_PATH  = "/opt/airflow/conf"
+DAGS_CONFIG_PATH = f"{CONFIG_DIR_PATH}/dags/common.conf"
+
+_dags_config = ConfigFactory.parse_file(Path(DAGS_CONFIG_PATH))
 
 DEFAULT_ARGS = {
-    'start_date': pendulum.datetime(2025, 10, 1, 0, 0, 0, tz="Asia/Krasnoyarsk")
+    'start_date': pendulum.datetime(2025, 10, 1, 0, 0, 0, tz="Asia/Krasnoyarsk"),
+    'email': [_dags_config.get_string('Airflow.email')],
+    'email_on_failure': True
 }
 
 class Platform:
@@ -18,7 +25,7 @@ class Platform:
         if args is None:
             args = []
             
-        self.fileName = f"{CONFIG_DIR_PATH}/{fileName}.conf"
+        self.fileName = f"{CONFIG_DIR_PATH}/platforms/{fileName}.conf"
         self.name = name
         self.moduleName = module_path if module_path else f"platforms/{name}"
         
