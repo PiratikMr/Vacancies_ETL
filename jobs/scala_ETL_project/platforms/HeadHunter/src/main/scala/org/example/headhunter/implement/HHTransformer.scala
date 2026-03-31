@@ -175,7 +175,7 @@ object HHTransformer {
       StructField("from", DoubleType),
       StructField("gross", BooleanType),
       StructField("mode", StructType(Seq(
-        StructField("name", StringType),
+        StructField("id", StringType),
       ))),
       StructField("to", DoubleType)
     ))),
