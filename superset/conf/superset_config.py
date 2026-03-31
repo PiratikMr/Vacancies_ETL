@@ -32,7 +32,14 @@ HTML_SANITIZATION_SCHEMA_EXTENSIONS = {
 
 TALISMAN_ENABLED = False
 
-PUBLIC_ROLE_LIKE = "Gamma"
+
+PUBLIC_ROLE_LIKE = 'Gamma'
+BABEL_DEFAULT_LOCALE = 'ru'
+LANGUAGES = {
+    'ru': {'flag': 'ru', 'name': 'Russian'},
+    'en': {'flag': 'us', 'name': 'English'},
+}
+
 
 FEATURE_FLAGS = {
     'ENABLE_TEMPLATE_PROCESSING': True,

@@ -1,60 +1,99 @@
 CREATE SCHEMA IF NOT EXISTS marts;
 
 CREATE MATERIALIZED VIEW marts.dict_platform AS
-SELECT DISTINCT platform AS filter_platform
+SELECT
+    platform AS filter_platform,
+    COUNT(*) AS total
 FROM internal.mv_core_vacancy
-WHERE platform IS NOT NULL;
+WHERE platform IS NOT NULL
+GROUP BY platform;
 
 CREATE MATERIALIZED VIEW marts.dict_employer AS
-SELECT DISTINCT employer AS filter_employer
+SELECT
+    employer AS filter_employer,
+    COUNT(*) AS total
 FROM internal.mv_core_vacancy
-WHERE employer IS NOT NULL;
+WHERE employer IS NOT NULL
+GROUP BY employer;
 
 CREATE MATERIALIZED VIEW marts.dict_currency AS
-SELECT DISTINCT currency AS filter_currency
+SELECT
+    currency AS filter_currency,
+    COUNT(*) AS total
 FROM internal.mv_core_vacancy
-WHERE currency IS NOT NULL;
+WHERE currency IS NOT NULL
+GROUP BY currency;
 
 CREATE MATERIALIZED VIEW marts.dict_experience AS
-SELECT DISTINCT experience AS filter_experience
+SELECT
+    experience AS filter_experience,
+    COUNT(*) AS total
 FROM internal.mv_core_vacancy
-WHERE experience IS NOT NULL;
+WHERE experience IS NOT NULL
+GROUP BY experience;
 
 CREATE MATERIALIZED VIEW marts.dict_skills AS
-SELECT DISTINCT unnest(skills) AS filter_skill
-FROM internal.mv_core_vacancy;
+SELECT
+    unnest(skills) AS filter_skill,
+    COUNT(*) AS total
+FROM internal.mv_core_vacancy
+GROUP BY filter_skill;
 
 CREATE MATERIALIZED VIEW marts.dict_schedules AS
-SELECT DISTINCT unnest(schedules) AS filter_schedule
-FROM internal.mv_core_vacancy;
+SELECT
+    unnest(schedules) AS filter_schedule,
+    COUNT(*) AS total
+FROM internal.mv_core_vacancy
+GROUP BY filter_schedule;
 
 CREATE MATERIALIZED VIEW marts.dict_locations AS
-SELECT DISTINCT unnest(locations) AS filter_location
-FROM internal.mv_core_vacancy;
+SELECT
+    unnest(locations) AS filter_location,
+    COUNT(*) AS total
+FROM internal.mv_core_vacancy
+GROUP BY filter_location;
 
 CREATE MATERIALIZED VIEW marts.dict_countries AS
-SELECT DISTINCT unnest(countries) AS filter_country
-FROM internal.mv_core_vacancy;
+SELECT
+    unnest(countries) AS filter_country,
+    COUNT(*) AS total
+FROM internal.mv_core_vacancy
+GROUP BY filter_country;
 
 CREATE MATERIALIZED VIEW marts.dict_fields AS
-SELECT DISTINCT unnest(fields) AS filter_field
-FROM internal.mv_core_vacancy;
+SELECT
+    unnest(fields) AS filter_field,
+    COUNT(*) AS total
+FROM internal.mv_core_vacancy
+GROUP BY filter_field;
 
 CREATE MATERIALIZED VIEW marts.dict_grades AS
-SELECT DISTINCT unnest(grades) AS filter_grade
-FROM internal.mv_core_vacancy;
+SELECT
+    unnest(grades) AS filter_grade,
+    COUNT(*) AS total
+FROM internal.mv_core_vacancy
+GROUP BY filter_grade;
 
 CREATE MATERIALIZED VIEW marts.dict_employments AS
-SELECT DISTINCT unnest(employments) AS filter_employment
-FROM internal.mv_core_vacancy;
+SELECT
+    unnest(employments) AS filter_employment,
+    COUNT(*) AS total
+FROM internal.mv_core_vacancy
+GROUP BY filter_employment;
 
 CREATE MATERIALIZED VIEW marts.dict_languages AS
-SELECT DISTINCT unnest(languages) AS filter_language
-FROM internal.mv_core_vacancy;
+SELECT
+    unnest(languages) AS filter_language,
+    COUNT(*) AS total
+FROM internal.mv_core_vacancy
+GROUP BY filter_language;
 
 CREATE MATERIALIZED VIEW marts.dict_language_levels AS
-SELECT DISTINCT unnest(language_levels) AS filter_language_level
-FROM internal.mv_core_vacancy;
+SELECT
+    unnest(language_levels) AS filter_language_level,
+    COUNT(*) AS total
+FROM internal.mv_core_vacancy
+GROUP BY filter_language_level;
 
 CREATE MATERIALIZED VIEW marts.mv_vacancy_field_salary AS
 SELECT 
@@ -192,16 +231,26 @@ SELECT
     v.platform,
     COALESCE(v.employer, 'Не указано') AS employer,
     v.title,
-    COALESCE(g.grade, 'Не указано') AS grade,
+    COALESCE(g.grades, 'Не указано') AS grade,
     COALESCE(v.experience, 'Не указано') AS experience,
-    COALESCE(s.schedule, 'Не указано') AS schedule,
+    COALESCE(s.schedules, 'Не указано') AS schedule,
     v.salary,
     v.url
 FROM internal.mv_core_vacancy v
-LEFT JOIN bridge_vacancy_grade bg ON v.vacancy_id = bg.vacancy_id
-LEFT JOIN dim_grade g ON bg.grade_id = g.grade_id
-LEFT JOIN bridge_vacancy_schedule bs ON v.vacancy_id = bs.vacancy_id
-LEFT JOIN dim_schedule s ON bs.schedule_id = s.schedule_id
+LEFT JOIN (
+    SELECT bg.vacancy_id, STRING_AGG(g.grade, ', ' ORDER BY g.grade) AS grades
+    FROM bridge_vacancy_grade bg
+    JOIN dim_grade g ON bg.grade_id = g.grade_id
+    WHERE g.grade IS NOT NULL
+    GROUP BY bg.vacancy_id
+) g ON v.vacancy_id = g.vacancy_id
+LEFT JOIN (
+    SELECT bs.vacancy_id, STRING_AGG(s.schedule, ', ' ORDER BY s.schedule) AS schedules
+    FROM bridge_vacancy_schedule bs
+    JOIN dim_schedule s ON bs.schedule_id = s.schedule_id
+    WHERE s.schedule IS NOT NULL
+    GROUP BY bs.vacancy_id
+) s ON v.vacancy_id = s.vacancy_id
 WHERE closed_at IS NULL;
 
 CREATE INDEX idx_marts_mv_vacancy_full_info_vacancy_id ON marts.mv_vacancy_full_info(vacancy_id);
