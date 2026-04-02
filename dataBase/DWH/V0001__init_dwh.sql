@@ -2,6 +2,7 @@ create table dim_currency (
     currency_id                         bigserial               primary key,
     currency                            text                    not null,
     rate                                double precision        not null default (1.0),
+    is_reference                        boolean                 not null default false,
 
     unique(currency)
 );
@@ -22,6 +23,7 @@ where (is_canonical = true);
 create table dim_employer (
     employer_id                         bigserial               primary key,
     employer                            text                    not null,
+    is_reference                        boolean                 not null default false,
 
     unique(employer)
 );
@@ -41,6 +43,7 @@ where (is_canonical = true);
 create table dim_employment (
     employment_id                         bigserial               primary key,
     employment                            text                    not null,
+    is_reference                          boolean                 not null default false,
 
     unique(employment)
 );
@@ -60,6 +63,7 @@ where (is_canonical = true);
 create table dim_experience (
     experience_id                       bigserial               primary key,
     experience                          text                    not null,
+    is_reference                        boolean                 not null default false,
 
     unique(experience)
 );
@@ -79,6 +83,7 @@ where (is_canonical = true);
 create table dim_field (
     field_id                         bigserial               primary key,
     field                            text                    not null,
+    is_reference                     boolean                 not null default false,
 
     unique(field)
 );
@@ -98,6 +103,7 @@ where (is_canonical = true);
 create table dim_grade (
     grade_id                         bigserial               primary key,
     grade                            text                    not null,
+    is_reference                     boolean                 not null default false,
 
     unique(grade)
 );
@@ -117,6 +123,7 @@ where (is_canonical = true);
 create table dim_language_level (
     language_level_id                         bigserial               primary key,
     language_level                            text                    not null,
+    is_reference                              boolean                 not null default false,
 
     unique(language_level)
 );
@@ -136,6 +143,7 @@ where (is_canonical = true);
 create table dim_language (
     language_id                         bigserial               primary key,
     language                            text                    not null,
+    is_reference                        boolean                 not null default false,
 
     unique(language)
 );
@@ -156,6 +164,7 @@ create table dim_country (
     country_id                          bigserial               primary key,
     country                             text                    not null,
     iso                                 text,
+    is_reference                        boolean                 not null default false,
 
     unique (country)
 );
@@ -179,6 +188,7 @@ create table dim_location (
     location_id                         bigserial               primary key,
     location                            text                    not null,
     country_id                          bigint                  not null default(0) references dim_country (country_id),
+    is_reference                        boolean                 not null default false,
 
     unique (location, country_id)
 );
@@ -198,6 +208,7 @@ where (is_canonical = true);
 create table dim_platform (
     platform_id                         bigserial               primary key,
     platform                            text                    not null,
+    is_reference                        boolean                 not null default false,
 
     unique(platform)
 );
@@ -218,6 +229,7 @@ where (is_canonical = true);
 create table dim_schedule (
     schedule_id                         bigserial               primary key,
     schedule                            text                    not null,
+    is_reference                        boolean                 not null default false,
 
     unique(schedule)
 );
@@ -238,6 +250,7 @@ where (is_canonical = true);
 create table dim_skill_category (
     category_id                      bigserial               primary key,
     category_name                    text                    not null,
+    is_reference                     boolean                 not null default false,
 
     unique(category_name)
 );
@@ -246,6 +259,7 @@ create table dim_skill (
     skill_id                         bigserial               primary key,
     skill                            text                    not null,
     category_id                      bigint                  references dim_skill_category(category_id),
+    is_reference                     boolean                 not null default false,
 
     unique(skill)
 );

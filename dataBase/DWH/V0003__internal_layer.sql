@@ -19,7 +19,8 @@ with calculated_salary as (
         end as has_range
     from fact_vacancy as f
     join dim_currency as c on c.currency_id = f.currency_id
-    where f.salary_from is not null or f.salary_to is not null
+    where (f.salary_from is not null or f.salary_to is not null)
+    --   and c.is_reference = true
 )
 select * from calculated_salary
 where salary between 1000 and 1500000;
@@ -33,6 +34,7 @@ with vacancy_skills as (
         array_agg(distinct d.skill) as skills
     from bridge_vacancy_skill b
     join dim_skill d on b.skill_id = d.skill_id
+    where d.is_reference = true
     group by b.vacancy_id
 ),
 vacancy_schedules as (
@@ -41,6 +43,7 @@ vacancy_schedules as (
         array_agg(distinct d.schedule) as schedules
     from bridge_vacancy_schedule b
     join dim_schedule d on b.schedule_id = d.schedule_id
+    where d.is_reference = true
     group by b.vacancy_id
 ),
 vacancy_locations as (
@@ -51,6 +54,7 @@ vacancy_locations as (
     from bridge_vacancy_location b
     join dim_location l on b.location_id = l.location_id
     left join dim_country c on l.country_id = c.country_id
+    where l.is_reference = true and c.is_reference = true
     group by b.vacancy_id
 ),
 vacancy_fields as (
@@ -59,6 +63,7 @@ vacancy_fields as (
         array_agg(distinct d.field) as fields
     from bridge_vacancy_field b
     join dim_field d on b.field_id = d.field_id
+    where d.is_reference = true
     group by b.vacancy_id
 ),
 vacancy_grades as (
@@ -67,6 +72,7 @@ vacancy_grades as (
         array_agg(distinct d.grade) as grades
     from bridge_vacancy_grade b
     join dim_grade d on b.grade_id = d.grade_id
+    where d.is_reference = true
     group by b.vacancy_id
 ),
 vacancy_employments as (
@@ -75,6 +81,7 @@ vacancy_employments as (
         array_agg(distinct d.employment) as employments
     from bridge_vacancy_employment b
     join dim_employment d on b.employment_id = d.employment_id
+    where d.is_reference = true
     group by b.vacancy_id
 ),
 vacancy_languages as (
@@ -85,6 +92,7 @@ vacancy_languages as (
     from bridge_vacancy_language b
     join dim_language l on b.language_id = l.language_id
     join dim_language_level lvl on b.language_level_id = lvl.language_level_id
+    where l.is_reference = true and lvl.is_reference = true
     group by b.vacancy_id
 )
 
@@ -126,7 +134,11 @@ left join vacancy_locations v_loc on f.vacancy_id = v_loc.vacancy_id
 left join vacancy_fields v_fld on f.vacancy_id = v_fld.vacancy_id
 left join vacancy_grades v_grd on f.vacancy_id = v_grd.vacancy_id
 left join vacancy_employments v_emp on f.vacancy_id = v_emp.vacancy_id
-left join vacancy_languages v_lng on f.vacancy_id = v_lng.vacancy_id;
+left join vacancy_languages v_lng on f.vacancy_id = v_lng.vacancy_id
+where (p.platform_id is null or p.is_reference = true)
+--  and (e.employer_id is null or e.is_reference = true)
+--  and (c.currency_id is null or c.is_reference = true)
+  and (exp.experience_id is null or exp.is_reference = true);
 
 create index idx_mv_core_vacancy_skills on internal.mv_core_vacancy using gin (skills);
 create index idx_mv_core_vacancy_schedules on internal.mv_core_vacancy using gin (schedules);

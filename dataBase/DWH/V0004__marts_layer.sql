@@ -103,7 +103,7 @@ SELECT
 FROM internal.mv_core_vacancy v
 JOIN bridge_vacancy_field b ON v.vacancy_id = b.vacancy_id
 JOIN dim_field d ON b.field_id = d.field_id
-WHERE v.salary IS NOT NULL;
+WHERE v.salary IS NOT NULL AND d.is_reference = true;
 
 CREATE INDEX idx_marts_mv_vacancy_field_salary_vacancy_id ON marts.mv_vacancy_field_salary(vacancy_id);
 
@@ -117,7 +117,8 @@ SELECT
     g.grade
 FROM internal.mv_core_vacancy v
 JOIN bridge_vacancy_grade b ON v.vacancy_id = b.vacancy_id
-JOIN dim_grade g ON b.grade_id = g.grade_id;
+JOIN dim_grade g ON b.grade_id = g.grade_id
+WHERE g.is_reference = true;
 
 CREATE INDEX idx_marts_mv_vacancy_grade_salary_vacancy_id ON marts.mv_vacancy_grade_salary(vacancy_id);
 
@@ -132,7 +133,7 @@ FROM bridge_vacancy_grade bg
 JOIN dim_grade g ON bg.grade_id = g.grade_id
 JOIN bridge_vacancy_schedule bs ON bg.vacancy_id = bs.vacancy_id
 JOIN dim_schedule s ON bs.schedule_id = s.schedule_id
-WHERE g.grade IS NOT NULL AND s.schedule IS NOT NULL;
+WHERE g.grade IS NOT NULL AND s.schedule IS NOT NULL AND g.is_reference = true AND s.is_reference = true;
 
 CREATE INDEX idx_marts_mv_vacancy_grade_schedule_vacancy_id ON marts.mv_vacancy_grade_schedule(vacancy_id);
 
@@ -159,7 +160,8 @@ JOIN bridge_vacancy_grade b ON v.vacancy_id = b.vacancy_id
 JOIN dim_grade g ON b.grade_id = g.grade_id
 WHERE g.grade IS NOT NULL 
   AND v.closed_at IS NOT NULL 
-  AND v.published_at IS NOT NULL;
+  AND v.published_at IS NOT NULL
+  AND g.is_reference = true;
 
 CREATE INDEX idx_marts_mv_vacancy_grade_duration_vacancy_id ON marts.mv_vacancy_grade_duration(vacancy_id);
 
@@ -173,24 +175,24 @@ SELECT
 FROM internal.mv_core_vacancy v
 JOIN bridge_vacancy_skill bs ON bs.vacancy_id = v.vacancy_id
 JOIN dim_skill s ON bs.skill_id = s.skill_id
-WHERE v.salary IS NOT NULL AND s.skill IS NOT NULL;
+WHERE v.salary IS NOT NULL AND s.skill IS NOT NULL AND s.is_reference = true;
 
 CREATE INDEX idx_marts_mv_vacancy_skill_salary_vacancy_id ON marts.mv_vacancy_skill_salary(vacancy_id);
 
 
 
-CREATE MATERIALIZED VIEW marts.mv_vacancy_grade_skill AS
+CREATE MATERIALIZED VIEW marts.mv_vacancy_field_skill AS
 SELECT 
-    bg.vacancy_id,
-    g.grade,
+    bf.vacancy_id,
+    f.field,
     s.skill
-FROM bridge_vacancy_grade bg
-JOIN dim_grade g ON bg.grade_id = g.grade_id
-JOIN bridge_vacancy_skill bs ON bg.vacancy_id = bs.vacancy_id
+FROM bridge_vacancy_field bf
+JOIN dim_field f ON bf.field_id = f.field_id
+JOIN bridge_vacancy_skill bs ON bf.vacancy_id = bs.vacancy_id
 JOIN dim_skill s ON bs.skill_id = s.skill_id
-WHERE g.grade IS NOT NULL AND s.skill IS NOT NULL;
+WHERE f.field IS NOT NULL AND s.skill IS NOT NULL AND f.is_reference = true AND s.is_reference = true;
 
-CREATE INDEX idx_marts_mv_vacancy_grade_skill_vacancy_id ON marts.mv_vacancy_grade_skill(vacancy_id);
+CREATE INDEX idx_marts_mv_vacancy_field_skill_vacancy_id ON marts.mv_vacancy_field_skill(vacancy_id);
 
 
 
@@ -200,7 +202,7 @@ SELECT
     s.schedule
 FROM bridge_vacancy_schedule bs
 JOIN dim_schedule s ON bs.schedule_id = s.schedule_id
-WHERE s.schedule IS NOT NULL;
+WHERE s.schedule IS NOT NULL AND s.is_reference = true;
 
 CREATE INDEX idx_marts_mv_vacancy_schedule_vacancy_id ON marts.mv_vacancy_schedule(vacancy_id);
 
@@ -211,14 +213,16 @@ SELECT
     v.vacancy_id,
     l.location,
     c.country,
-    c.iso,
+--  c.iso,
     v.salary
 FROM internal.mv_core_vacancy v
 JOIN bridge_vacancy_location bl ON v.vacancy_id = bl.vacancy_id
 JOIN dim_location l ON bl.location_id = l.location_id
 LEFT JOIN dim_country c ON l.country_id = c.country_id
 WHERE v.salary IS NOT NULL 
-  AND l.location IS NOT NULL;
+  AND l.location IS NOT NULL
+--   AND l.is_reference = true
+  AND c.is_reference = true;
 
 CREATE INDEX idx_marts_mv_vacancy_location_salary_vacancy_id ON marts.mv_vacancy_location_salary(vacancy_id);
 
@@ -241,14 +245,14 @@ LEFT JOIN (
     SELECT bg.vacancy_id, STRING_AGG(g.grade, ', ' ORDER BY g.grade) AS grades
     FROM bridge_vacancy_grade bg
     JOIN dim_grade g ON bg.grade_id = g.grade_id
-    WHERE g.grade IS NOT NULL
+    WHERE g.grade IS NOT NULL AND g.is_reference = true
     GROUP BY bg.vacancy_id
 ) g ON v.vacancy_id = g.vacancy_id
 LEFT JOIN (
     SELECT bs.vacancy_id, STRING_AGG(s.schedule, ', ' ORDER BY s.schedule) AS schedules
     FROM bridge_vacancy_schedule bs
     JOIN dim_schedule s ON bs.schedule_id = s.schedule_id
-    WHERE s.schedule IS NOT NULL
+    WHERE s.schedule IS NOT NULL AND s.is_reference = true
     GROUP BY bs.vacancy_id
 ) s ON v.vacancy_id = s.vacancy_id
 WHERE closed_at IS NULL;
@@ -270,7 +274,7 @@ LEFT JOIN (
     FROM bridge_vacancy_language bvl
     JOIN dim_language dl ON bvl.language_id = dl.language_id
     JOIN dim_language_level dll ON bvl.language_level_id = dll.language_level_id
-    WHERE dl.language = 'Английский'
+    WHERE dl.language = 'Английский' AND dl.is_reference = true AND dll.is_reference = true
 ) eng ON v.vacancy_id = eng.vacancy_id
 WHERE v.salary IS NOT NULL;
 
