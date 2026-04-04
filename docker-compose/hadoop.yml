@@ -1,6 +1,7 @@
 x-hadoop-common: &hadoop-common
   image: apache/hadoop:3.3.5
   user: root
+  restart: unless-stopped
   environment: &hadoop-common-env
     HADOOP_HOME: /opt/hadoop
 
@@ -9,18 +10,17 @@ services:
   namenode:
     <<: *hadoop-common
     container_name: namenode
-    environment: 
+    environment:
       <<: *hadoop-common-env
       JMX_PORT: 8001
       JMX_FILE_NAME: namenode
-    volumes: 
+    volumes:
       - hadoop-namenode-volume:/opt/hadoop/data/nameNode
       - ../hadoop/hadoop-config:/opt/hadoop/etc/hadoop
       - ../hadoop/other:/hadoop-conf
-    ports:
-      - "13870:9870" # WEB UI
-      - "13001:8001" # JMX
-    command: [ "/bin/bash", "/hadoop-conf/init-scripts/start-hdfs.sh" ]
+    command: ["/bin/bash", "/hadoop-conf/init-scripts/start-hdfs.sh"]
+    networks:
+      - data_platform_net
 
   datanode1:
     <<: *hadoop-common
@@ -30,14 +30,13 @@ services:
       <<: *hadoop-common-env
       JMX_PORT: 8002
       JMX_FILE_NAME: datanode
-    volumes: 
+    volumes:
       - hadoop-datanode1-volume:/opt/hadoop/data/dataNode
       - ../hadoop/hadoop-config:/opt/hadoop/etc/hadoop
       - ../hadoop/other:/hadoop-conf
-    ports:
-      - "13002:8002" # JMX
-      - "12040:8081" # Spark-worker-1
-    command: [ "/bin/bash", "/hadoop-conf/init-scripts/init-datanode.sh" ]
+    command: ["/bin/bash", "/hadoop-conf/init-scripts/init-datanode.sh"]
+    networks:
+      - data_platform_net
     depends_on:
       - namenode
 

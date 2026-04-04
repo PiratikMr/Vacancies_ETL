@@ -5,3 +5,8 @@ include:
   - path: ./docker-compose/prometheus/prometheus.yml
   - path: ./docker-compose/visualisation/visualisation.yml
   - path: ./docker-compose/postgres/postgres.yml
+
+networks:
+  data_platform_net:
+    name: data_platform_net
+    driver: bridge

@@ -1,61 +1,47 @@
 services:
   app-postgres:
-      image: postgres:17
-      container_name: app-postgres
-      volumes:
-        - app-postgres-db-volume:/var/lib/postgresql/data
-      ports:
-        - "${PG_PORT}:5432"
-      environment:
-        POSTGRES_USER: ${PG_USER}
-        POSTGRES_PASSWORD: ${PG_PASS}
-        POSTGRES_DB: ${PG_DB}
-      healthcheck:
-        test: ["CMD", "pg_isready", "-U", "${PG_USER}", "-d", "${PG_DB}"]
-        interval: 10s
-        retries: 5
-        start_period: 5s
+    image: postgres:17
+    container_name: app-postgres
+    volumes:
+      - app-postgres-db-volume:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${PG_USER:-postgres}
+      POSTGRES_PASSWORD: ${PG_PASS:-1234}
+      POSTGRES_DB: ${PG_DB:-vacstorage}
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${PG_USER:-postgres}", "-d", "${PG_DB:-vacstorage}"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - data_platform_net
 
   flyway:
-    image: flyway/flyway
+    image: flyway/flyway:10
+    container_name: flyway
     command: -connectRetries=10 migrate
     environment:
-      FLYWAY_URL: jdbc:postgresql://app-postgres:5432/${PG_DB}
-      FLYWAY_USER: ${PG_USER}
-      FLYWAY_PASSWORD: ${PG_PASS}
+      FLYWAY_URL: jdbc:postgresql://app-postgres:5432/${PG_DB:-vacstorage}
+      FLYWAY_USER: ${PG_USER:-postgres}
+      FLYWAY_PASSWORD: ${PG_PASS:-1234}
     volumes:
       - ../../dataBase/DWH:/flyway/sql
+    restart: on-failure
+    networks:
+      - data_platform_net
     depends_on:
       app-postgres:
         condition: service_healthy
 
-  # dbt:
-  #   image: ghcr.io/dbt-labs/dbt-postgres:1.8.2
-  #   working_dir: /usr/app
-  #   entrypoint: ["/bin/bash", "-c"]
-  #   command: >
-  #     "dbt run --full-refresh"
-  #   environment:
-  #     DBT_HOST: app-postgres
-  #     DBT_USER: ${PG_USER}
-  #     DBT_PASSWORD: ${PG_PASS}
-  #     DBT_DBNAME: ${PG_DB}
-  #     DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
-  #   volumes:
-  #     - ../../database/dbt:/usr/app
-  #     - ../../database/dbt/profiles.yml:/root/.dbt/profiles.yml
-  #   depends_on:
-  #     app-postgres:
-  #       condition: service_healthy
-  #     flyway:
-  #       condition: service_completed_successfully
-
   postgres-exporter:
-    image: bitnamilegacy/postgres-exporter:latest
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: postgres-exporter
     environment:
-      DATA_SOURCE_NAME: "postgresql://${PG_USER}:${PG_PASS}@app-postgres:5432/${PG_DB}?sslmode=disable"
-    ports:
-      - "${PG_EXPORTER_PORT}:9187"
+      DATA_SOURCE_NAME: "postgresql://${PG_USER:-postgres}:${PG_PASS:-1234}@app-postgres:5432/${PG_DB:-vacstorage}?sslmode=disable"
+    restart: unless-stopped
+    networks:
+      - data_platform_net
     depends_on:
       app-postgres:
         condition: service_healthy

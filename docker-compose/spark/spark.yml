@@ -1,15 +1,17 @@
-x-spark-common: 
+x-spark-common:
   &spark-common
-  build: .
+  build:
+    context: .
+    dockerfile: Dockerfile
+  restart: unless-stopped
 
 services:
   spark-master:
     <<: *spark-common
     container_name: spark-master
     command: bin/spark-class org.apache.spark.deploy.master.Master
-    ports:
-      - "12080:8080"
-      # - "4040:4040" # debug
+    networks:
+      - data_platform_net
 
   spark-worker-1:
     <<: *spark-common
