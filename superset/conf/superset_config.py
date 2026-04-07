@@ -5,10 +5,13 @@ curr_dir = os.path.dirname(os.path.abspath(__file__))
 if curr_dir not in sys.path:
     sys.path.append(curr_dir)
 
-SECRET_KEY = 'SECRET_KEY'
-MAPBOX_API_KEY = 'MAPBOX_API_KEY'
+SECRET_KEY = os.environ.get('SUPERSET_SECRET_KEY', 'thisISaSECRET_1234')
+MAPBOX_API_KEY = os.environ.get('MAPBOX_API_KEY', '')
 
-SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2://superset:superset@superset-postgres:5432/superset'
+SQLALCHEMY_DATABASE_URI = os.environ.get(
+    'SUPERSET_DB_URI',
+    'postgresql+psycopg2://superset:superset@superset-postgres:5432/superset'
+)
 
 SQLALCHEMY_ENGINE_OPTIONS = {
     "pool_size": 20,
@@ -34,11 +37,6 @@ TALISMAN_ENABLED = False
 
 
 PUBLIC_ROLE_LIKE = 'Gamma'
-BABEL_DEFAULT_LOCALE = 'ru'
-LANGUAGES = {
-    'ru': {'flag': 'ru', 'name': 'Russian'},
-    'en': {'flag': 'us', 'name': 'English'},
-}
 
 
 FEATURE_FLAGS = {
@@ -54,9 +52,3 @@ from macros import get_filtered_vacancies
 JINJA_CONTEXT_ADDONS = {
     'get_filtered_vacancies': get_filtered_vacancies
 }
-
-
-try:
-    from superset_config_local import *
-except ImportError:
-    pass
