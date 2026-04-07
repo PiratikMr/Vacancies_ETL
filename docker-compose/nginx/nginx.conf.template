@@ -69,16 +69,8 @@ http {
         limit_req zone=general burst=30 nodelay;
 
         location = / {
-            proxy_pass http://${SUPERSET_UPSTREAM}${SUPERSET_DASHBOARD_PATH};
-            proxy_read_timeout 300s;
-            proxy_send_timeout 300s;
-        }
-
-        location ~* \.(css|js|ico|png|jpg|jpeg|gif|svg|woff2?|ttf|eot|otf)$ {
-            proxy_pass http://${SUPERSET_UPSTREAM};
-            expires 7d;
-            add_header Cache-Control "public, immutable";
-            access_log off;
+            default_type text/html;
+            return 200 '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>IT Vacancies Dashboard</title><style>*{margin:0;padding:0}html,body,iframe{width:100%;height:100%;border:none;overflow:hidden}</style></head><body><iframe src="${SUPERSET_DASHBOARD_PATH}" allowfullscreen></iframe></body></html>';
         }
 
         location / {
@@ -108,12 +100,6 @@ http {
             proxy_send_timeout 300s;
         }
 
-        location ~* \.(css|js|ico|png|jpg|jpeg|gif|svg|woff2?|ttf|eot|otf)$ {
-            proxy_pass http://${SUPERSET_UPSTREAM};
-            expires 7d;
-            add_header Cache-Control "public, immutable";
-            access_log off;
-        }
 
         location / {
             proxy_pass http://${SUPERSET_UPSTREAM};
@@ -139,13 +125,6 @@ http {
             proxy_pass http://${AIRFLOW_UPSTREAM};
         }
 
-        location ~* \.(css|js|ico|png|jpg|jpeg|gif|svg|woff2?|ttf|eot|otf)$ {
-            proxy_pass http://${AIRFLOW_UPSTREAM};
-            expires 7d;
-            add_header Cache-Control "public, immutable";
-            access_log off;
-        }
-
         location / {
             proxy_pass http://${AIRFLOW_UPSTREAM};
             proxy_set_header Upgrade    $http_upgrade;
@@ -168,13 +147,6 @@ http {
         location /login {
             limit_req zone=login burst=5 nodelay;
             proxy_pass http://${GRAFANA_UPSTREAM};
-        }
-
-        location ~* \.(css|js|ico|png|jpg|jpeg|gif|svg|woff2?|ttf|eot|otf)$ {
-            proxy_pass http://${GRAFANA_UPSTREAM};
-            expires 7d;
-            add_header Cache-Control "public, immutable";
-            access_log off;
         }
 
         location / {

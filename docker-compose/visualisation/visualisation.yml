@@ -59,6 +59,7 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
       GF_SERVER_ROOT_URL: ${GF_SERVER_ROOT_URL:-http://localhost:3000}
       GF_SERVER_DOMAIN: ${GF_SERVER_DOMAIN:-localhost}
+      GF_SECURITY_CSRF_TRUSTED_ORIGINS: ${GF_SECURITY_CSRF_TRUSTED_ORIGINS}
     volumes:
       - ../../grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
       - ../../grafana/provisioning/dashboards/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
