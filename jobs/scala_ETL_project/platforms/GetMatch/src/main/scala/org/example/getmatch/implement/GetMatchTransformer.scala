@@ -38,7 +38,7 @@ class GetMatchTransformer(dbAdapter: DataBaseAdapter,
       lit(null).cast(DoubleType).as(VacancyColumns.LATITUDE),
       lit(null).cast(DoubleType).as(VacancyColumns.LONGITUDE),
 
-      to_timestamp(col("published_at"), "yyyy-MM-dd").as(VacancyColumns.PUBLISHED_AT),
+      col("published_at").cast(TimestampType).as(VacancyColumns.PUBLISHED_AT),
       col("position").as(VacancyColumns.TITLE),
       col("offer_description").as(VacancyColumns.DESCRIPTION),
       concat(lit("https://getmatch.ru"), col("url")).as(VacancyColumns.URL),

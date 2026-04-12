@@ -1,6 +1,8 @@
 x-airflow-common:
   &airflow-common
   build: .
+  env_file:
+    - .env
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: ${AIRFLOW__CORE__EXECUTOR:-LocalExecutor}
