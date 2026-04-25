@@ -12,10 +12,19 @@ ThisBuild / libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-sql" % sparkVersion % "provided",
 )
 
+ThisBuild / Test / fork := true
+ThisBuild / Test / javaOptions ++= Seq(
+  "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+  "--add-opens=java.base/java.lang=ALL-UNNAMED",
+  "--add-opens=java.base/java.util=ALL-UNNAMED",
+  "-Djava.security.manager=allow",
+  "-Dnet.bytebuddy.experimental=true"
+)
+
 lazy val assemblySettings = Seq(
   assembly / assemblyMergeStrategy := {
     case PathList("module-info.class") => MergeStrategy.discard
-    case PathList("META-INF", "versions", xs @ _, "module-info.class") => MergeStrategy.discard
+    case PathList("META-INF", "versions", xs@_, "module-info.class") => MergeStrategy.discard
     case x => (assembly / assemblyMergeStrategy).value(x)
   }
 )
@@ -31,15 +40,21 @@ lazy val TestUtils = (project in file("TestUtils"))
     )
   )
 
-lazy val infra_structure = (project in file("InfraStructure"))
+lazy val Core = (project in file("Core"))
   .settings(
     libraryDependencies ++= Seq(
       "com.typesafe" % "config" % "1.4.3",
       "org.rogach" %% "scallop" % "5.2.0",
+      "com.github.rholder" % "snowball-stemmer" % "1.3.0.581.1",
       "com.softwaremill.sttp.client4" %% "core" % "4.0.10",
-      "org.postgresql" % "postgresql" % "42.7.7"
+      "org.postgresql" % "postgresql" % "42.7.7",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
     )
   ).dependsOn(TestUtils % Test)
+
+
+val platformFolder = "platforms/"
+
 
 lazy val Currency = (project in file("Currency"))
   .settings(
@@ -47,68 +62,61 @@ lazy val Currency = (project in file("Currency"))
     assembly / mainClass := Some("org.example.currency.CurrencyMain"),
     assembly / assemblyJarName := "Currency-etl.jar"
   )
-  .dependsOn(infra_structure)
+  .dependsOn(Core)
   .dependsOn(TestUtils % Test)
 
-lazy val Finder = (project in file("Finder"))
+
+lazy val Finder = (project in file(s"${platformFolder}Finder"))
   .settings(
     assemblySettings,
     assembly / mainClass := Some("org.example.finder.FinderMain"),
     assembly / assemblyJarName := "Finder-etl.jar"
   )
-  .dependsOn(infra_structure)
+  .dependsOn(Core)
   .dependsOn(TestUtils % Test)
 
-lazy val GeekJob = (project in file("GeekJob"))
+lazy val GeekJob = (project in file(s"${platformFolder}GeekJob"))
   .settings(
     assemblySettings,
     libraryDependencies += "net.ruippeixotog" %% "scala-scraper" % "2.2.1",
     assembly / mainClass := Some("org.example.geekjob.GeekJobMain"),
     assembly / assemblyJarName := "GeekJob-etl.jar"
   )
-  .dependsOn(infra_structure)
+  .dependsOn(Core)
 
-lazy val GetMatch = (project in file("GetMatch"))
+lazy val GetMatch = (project in file(s"${platformFolder}GetMatch"))
   .settings(
     assemblySettings,
     assembly / mainClass := Some("org.example.getmatch.GetMatchMain"),
     assembly / assemblyJarName := "GetMatch-etl.jar"
   )
-  .dependsOn(infra_structure)
+  .dependsOn(Core)
 
 
-lazy val HeadHunter = (project in file("HeadHunter"))
+lazy val HeadHunter = (project in file(s"${platformFolder}HeadHunter"))
   .settings(
     assemblySettings,
     assembly / mainClass := Some("org.example.headhunter.HeadHunterMain"),
     assembly / assemblyJarName := "HeadHunter-etl.jar"
   )
-  .dependsOn(infra_structure)
+  .dependsOn(Core)
   .dependsOn(TestUtils % Test)
 
-lazy val HeadHunterDictionaries = (project in file("HeadHunterDictionaries"))
-  .settings(
-    assemblySettings,
-    assembly / mainClass := Some("org.example.headhunter.dictionaries.HeadHunterDictionariesMain"),
-    assembly / assemblyJarName := "HeadHunterDictionaries-etl.jar"
-  )
-  .dependsOn(infra_structure)
-
-lazy val HabrCareer = (project in file("HabrCareer"))
+lazy val HabrCareer = (project in file(s"${platformFolder}HabrCareer"))
   .settings(
     assemblySettings,
     assembly / mainClass := Some("org.example.habrcareer.HabrCareerMain"),
     assembly / assemblyJarName := "HabrCareer-etl.jar"
   )
-  .dependsOn(infra_structure)
+  .dependsOn(Core)
 
-lazy val Adzuna = (project in file("Adzuna"))
+lazy val Adzuna = (project in file(s"${platformFolder}Adzuna"))
   .settings(
     assemblySettings,
     assembly / mainClass := Some("org.example.adzuna.AdzunaMain"),
     assembly / assemblyJarName := "Adzuna-etl.jar"
   )
-  .dependsOn(infra_structure)
+  .dependsOn(Core)
 
 addCommandAlias("buildAllPlatforms",
   "; clean" +
@@ -117,7 +125,6 @@ addCommandAlias("buildAllPlatforms",
     "; GeekJob/assembly" +
     "; GetMatch/assembly" +
     "; HeadHunter/assembly" +
-    "; HeadHunterDictionaries/assembly" +
     "; HabrCareer/assembly" +
     "; Adzuna/assembly"
 )

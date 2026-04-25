@@ -1,19 +1,20 @@
-from config_ETL import DEFAULT_ARGS
+from config_ETL import DAGS_CONFIG_PATH, DEFAULT_ARGS
 from airflow.decorators import dag, task, task_group
 from airflow.providers.postgres.hooks.postgres import PostgresHook
+from utils import get_config
+
+config = get_config(DAGS_CONFIG_PATH)
+dag_schedule = config.get('Dags.RefreshMatViews.schedule')
 
 schemas = [
-    "staging",
-    "historical",
-    "interactive_active",
-    "interactive"
+    "marts"
 ]
 
 @dag(
     dag_id="Refresh_Materialized_views",
     default_args=DEFAULT_ARGS,
     tags=["python, postgresql"],
-    schedule=None,
+    schedule=dag_schedule or None,
     catchup=False
 )
 def create_dag():
@@ -32,7 +33,13 @@ def create_dag():
         sql = f'REFRESH MATERIALIZED VIEW {schema}.{mv_name}; ANALYZE {schema}.{mv_name};'
         pg_hook.run(sql)
 
-    prev = None
+    refresh_core = refresh_matview.override(task_id="refresh_internal_core_vacancy")(
+        mv_name="mv_core_vacancy", 
+        schema="internal"
+    )
+
+    prev = refresh_core
+    
     for schema in schemas:
 
         @task_group(group_id=f"{schema}")

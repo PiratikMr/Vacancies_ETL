@@ -2,7 +2,7 @@ name: Scala ETL CI
 
 on:
   push:
-    branches: ["master"]
+    branches: ["master", "develop"]
     paths:
       - 'jobs/scala_ETL_project/**'
       - '.github/workflows/scala-ci.yml'
@@ -29,12 +29,6 @@ jobs:
 
     - name: Install sbt
       uses: sbt/setup-sbt@v1
-
-    - name: Check structure
-      run: |
-        pwd
-        ls -la
-        ls -R src/test/resources || echo "Resources folder might be inside a submodule"
 
     - name: Run Tests
       run: sbt test

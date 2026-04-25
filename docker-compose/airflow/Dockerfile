@@ -1,13 +1,12 @@
 FROM apache/airflow:2.10.2
 USER root
 
-RUN apt-get update -y;
-
-# openjdk-17-jre-headless
-RUN apt-get install -y \
-	hdfs-cli \
-	openjdk-17-jdk && \
-	apt-get clean;
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+    hdfs-cli \
+    openjdk-17-jdk && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 ENV HADOOP_NAMENODE namenode:9000
 ENV JAVA_HOME /usr/lib/jvm/java-17-openjdk-amd64/

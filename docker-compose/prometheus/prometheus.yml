@@ -3,7 +3,7 @@ services:
     image: prom/prometheus:v3.5.0
     container_name: prometheus
     ports:
-      - '15090:9090'
+      - "127.0.0.1:15090:9090"
     volumes:
       - ./prometheus_conf.yml:/etc/prometheus/prometheus.yml
       - prometheus-volume:/prometheus
@@ -12,8 +12,9 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    networks:
+      - data_platform_net
 
 volumes:
   prometheus-volume:

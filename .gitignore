@@ -1,6 +1,7 @@
 _stuff/
 __pycache__/
 logs/
-_depr/
+.env
+ssl/
 
-prometheus/
+.venv/
