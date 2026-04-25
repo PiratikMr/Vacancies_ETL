@@ -40,6 +40,7 @@ DIMENSIONS = {
     "schedule": {"label": "График",       "relation_type": "bridge"},
     "location": {"label": "Локации",      "relation_type": "bridge"},
     "platform": {"label": "Платформы",    "relation_type": "fact"},
+    "field":    {"label": "Специальности","relation_type": "bridge"},
 }
 
 THRESHOLDS_PATH = Path(__file__).parent / "thresholds.json"
