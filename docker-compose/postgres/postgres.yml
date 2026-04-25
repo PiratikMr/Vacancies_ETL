@@ -2,6 +2,8 @@ services:
   app-postgres:
     image: postgres:17
     container_name: app-postgres
+    ports:
+      - "127.0.0.1:14432:5432"
     volumes:
       - app-postgres-db-volume:/var/lib/postgresql/data
     environment:

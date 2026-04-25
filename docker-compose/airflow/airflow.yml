@@ -40,6 +40,8 @@ services:
     <<: *airflow-common
     command: ["airflow", "webserver", "--debug", "--port", "8080"]
     container_name: airflow-webserver
+    ports:
+      - "127.0.0.1:11080:8080"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
       interval: 30s

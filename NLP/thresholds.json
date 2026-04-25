@@ -1,0 +1,7 @@
+{
+    "skill": 0.9,
+    "employer": 0.85,
+    "schedule": 0.8,
+    "location": 0.85,
+    "platform": 0.9
+}
