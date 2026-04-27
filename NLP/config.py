@@ -39,7 +39,7 @@ DIMENSIONS = {
     "employer": {"label": "Работодатели", "relation_type": "fact"},
     "schedule": {"label": "График",       "relation_type": "bridge"},
     "location": {"label": "Локации",      "relation_type": "bridge"},
-    "platform": {"label": "Платформы",    "relation_type": "fact"},
+    "platform": {"label": "Площадки",     "relation_type": "fact"},
     "field":    {"label": "Специальности","relation_type": "bridge"},
 }
 
