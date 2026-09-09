@@ -6,7 +6,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, functions}
 import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.config.model.structures.FuzzyMatcherConf
 import org.example.core.etl.Transformer
-import org.example.core.etl.model.{NormalizedVacancy, Vacancy, VacancyColumns}
+import org.example.core.etl.model.{NormalizationResult, Vacancy, VacancyColumns}
 import org.example.core.normalization.api.NormalizationTask.ExtractTags
 import org.example.core.normalization.model.NormalizersEnum._
 import org.example.core.normalization.service.NormalizationOrchestrator
@@ -57,7 +57,7 @@ class FinderTransformer(dbAdapter: DataBaseAdapter,
       ).as[Vacancy]
   }
 
-  override def normalize(spark: SparkSession, transformedData: Dataset[Vacancy]): Dataset[NormalizedVacancy] = {
+  override def normalize(spark: SparkSession, transformedData: Dataset[Vacancy]): NormalizationResult = {
     new NormalizationOrchestrator(spark, dbAdapter, fuzzyConf)
       .normalize(Seq(
         CURRENCY,

@@ -4,12 +4,12 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.config.model.structures.FuzzyMatcherConf
-import org.example.core.etl.model.{NormalizedLanguage, NormalizedVacancy, Vacancy, VacancyColumns}
+import org.example.core.etl.model.{NormalizationResult, NormalizedLanguage, NormalizedVacancy, Vacancy, VacancyColumns}
 import org.example.core.normalization.api.NormalizationTask
 import org.example.core.normalization.engine.similarity.impl.TextNormalizer
 import org.example.core.normalization.factory.NormalizerFactory
-import org.example.core.normalization.model.NormalizationColumns
 import org.example.core.normalization.model.NormalizersEnum._
+import org.example.core.normalization.model.{MatchLogPart, NormalizationColumns, NormalizationOutput}
 
 class NormalizationOrchestrator(spark: SparkSession,
                                 dbAdapter: DataBaseAdapter,
@@ -17,7 +17,7 @@ class NormalizationOrchestrator(spark: SparkSession,
 
   import spark.implicits._
 
-  def normalize(tasks: Seq[NormalizationTask], ds: Dataset[Vacancy]): Dataset[NormalizedVacancy] = {
+  def normalize(tasks: Seq[NormalizationTask], ds: Dataset[Vacancy]): NormalizationResult = {
 
     val initialDf = ds.toDF()
       .repartition(col(VacancyColumns.EXTERNAL_ID))
@@ -26,14 +26,19 @@ class NormalizationOrchestrator(spark: SparkSession,
       )
 
     if (tasks.isEmpty) {
-      return buildFinalContract(initialDf)
+      return NormalizationResult(buildFinalContract(initialDf), Seq.empty)
     }
 
-    val mappingDfs: Seq[DataFrame] = tasks.map { task =>
-      val command = NormalizerFactory.createCommand(task, spark, dbAdapter, conf)
+    val outputs: Seq[NormalizationOutput] = tasks.map { task =>
+      NormalizerFactory.createCommand(task, spark, dbAdapter, conf).execute(ds)
+    }
 
-      command.execute(ds)
-        .withColumnRenamed(NormalizationColumns.ENTITY_ID, VacancyColumns.EXTERNAL_ID)
+    val mappingDfs: Seq[DataFrame] = outputs.map(
+      _.mappings.withColumnRenamed(NormalizationColumns.ENTITY_ID, VacancyColumns.EXTERNAL_ID)
+    )
+
+    val matchLogs: Seq[MatchLogPart] = outputs.flatMap(_.matchLogs).map { part =>
+      part.copy(rows = part.rows.withColumnRenamed(NormalizationColumns.ENTITY_ID, VacancyColumns.EXTERNAL_ID))
     }
 
     val combinedMappings = mappingDfs.reduce { (df1, df2) =>
@@ -42,7 +47,7 @@ class NormalizationOrchestrator(spark: SparkSession,
 
     val enrichedDf = initialDf.join(combinedMappings, Seq(VacancyColumns.EXTERNAL_ID), "left")
 
-    buildFinalContract(enrichedDf)
+    NormalizationResult(buildFinalContract(enrichedDf), matchLogs)
   }
 
   private def buildFinalContract(enrichedDf: DataFrame): Dataset[NormalizedVacancy] = {

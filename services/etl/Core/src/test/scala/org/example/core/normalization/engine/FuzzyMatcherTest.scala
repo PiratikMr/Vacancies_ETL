@@ -5,6 +5,7 @@ import org.apache.spark.sql.functions._
 import org.example.SparkEnv
 import org.example.core.normalization.engine.model.{FuzzyCandidate, FuzzyDictionary, FuzzyMatch}
 import org.example.core.normalization.engine.similarity.SimilarityStrategy
+import org.example.core.util.CheckpointSupport._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -56,21 +57,21 @@ class FuzzyMatcherTest extends AnyFlatSpec with SparkEnv with TableDrivenPropert
       (
         "Exact Match",
         Seq(FuzzyCandidate("c1", "java backend", 1L)),
-        Seq(FuzzyDictionary(100L, "java backend", 1L)),
-        Seq(FuzzyMatch("c1", 100L)),
+        Seq(FuzzyDictionary(100L, 1000L, "java backend", 1L)),
+        Seq(FuzzyMatch("c1", 100L, 1000L, "java backend", 1.0)),
         0
       ),
       (
         "Fuzzy Match - Strategy Returns 0.8 Score",
         Seq(FuzzyCandidate("c1", "java backend", 1L)),
-        Seq(FuzzyDictionary(100L, "java backend!!", 1L)),
-        Seq(FuzzyMatch("c1", 100L)),
+        Seq(FuzzyDictionary(100L, 1000L, "java backend!!", 1L)),
+        Seq(FuzzyMatch("c1", 100L, 1000L, "java backend", 0.8)),
         0
       ),
       (
         "Parent ID constraint prevents match",
         Seq(FuzzyCandidate("c1", "java backend", 2L)),
-        Seq(FuzzyDictionary(100L, "java backend", 1L)),
+        Seq(FuzzyDictionary(100L, 1000L, "java backend", 1L)),
         Seq.empty[FuzzyMatch],
         1
       ),
@@ -92,6 +93,25 @@ class FuzzyMatcherTest extends AnyFlatSpec with SparkEnv with TableDrivenPropert
         runFuzzyExecuteTest(testName, candidates, dictionary, expectedMatches, expectedCreatesCount)
       }
     }
+  }
+
+  it should "checkpoint matched result mixing exact and fuzzy dictionary hits" in {
+    val candidates = Seq(
+      FuzzyCandidate("c1", "java backend", 1L),
+      FuzzyCandidate("c2", "python dev!!", 1L),
+      FuzzyCandidate("c3", "totally other", 1L)
+    ).toDS()
+
+    val dictionary = Seq(
+      FuzzyDictionary(100L, 1000L, "java backend", 1L),
+      FuzzyDictionary(200L, 2000L, "python dev", 1L)
+    ).toDS()
+
+    val result = matcher.execute(candidates, dictionary)
+
+    val matched = result.matched.reliableCheckpoint().collect()
+
+    matched.map(_.entityId).toSet shouldBe Set("c1", "c2")
   }
 
 }

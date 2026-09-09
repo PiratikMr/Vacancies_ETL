@@ -23,6 +23,7 @@ trait SparkJob extends LazyLogging {
       .config("spark.executor.memory", sparkConf.executorMemory)
       .config("spark.executor.cores", sparkConf.executorCores)
       .config("spark.cleaner.referenceTracking.cleanCheckpoints", "true")
+      .config("spark.sql.constraintPropagation.enabled", "false")
 
       .getOrCreate()
 

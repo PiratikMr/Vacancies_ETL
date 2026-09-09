@@ -5,7 +5,7 @@ import org.example.SparkEnv
 import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.adapter.storage.StorageAdapter
 import org.example.core.adapter.web.WebAdapter
-import org.example.core.etl.model.{NormalizedVacancy, Vacancy}
+import org.example.core.etl.model.{NormalizationResult, NormalizedVacancy, Vacancy}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito._
 import org.scalatest.flatspec.AnyFlatSpec
@@ -53,12 +53,12 @@ class ETLUServiceTest extends AnyFlatSpec with MockitoSugar with SparkEnv {
     val fakeRawDs = Seq.empty[String].toDS()
     val fakeRawDf = Seq.empty[String].toDF("value")
     val fakeTransformedDs = Seq.empty[Vacancy].toDS()
-    val fakeNormalizedDs = Seq.empty[NormalizedVacancy].toDS()
+    val fakeNormalized = NormalizationResult(Seq.empty[NormalizedVacancy].toDS(), Seq.empty)
 
     when(storageAdapter.readText(any[SparkSession], any[String])).thenReturn(fakeRawDs)
     when(transformer.toRows(any[SparkSession], any[Dataset[String]])).thenReturn(fakeRawDf)
     when(transformer.transform(any[SparkSession], any[DataFrame])).thenReturn(fakeTransformedDs)
-    when(transformer.normalize(any[SparkSession], any[Dataset[Vacancy]])).thenReturn(fakeNormalizedDs)
+    when(transformer.normalize(any[SparkSession], any[Dataset[Vacancy]])).thenReturn(fakeNormalized)
 
     service.run(
       etlPart = "transform-load",
@@ -73,7 +73,7 @@ class ETLUServiceTest extends AnyFlatSpec with MockitoSugar with SparkEnv {
     verify(transformer, times(1)).toRows(any[SparkSession], any[Dataset[String]])
     verify(transformer, times(1)).transform(any[SparkSession], any[DataFrame])
     verify(transformer, times(1)).normalize(any[SparkSession], any[Dataset[Vacancy]])
-    verify(loader, times(1)).load(any[SparkSession], any[Dataset[NormalizedVacancy]])
+    verify(loader, times(1)).load(any[SparkSession], any[NormalizationResult])
     verifyNoInteractions(extractor)
   }
 

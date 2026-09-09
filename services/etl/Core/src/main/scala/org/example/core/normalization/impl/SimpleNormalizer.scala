@@ -5,7 +5,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.example.core.etl.model.{Vacancy, VacancyColumns}
 import org.example.core.normalization.api.{BaseNormalizer, TagExtractor}
 import org.example.core.normalization.model.NormalizersEnum.GroupNonHierarchical
-import org.example.core.normalization.model.{NormCandidate, NormMatch, NormalizationColumns}
+import org.example.core.normalization.model._
 import org.example.core.normalization.service.NormalizeService
 
 class SimpleNormalizer(
@@ -61,15 +61,20 @@ class SimpleNormalizer(
     }
   }
 
-  override def process(ds: Dataset[Vacancy], withCreate: Boolean): DataFrame = {
-    val candidates = getCandidatesForProcess(ds)
-    val mapped = service.mapSimple(candidates, withCreate)
-    buildResult(mapped)
+  private def buildOutput(res: NormalizeResult): NormalizationOutput = {
+    NormalizationOutput(
+      mappings = buildResult(res.matches),
+      matchLogs = Seq(MatchLogPart(nType.mappingDef.matchLogDef, res.log.toDF()))
+    )
   }
 
-  override def extractTags(ds: Dataset[Vacancy], sourceCol: String): DataFrame = {
+  override def process(ds: Dataset[Vacancy], withCreate: Boolean): NormalizationOutput = {
+    val candidates = getCandidatesForProcess(ds)
+    buildOutput(service.mapSimple(candidates, withCreate))
+  }
+
+  override def extractTags(ds: Dataset[Vacancy], sourceCol: String): NormalizationOutput = {
     val candidates = getCandidatesForExtract(ds, sourceCol)
-    val mappedTags = service.extractTags(candidates)
-    buildResult(mappedTags)
+    buildOutput(service.extractTags(candidates))
   }
 }

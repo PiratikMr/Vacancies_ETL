@@ -8,7 +8,7 @@ import org.example.core.adapter.storage.StorageAdapter
 import org.example.core.adapter.web.WebAdapter
 import org.example.core.etl.impl.{VacancyLoader, VacancyUpdater}
 import org.example.core.etl.model.ETLParts.{Extract, TransformLoad, Update}
-import org.example.core.etl.model.{ETLParts, NormalizedVacancy, VacancyColumns}
+import org.example.core.etl.model.{ETLParts, NormalizationResult, VacancyColumns}
 import org.example.core.etl.utils.VacancySanitizer
 import org.example.core.util.CheckpointSupport._
 
@@ -29,7 +29,7 @@ class ETLUService(
     storageAdapter.writeText(rawDS, folderName)
   }
 
-  private def transform(transformer: Transformer, folderName: String): Dataset[NormalizedVacancy] = {
+  private def transform(transformer: Transformer, folderName: String): NormalizationResult = {
     val rawDS: Dataset[String] = storageAdapter.readText(spark, folderName)
     val rawDF: DataFrame = transformer.toRows(spark, rawDS)
 
@@ -40,10 +40,12 @@ class ETLUService(
     val finalTransformedDs = VacancySanitizer.applySanitize(transformedDs)
 
     val normalized = transformer.normalize(spark, finalTransformedDs)
-      .dropDuplicates(VacancyColumns.EXTERNAL_ID)
-      .reliableCheckpoint()
 
-    normalized
+    normalized.copy(
+      vacancies = normalized.vacancies
+        .dropDuplicates(VacancyColumns.EXTERNAL_ID)
+        .reliableCheckpoint()
+    )
   }
 
   private def update(extractor: Extractor, updateLimit: Int, platformName: String, maxAgeDays: Option[Int]): Unit = {

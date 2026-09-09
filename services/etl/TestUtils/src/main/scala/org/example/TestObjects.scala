@@ -9,6 +9,7 @@ trait SparkEnv {
     .appName("LocalSpark")
     .config("spark.driver.bindAddress", "127.0.0.1")
     .config("spark.driver.host", "127.0.0.1")
+    .config("spark.sql.constraintPropagation.enabled", "false")
     .getOrCreate()
 
 }

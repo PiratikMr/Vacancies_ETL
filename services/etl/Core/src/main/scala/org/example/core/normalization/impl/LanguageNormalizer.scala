@@ -8,9 +8,10 @@ import org.example.core.config.model.structures.FuzzyMatchSettings
 import org.example.core.etl.model.{Vacancy, VacancyColumns}
 import org.example.core.normalization.api.BaseNormalizer
 import org.example.core.normalization.impl.LanguageNormalizer._
-import org.example.core.normalization.model.NormCandidate
 import org.example.core.normalization.model.NormalizationColumns._
+import org.example.core.normalization.model.{MatchLogPart, MatchLogRow, NormCandidate, NormalizationOutput}
 import org.example.core.normalization.service.NormalizeService
+import org.example.core.util.CheckpointSupport._
 
 class LanguageNormalizer(spark: SparkSession,
                          dbAdapter: DataBaseAdapter,
@@ -22,7 +23,7 @@ class LanguageNormalizer(spark: SparkSession,
   private val languageNormalizeService = new NormalizeService(spark, dbAdapter, languageSettings, DimLanguageDef, MappingLanguageDef)
   private val levelNormalizeService = new NormalizeService(spark, dbAdapter, levelSettings, DimLanguageLevelDef, MappingLanguageLevelDef)
 
-  override def process(vacancies: Dataset[Vacancy], withCreate: Boolean): DataFrame = {
+  override def process(vacancies: Dataset[Vacancy], withCreate: Boolean): NormalizationOutput = {
 
     val rawData = vacancies.toDF()
       .select(
@@ -39,7 +40,9 @@ class LanguageNormalizer(spark: SparkSession,
       lit(null).cast("string").as(PARENT_ID)
     ).filter(col(RAW_VALUE).isNotNull).as[NormCandidate]
 
-    val nLevels = levelNormalizeService.mapSimple(levelsData, withCreate).toDF()
+    val levelsRes = levelNormalizeService.mapSimple(levelsData, withCreate)
+
+    val nLevels = levelsRes.matches.toDF()
       .withColumnRenamed(ENTITY_ID, UNIQUE_ID)
       .withColumnRenamed(MAPPED_ID, "levelId")
 
@@ -49,7 +52,9 @@ class LanguageNormalizer(spark: SparkSession,
       lit(null).cast("string").as(PARENT_ID)
     ).filter(col(RAW_VALUE).isNotNull).as[NormCandidate]
 
-    val nLangs = languageNormalizeService.mapSimple(langsData, withCreate).toDF()
+    val langsRes = languageNormalizeService.mapSimple(langsData, withCreate)
+
+    val nLangs = langsRes.matches.toDF()
       .withColumnRenamed(ENTITY_ID, UNIQUE_ID)
       .withColumnRenamed(MAPPED_ID, "languageId")
 
@@ -64,11 +69,32 @@ class LanguageNormalizer(spark: SparkSession,
         ).as("mapped_lang_struct")
       )
 
-    rawData.unpersist(blocking = false)
-
-    finalRes
+    val mappings = finalRes
       .groupBy(ENTITY_ID)
       .agg(collect_list(col("mapped_lang_struct")).as("mapped_languages"))
+      .reliableCheckpoint()
+
+    val logs = Seq(
+      MatchLogPart(MappingLanguageDef.matchLogDef, toVacancyLog(langsRes.log, rawData)),
+      MatchLogPart(MappingLanguageLevelDef.matchLogDef, toVacancyLog(levelsRes.log, rawData))
+    )
+
+    rawData.unpersist(blocking = false)
+
+    NormalizationOutput(mappings, logs)
+  }
+
+  private def toVacancyLog(log: Dataset[MatchLogRow], rawData: DataFrame): DataFrame = {
+    log.toDF()
+      .join(rawData.select(col(UNIQUE_ID), col(VacancyColumns.EXTERNAL_ID)), col(ENTITY_ID) === col(UNIQUE_ID))
+      .select(
+        col(VacancyColumns.EXTERNAL_ID).as(ENTITY_ID),
+        col(MAPPING_ID),
+        col(RAW_VALUE),
+        col(SCORE)
+      )
+      .distinct()
+      .reliableCheckpoint()
   }
 }
 

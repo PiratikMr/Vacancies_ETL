@@ -2,7 +2,7 @@ package org.example.core.normalization.engine
 
 import org.apache.spark.sql.{Column, Dataset}
 import org.example.SparkEnv
-import org.example.core.normalization.engine.model.{FuzzyCandidate, FuzzyDictionary, FuzzyMatch}
+import org.example.core.normalization.engine.model.{FuzzyCandidate, FuzzyDictionary, FuzzyMatch, FuzzyScores}
 import org.example.core.normalization.engine.similarity.SimilarityStrategy
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -11,6 +11,8 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 class BroadcastTagExtractorTest extends AnyFlatSpec with Matchers with SparkEnv with TableDrivenPropertyChecks {
 
   import spark.implicits._
+
+  private val MappingIdFactor = 10L
 
   private val dummySimilarityStrategy = new SimilarityStrategy {
     override def normalize(col: Column): Column = col
@@ -23,8 +25,11 @@ class BroadcastTagExtractorTest extends AnyFlatSpec with Matchers with SparkEnv 
   private val extractor = new BroadcastTagExtractor(spark, dummySimilarityStrategy)
 
   private def buildDict(data: Seq[(Long, String)]): Dataset[FuzzyDictionary] = {
-    data.map { case (id, normVal) => FuzzyDictionary(id, normVal, -1L) }.toDS()
+    data.map { case (id, normVal) => FuzzyDictionary(id, id * MappingIdFactor, normVal, -1L) }.toDS()
   }
+
+  private def tag(entityId: String, dictId: Long, matchedText: String): FuzzyMatch =
+    FuzzyMatch(entityId, dictId, dictId * MappingIdFactor, matchedText, FuzzyScores.EXACT)
 
   private def buildCand(data: Seq[(String, String)]): Dataset[FuzzyCandidate] = {
     data.map { case (entityId, rawVal) => FuzzyCandidate(entityId, rawVal, -1L) }.toDS()
@@ -55,25 +60,25 @@ class BroadcastTagExtractorTest extends AnyFlatSpec with Matchers with SparkEnv 
       (
         Seq("c1" -> "_senior_ _java_ _developer_"),
         Seq(1L -> "_java_"),
-        Seq(FuzzyMatch("c1", 1L))
+        Seq(tag("c1", 1L, "_java_"))
       ),
 
       (
         Seq("c1" -> "_developer_ _java_ _senior_"),
         Seq(1L -> "_java_ _senior_"),
-        Seq(FuzzyMatch("c1", 1L))
+        Seq(tag("c1", 1L, "_java_ _senior_"))
       ),
 
       (
         Seq("c1" -> "_developer_ _senior_ _java_"),
         Seq(1L -> "_java_ _senior_"),
-        Seq(FuzzyMatch("c1", 1L))
+        Seq(tag("c1", 1L, "_senior_ _java_"))
       ),
 
       (
         Seq("c1" -> "_python_ _developer_ _java_ _c++_"),
         Seq(1L -> "_java_", 2L -> "_python_"),
-        Seq(FuzzyMatch("c1", 1L), FuzzyMatch("c1", 2L))
+        Seq(tag("c1", 1L, "_java_"), tag("c1", 2L, "_python_"))
       ),
 
       (
@@ -85,7 +90,7 @@ class BroadcastTagExtractorTest extends AnyFlatSpec with Matchers with SparkEnv 
       (
         Seq("c1" -> "_java_", "c2" -> "_python_ _c++_"),
         Seq(1L -> "_java_", 2L -> "_python_"),
-        Seq(FuzzyMatch("c1", 1L), FuzzyMatch("c2", 2L))
+        Seq(tag("c1", 1L, "_java_"), tag("c2", 2L, "_python_"))
       ),
 
       (
@@ -97,13 +102,13 @@ class BroadcastTagExtractorTest extends AnyFlatSpec with Matchers with SparkEnv 
       (
         Seq("c1" -> "_java_ _java_ _java_"),
         Seq(1L -> "_java_"),
-        Seq(FuzzyMatch("c1", 1L))
+        Seq(tag("c1", 1L, "_java_"))
       ),
 
       (
         Seq("c1" -> "_analyst_ _system_"),
         Seq(1L -> "_analyst_ _system_", 2L -> "_analyst_ _system_"),
-        Seq(FuzzyMatch("c1", 1L), FuzzyMatch("c1", 2L))
+        Seq(tag("c1", 1L, "_analyst_ _system_"), tag("c1", 2L, "_analyst_ _system_"))
       )
     )
 

@@ -3,11 +3,11 @@ package org.example.core.normalization.service
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.example.core.adapter.database.DataBaseAdapter
-import org.example.core.config.database.{DimDef, MappingDimDef}
+import org.example.core.config.database.{DimDef, MappingDimDef, MappingOrigin}
 import org.example.core.config.model.structures.FuzzyMatchSettings
 import org.example.core.normalization.engine.FuzzyMatcher
-import org.example.core.normalization.engine.model.{FuzzyCandidate, FuzzyColumns, FuzzyDictionary}
-import org.example.core.normalization.model.{NormCandidate, NormMatch, NormalizationColumns}
+import org.example.core.normalization.engine.model.{FuzzyCandidate, FuzzyColumns, FuzzyDictionary, FuzzyMappingMeta, FuzzyMatch}
+import org.example.core.normalization.model._
 import org.example.core.normalization.service.NormalizeService._
 import org.example.core.util.CheckpointSupport._
 
@@ -52,7 +52,35 @@ class NormalizeService(
   }
 
 
-  // [id, norm_value, is_canonical, parent_id]
+  private def saveMappingTable(mappingData: Dataset[FuzzyMappingMeta], reloadedDims: DataFrame): DataFrame = {
+
+    val toWrite = mappingData.toDF().alias("map")
+      .join(reloadedDims.alias("dim"),
+        col(s"map.${FuzzyColumns.HUB_VALUE}") === col(s"dim.${NormalizationColumns.RAW_VALUE}") &&
+          col(s"map.${FuzzyColumns.PARENT_ID}") === col(s"dim.$parentId")
+      )
+      .select(
+        col(s"dim.$mappedId").as(mappingDef.entityId),
+        col(s"map.${FuzzyColumns.NORM_VALUE}").as(mappingDef.mappedValue),
+        col(s"map.${FuzzyColumns.IS_CANONICAL}").as(mappingDef.isCanonical),
+        col(s"map.${FuzzyColumns.LINK_SCORE}").as(mappingDef.linkScore),
+        lit(MappingOrigin.ETL).as(mappingDef.origin)
+      )
+
+    dbAdapter.saveWithReturn(
+      spark = spark,
+      df = toWrite,
+      targetTable = mappingDef.meta.tableName,
+      returns = Seq(mappingDef.mappingId, mappingDef.entityId, mappingDef.mappedValue),
+      conflicts = mappingDef.meta.conflictKeys
+    )
+      .withColumnRenamed(mappingDef.mappingId, mappingIdCol)
+      .withColumnRenamed(mappingDef.entityId, mappedId)
+      .withColumnRenamed(mappingDef.mappedValue, normValue)
+  }
+
+
+  // [id, mapping_id, norm_value, is_canonical, parent_id]
   private def loadFullMappingTable(): DataFrame = {
 
     val parentSelect = dimDef.parentId.map(n => s"d.$n").getOrElse(DEFAULT_PARENT_ID.toString)
@@ -60,64 +88,32 @@ class NormalizeService(
     val query =
       s"""
          |SELECT  d.${dimDef.entityId} as $mappedId,
+         |        md.${mappingDef.mappingId} as $mappingIdCol,
          |        md.${mappingDef.mappedValue} as $normValue,
          |        md.${mappingDef.isCanonical} as $isCanonical,
          |        $parentSelect as $parentId
          |FROM ${mappingDef.meta.tableName} as md
          |JOIN ${dimDef.meta.tableName} as d on d.${dimDef.entityId} = md.${mappingDef.entityId}
+         |WHERE md.${mappingDef.isActive}
          |""".stripMargin
 
     dbAdapter.loadQuery(spark, query)
   }
 
 
-  def extractTags(candidates: Dataset[NormCandidate]): Dataset[NormMatch] = {
-
-    val fullMappingTable = loadFullMappingTable().cache() // [id, norm_value, is_canonical, parent_id]
-
-    if (fullMappingTable.isEmpty) {
-      return spark.emptyDataset[NormMatch]
-    }
-
-    val dictionaryDs = fullMappingTable
+  private def buildDictionary(fullMappingTable: DataFrame): Dataset[FuzzyDictionary] = {
+    fullMappingTable
       .select(
         col(mappedId).as(FuzzyColumns.DICT_ID),
+        col(mappingIdCol).as(FuzzyColumns.MAPPING_ID),
         col(normValue).as(FuzzyColumns.NORM_VALUE),
         col(parentId).as(FuzzyColumns.PARENT_ID)
       ).as[FuzzyDictionary]
-
-    val rawCandidates = candidates.toDF()
-      .withColumn(FuzzyColumns.PARENT_ID, coalesce(col(NormalizationColumns.PARENT_ID), lit(DEFAULT_PARENT_ID)))
-      .select(
-        col(NormalizationColumns.ENTITY_ID).as(FuzzyColumns.ENTITY_ID),
-        col(NormalizationColumns.RAW_VALUE).as(FuzzyColumns.RAW_VALUE),
-        col(FuzzyColumns.PARENT_ID)
-      )
-      .as[FuzzyCandidate]
-
-    val exactMatchesDs = fuzzyMatcher.extractTags(rawCandidates, dictionaryDs)
-
-    exactMatchesDs.toDF()
-      .select(
-        col(FuzzyColumns.ENTITY_ID).as(NormalizationColumns.ENTITY_ID),
-        col(FuzzyColumns.DICT_ID).as(NormalizationColumns.MAPPED_ID)
-      ).as[NormMatch]
   }
 
 
-  def mapSimple(candidates: Dataset[NormCandidate], withCreate: Boolean): Dataset[NormMatch] = {
-
-    val fullMappingTable = loadFullMappingTable().cache() // [id, norm_value, is_canonical, parent_id]
-
-    val dictionaryDs = fullMappingTable
-      .select(
-        col(mappedId).as(FuzzyColumns.DICT_ID),
-        col(normValue).as(FuzzyColumns.NORM_VALUE),
-        col(parentId).as(FuzzyColumns.PARENT_ID)
-      )
-      .as[FuzzyDictionary]
-
-    val rawCandidates = candidates.toDF()
+  private def buildCandidates(candidates: Dataset[NormCandidate]): Dataset[FuzzyCandidate] = {
+    candidates.toDF()
       .withColumn(FuzzyColumns.PARENT_ID, coalesce(col(NormalizationColumns.PARENT_ID), lit(DEFAULT_PARENT_ID)))
       .select(
         col(NormalizationColumns.ENTITY_ID).as(FuzzyColumns.ENTITY_ID),
@@ -125,74 +121,125 @@ class NormalizeService(
         col(FuzzyColumns.PARENT_ID)
       )
       .as[FuzzyCandidate]
-
-    val fuzzyRes = fuzzyMatcher.execute(
-      candidatesDs = rawCandidates,
-      dictionaryDs = dictionaryDs
-    )
+  }
 
 
-    val matchedResult = fuzzyRes.matched.toDF()
+  private def buildResult(matches: Dataset[FuzzyMatch]): NormalizeResult = {
+
+    val checkpointed = matches.reliableCheckpoint().toDF()
+
+    val matchesDs = checkpointed
       .select(
         col(FuzzyColumns.ENTITY_ID).as(NormalizationColumns.ENTITY_ID),
         col(FuzzyColumns.DICT_ID).as(NormalizationColumns.MAPPED_ID)
       )
+      .distinct()
+      .as[NormMatch]
+
+    val logDs = checkpointed
+      .select(
+        col(FuzzyColumns.ENTITY_ID).as(NormalizationColumns.ENTITY_ID),
+        col(FuzzyColumns.MAPPING_ID).as(NormalizationColumns.MAPPING_ID),
+        col(FuzzyColumns.RAW_VALUE).as(NormalizationColumns.RAW_VALUE),
+        col(FuzzyColumns.SCORE).as(NormalizationColumns.SCORE)
+      )
+      .distinct()
+      .as[MatchLogRow]
+
+    NormalizeResult(matchesDs, logDs)
+  }
+
+
+  private def emptyResult: NormalizeResult =
+    NormalizeResult(spark.emptyDataset[NormMatch], spark.emptyDataset[MatchLogRow])
+
+
+  def extractTags(candidates: Dataset[NormCandidate]): NormalizeResult = {
+
+    val fullMappingTable = loadFullMappingTable().cache() // [id, mapping_id, norm_value, is_canonical, parent_id]
+
+    if (fullMappingTable.isEmpty) {
+      fullMappingTable.unpersist(blocking = false)
+      return emptyResult
+    }
+
+    val exactMatchesDs = fuzzyMatcher.extractTags(buildCandidates(candidates), buildDictionary(fullMappingTable))
+
+    val res = buildResult(exactMatchesDs)
+
+    fullMappingTable.unpersist(blocking = false)
+
+    res
+  }
+
+
+  def mapSimple(candidates: Dataset[NormCandidate], withCreate: Boolean): NormalizeResult = {
+
+    val fullMappingTable = loadFullMappingTable().cache() // [id, mapping_id, norm_value, is_canonical, parent_id]
+
+    val fuzzyRes = fuzzyMatcher.execute(
+      candidatesDs = buildCandidates(candidates),
+      dictionaryDs = buildDictionary(fullMappingTable)
+    )
+
 
     if (!withCreate || fuzzyRes.toCreate.isEmpty) {
-      val checkPointedRes = matchedResult.as[NormMatch].reliableCheckpoint()
+      val res = buildResult(fuzzyRes.matched)
       fuzzyRes.clearCache()
       fullMappingTable.unpersist(blocking = false)
-      return checkPointedRes
+      return res
     }
 
 
-    val newDimsToWrite = fuzzyRes.toCreate.toDF()
+    val toCreateDf = fuzzyRes.toCreate.toDF().cache()
+
+    val newDimsToWrite = toCreateDf
       .select(
-        col(FuzzyColumns.RAW_VALUE).as(NormalizationColumns.RAW_VALUE),
+        col(FuzzyColumns.HUB_VALUE).as(NormalizationColumns.RAW_VALUE),
         col(FuzzyColumns.PARENT_ID).as(parentId)
       )
+      .distinct()
 
     val reloadedDims = saveDimTable(newDimsToWrite, NormalizationColumns.RAW_VALUE).cache()
+    val savedMappings = saveMappingTable(fuzzyRes.mappingData, reloadedDims).cache()
 
-    val createdMapping = fuzzyRes.toCreate.toDF().alias("create")
+    val createdMatches = toCreateDf.alias("create")
       .join(reloadedDims.alias("dim"),
-        col("create.rawValue") === col(s"dim.${NormalizationColumns.RAW_VALUE}") &&
-          col("create.parentId") === col(s"dim.$parentId")
+        col(s"create.${FuzzyColumns.HUB_VALUE}") === col(s"dim.${NormalizationColumns.RAW_VALUE}") &&
+          col(s"create.${FuzzyColumns.PARENT_ID}") === col(s"dim.$parentId")
+      )
+      .join(savedMappings.alias("map"),
+        col(s"dim.$mappedId") === col(s"map.$mappedId") &&
+          col(s"create.${FuzzyColumns.NORM_VALUE}") === col(s"map.$normValue")
       )
       .select(
-        col("create.entityId").as(NormalizationColumns.ENTITY_ID),
-        col(s"dim.$mappedId").as(NormalizationColumns.MAPPED_ID)
+        col(s"create.${FuzzyColumns.ENTITY_ID}").as(FuzzyColumns.ENTITY_ID),
+        col(s"dim.$mappedId").as(FuzzyColumns.DICT_ID),
+        col(s"map.$mappingIdCol").as(FuzzyColumns.MAPPING_ID),
+        col(s"create.${FuzzyColumns.RAW_VALUE}").as(FuzzyColumns.RAW_VALUE),
+        col(s"create.${FuzzyColumns.SCORE}").as(FuzzyColumns.SCORE)
       )
 
-    if (!fuzzyRes.mappingData.isEmpty) {
-      val mappingDataToWrite = fuzzyRes.mappingData.toDF().alias("map")
-        .join(reloadedDims.alias("dim"),
-          col("map.rawValue") === col(s"dim.${NormalizationColumns.RAW_VALUE}") &&
-            col("map.parentId") === col(s"dim.$parentId")
-        )
-        .select(
-          col("map.normValue").as(mappingDef.mappedValue),
-          col("map.isCanonical").as(mappingDef.isCanonical),
-          col(s"dim.$mappedId").as(mappingDef.entityId)
-        )
+    val allMatches = fuzzyRes.matched.toDF()
+      .unionByName(createdMatches)
+      .as[FuzzyMatch]
 
-      dbAdapter.save(mappingDataToWrite, mappingDef.meta.tableName, mappingDef.meta.conflictKeys)
-    }
+    val res = buildResult(allMatches)
 
-    val finalRes = matchedResult.union(createdMapping).distinct()
-
-    val checkPointedRes = finalRes.as[NormMatch].reliableCheckpoint()
     fuzzyRes.clearCache()
     fullMappingTable.unpersist(blocking = false)
+    toCreateDf.unpersist(blocking = false)
     reloadedDims.unpersist(blocking = false)
+    savedMappings.unpersist(blocking = false)
 
-    checkPointedRes
+    res
   }
 
 }
 
 object NormalizeService {
   private val mappedId = "id"
+  private val mappingIdCol = "mapping_id"
   private val normValue = "norm_value"
   private val isCanonical = "is_origin"
   private val parentId = "parent_id"

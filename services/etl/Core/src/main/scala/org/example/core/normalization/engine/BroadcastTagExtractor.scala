@@ -3,7 +3,7 @@ package org.example.core.normalization.engine
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{Dataset, SparkSession}
 import org.example.core.normalization.engine.model.FuzzyColumns._
-import org.example.core.normalization.engine.model.{FuzzyCandidate, FuzzyDictionary, FuzzyMatch}
+import org.example.core.normalization.engine.model.{FuzzyCandidate, FuzzyDictionary, FuzzyMatch, FuzzyScores}
 import org.example.core.normalization.engine.similarity.SimilarityStrategy
 
 class BroadcastTagExtractor(
@@ -18,7 +18,7 @@ class BroadcastTagExtractor(
                         dictionaryDs: Dataset[FuzzyDictionary]
                       ): Dataset[FuzzyMatch] = {
 
-    val dictRows = dictionaryDs.select(DICT_ID, NORM_VALUE).collect()
+    val dictRows = dictionaryDs.select(DICT_ID, MAPPING_ID, NORM_VALUE).collect()
 
     if (dictRows.isEmpty) {
       return spark.emptyDataset[FuzzyMatch]
@@ -27,7 +27,7 @@ class BroadcastTagExtractor(
     val dictMap = dictRows
       .groupBy(_.getAs[String](NORM_VALUE))
       .map { case (normVal, rows) =>
-        normVal -> rows.map(_.getAs[Long](DICT_ID))
+        normVal -> rows.map(r => (r.getAs[Long](DICT_ID), r.getAs[Long](MAPPING_ID)))
       }
 
     val maxN = if (dictMap.isEmpty) 1 else dictMap.keys.map(_.split("\\s").length).max
@@ -53,14 +53,18 @@ class BroadcastTagExtractor(
           val tokens = normValue.trim.split("\\s+")
           val limitN = math.min(localMaxN, tokens.length)
 
-          val matchedDictIds = (1 to limitN).flatMap { n =>
+          val matchedTags = (1 to limitN).flatMap { n =>
             tokens.sliding(n).flatMap { chunk =>
               val sortedChunkKey = chunk.sorted.mkString(" ")
-              localDict.getOrElse(sortedChunkKey, Array.empty[Long])
+              localDict
+                .getOrElse(sortedChunkKey, Array.empty[(Long, Long)])
+                .map { case (dictId, mappingId) => (dictId, mappingId, chunk.mkString(" ")) }
             }
           }.toSet
 
-          matchedDictIds.map(dictId => FuzzyMatch(entityId, dictId))
+          matchedTags.map { case (dictId, mappingId, matchedText) =>
+            FuzzyMatch(entityId, dictId, mappingId, matchedText, FuzzyScores.EXACT)
+          }
         }
       }
     }

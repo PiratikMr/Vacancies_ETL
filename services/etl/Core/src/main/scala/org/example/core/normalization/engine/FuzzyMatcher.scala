@@ -40,12 +40,19 @@ class FuzzyMatcher(
       .reliableCheckpoint()
 
     val dictDf = dictionaryDs.toDF()
-      .select(DICT_ID, NORM_VALUE, PARENT_ID)
+      .select(DICT_ID, MAPPING_ID, NORM_VALUE, PARENT_ID)
 
 
     // === 1. Точные совпадения ===
     val exactMatches = candidatesDf.join(dictDf, Seq(NORM_VALUE, PARENT_ID))
-      .select(ENTITY_ID, NORM_VALUE, DICT_ID)
+      .select(
+        col(ENTITY_ID),
+        col(NORM_VALUE),
+        col(RAW_VALUE),
+        col(DICT_ID),
+        col(MAPPING_ID),
+        lit(FuzzyScores.EXACT).as(SCORE)
+      )
 
     val candidatesForFuzzy = candidatesDf.join(exactMatches, Seq(ENTITY_ID, NORM_VALUE), "left_anti")
       .select(ENTITY_ID, RAW_VALUE, PARENT_ID, NORM_VALUE)
@@ -63,16 +70,16 @@ class FuzzyMatcher(
       .reliableCheckpoint()
 
     val dictWithFeatures = dictDf.withColumn(NORM_STRUCT, similarityStrategy.buildFeatures(col(NORM_VALUE)))
-      .select(DICT_ID, NORM_VALUE, PARENT_ID, NORM_STRUCT)
+      .select(DICT_ID, MAPPING_ID, NORM_VALUE, PARENT_ID, NORM_STRUCT)
     // === Векторизация ===
 
 
     // === 3. Fuzzy matching со словарями ===
     val fuzzyDictMatches = matchDictionary(fuzzyCandidatesWithFeatures, dictWithFeatures)
-      .select(ENTITY_ID, DICT_ID)
+      .select(matchColumns: _*)
       .reliableCheckpoint()
 
-    val allDictMatches = exactMatches.select(ENTITY_ID, DICT_ID)
+    val allDictMatches = exactMatches.select(matchColumns: _*)
       .unionByName(fuzzyDictMatches)
       .distinct()
 
@@ -90,15 +97,20 @@ class FuzzyMatcher(
 
     // === 4. Self fuzzy matching ===
     val selfMatches = selfMatching(remainingCandidates)
-      .select(RAW_VALUE, NORM_VALUE, IS_CANONICAL, ENTITY_ID, PARENT_ID)
+      .select(HUB_VALUE, NORM_VALUE, IS_CANONICAL, ENTITY_ID, PARENT_ID, SCORE)
       .reliableCheckpoint()
 
-
-    val toCreate = selfMatches.select(ENTITY_ID, RAW_VALUE, PARENT_ID)
+    val toCreate = selfMatches
+      .join(
+        remainingCandidates.select(ENTITY_ID, RAW_VALUE, NORM_VALUE, PARENT_ID),
+        Seq(ENTITY_ID, NORM_VALUE, PARENT_ID)
+      )
+      .select(ENTITY_ID, HUB_VALUE, RAW_VALUE, NORM_VALUE, PARENT_ID, SCORE)
       .distinct()
       .as[FuzzyToCreate]
 
-    val newMappingData = selfMatches.select(NORM_VALUE, IS_CANONICAL, RAW_VALUE, PARENT_ID)
+    val newMappingData = selfMatches
+      .select(col(HUB_VALUE), col(NORM_VALUE), col(IS_CANONICAL), col(PARENT_ID), col(SCORE).as(LINK_SCORE))
       .distinct()
       .as[FuzzyMappingMeta]
 
@@ -118,14 +130,17 @@ class FuzzyMatcher(
       .filter($"score" >= minScore)
       .withColumn("rank",
         row_number().over(
-          partitionBy($"c.$NORM_VALUE", $"c.$ENTITY_ID", $"c.$PARENT_ID")
+          partitionBy($"c.$NORM_VALUE", $"c.$RAW_VALUE", $"c.$ENTITY_ID", $"c.$PARENT_ID")
             .orderBy($"score".desc, $"d.$NORM_VALUE")
         )
       )
       .filter($"rank" === 1)
       .select(
         $"c.$ENTITY_ID",
-        $"d.$DICT_ID"
+        $"c.$RAW_VALUE",
+        $"d.$DICT_ID",
+        $"d.$MAPPING_ID",
+        col(SCORE)
       )
       .distinct()
   }
@@ -249,17 +264,18 @@ class FuzzyMatcher(
       .filter(col("rank2") === 1)
       .withColumn(IS_CANONICAL, col(A_NORM) === col(B_NORM))
       .select(
-        col(A_RAW).as(RAW_VALUE),
+        col(A_RAW).as(HUB_VALUE),
         col(B_NORM).as(NORM_VALUE),
         col(IS_CANONICAL),
         col(B_ID).as(ENTITY_ID),
-        col(A_PID).as(PARENT_ID)
+        col(A_PID).as(PARENT_ID),
+        col(SCORE)
       ).distinct()
   }
 
   private def emptyResult(matchedDf: DataFrame, cache: () => Unit = () => {}): FuzzyMatcherResult = {
     FuzzyMatcherResult(
-      matched = matchedDf.as[FuzzyMatch],
+      matched = matchedDf.select(matchColumns: _*).as[FuzzyMatch],
       toCreate = spark.emptyDataset[FuzzyToCreate],
       mappingData = spark.emptyDataset[FuzzyMappingMeta],
       cache
@@ -270,7 +286,13 @@ class FuzzyMatcher(
 object FuzzyMatcher {
   private val NORM_STRUCT = "normStruct"
 
+  import org.apache.spark.sql.Column
+  import org.apache.spark.sql.functions.col
   import org.example.core.normalization.engine.model.FuzzyColumns._
+
+  private val matchColumns: Seq[Column] =
+    Seq(ENTITY_ID, DICT_ID, MAPPING_ID, RAW_VALUE, SCORE).map(col)
+
   private val A_RAW    = s"A_$RAW_VALUE"
   private val A_NORM   = s"A_$NORM_VALUE"
   private val A_STRUCT = s"A_$NORM_STRUCT"

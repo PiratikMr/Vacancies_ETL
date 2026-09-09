@@ -1,6 +1,14 @@
 package org.example.core.etl.model
 
+import org.apache.spark.sql.Dataset
+import org.example.core.normalization.model.MatchLogPart
+
 import java.sql.Timestamp
+
+case class NormalizationResult(
+                                vacancies: Dataset[NormalizedVacancy],
+                                matchLogs: Seq[MatchLogPart]
+                              )
 
 case class Location(location: Option[String], country: Option[String])
 

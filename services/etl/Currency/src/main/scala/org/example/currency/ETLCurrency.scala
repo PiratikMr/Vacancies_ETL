@@ -6,10 +6,11 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.example.core.adapter.database.DataBaseAdapter
 import org.example.core.adapter.storage.StorageAdapter
 import org.example.core.adapter.web.WebAdapter
-import org.example.core.config.database.{DimCurrencyDef, DimCurrencyRateHistoryDef, MappingCurrencyDef}
+import org.example.core.config.database.{DimCurrencyDef, DimCurrencyRateHistoryDef, MappingCurrencyDef, MappingOrigin}
 import org.example.core.config.model.structures.FuzzyMatchSettings
 import org.example.core.etl.model.ETLParts
 import org.example.core.etl.model.ETLParts.{Extract, TransformLoad}
+import org.example.core.normalization.engine.model.FuzzyScores
 import org.example.core.normalization.engine.similarity.impl.DefaultSimilarityStrategy
 
 import java.sql.Timestamp
@@ -105,7 +106,15 @@ class ETLCurrency(
     val mappingDf = savedDimDf
       .withColumn(mappingDef.mappedValue, similarityStrategy.normalize(col(dimDef.entityName)))
       .withColumn(mappingDef.isCanonical, lit(true))
-      .select(mappingDef.entityId, mappingDef.mappedValue, mappingDef.isCanonical)
+      .withColumn(mappingDef.origin, lit(MappingOrigin.REFERENCE))
+      .withColumn(mappingDef.linkScore, lit(FuzzyScores.EXACT))
+      .select(
+        mappingDef.entityId,
+        mappingDef.mappedValue,
+        mappingDef.isCanonical,
+        mappingDef.origin,
+        mappingDef.linkScore
+      )
 
     dbAdapter.save(
       df = mappingDf,
